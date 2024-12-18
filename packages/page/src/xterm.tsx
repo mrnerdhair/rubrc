@@ -8,12 +8,9 @@ import {
   Fd,
   type Inode,
   PreopenDirectory,
-  File,
 } from "@bjorn3/browser_wasi_shim";
 import type { Ctx } from "./ctx";
 import { rust_file } from "./config";
-
-let shared_xterm: SharedObject;
 
 let error_buff = "";
 let out_buff = "";
@@ -26,7 +23,7 @@ export const SetupMyTerminal = (props: {
 
   const fit_addon = new FitAddon();
 
-  const terminal_queue = [];
+  const terminal_queue: string[] = [];
   const write_terminal = (str: string) => {
     if (xterm) {
       xterm.write(str);
@@ -66,15 +63,16 @@ export const SetupMyTerminal = (props: {
   const waiter = new SharedObjectRef(props.ctx.waiter_id).proxy<{
     is_all_done: () => boolean;
   }>();
-  let cmd_parser: (...string) => void;
+  let cmd_parser: (...args: string[]) => void;
 
   let before_cmd = "";
+  // @ts-ignore
   const on_enter = async (terminal) => {
     before_cmd = keys;
     terminal.write("\r\n");
     if (await waiter.is_all_done()) {
       cmd_parser = new SharedObjectRef(props.ctx.cmd_parser_id).proxy<
-        (...string) => void
+        (...args: string[]) => void
       >();
       const parsed = keys.split(" ");
       await cmd_parser(...parsed);
@@ -85,6 +83,7 @@ export const SetupMyTerminal = (props: {
   };
   const keydown = (
     event: { key: string; domEvent: KeyboardEvent },
+    // @ts-ignore
     terminal,
   ) => {
     if (event.key === "\r") {
@@ -129,6 +128,7 @@ export const SetupMyTerminal = (props: {
   );
 };
 
+// @ts-ignore
 const get_ref = (term, callback) => {
   class XtermStdio extends Fd {
     term: Terminal;

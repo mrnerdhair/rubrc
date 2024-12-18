@@ -1,4 +1,4 @@
-import { createSignal, lazy, Suspense, type Component } from "solid-js";
+import { createSignal, lazy, Suspense } from "solid-js";
 import { SetupMyTerminal } from "./xterm";
 import type { WASIFarmRef } from "@oligami/browser_wasi_shim-threads";
 import type { Ctx } from "./ctx";
@@ -24,13 +24,16 @@ const App = (props: {
   ctx: Ctx;
   callback: (wasi_ref: WASIFarmRef) => void;
 }) => {
-  const handleMount = (monaco, editor) => {
+  // @ts-ignore
+  const handleMount = (_monaco, _editor) => {
     // Use monaco and editor instances here
   };
+  // @ts-ignore
   const handleEditorChange = (value) => {
     // Handle editor value change
     rust_file.data = new TextEncoder().encode(value);
   };
+  // @ts-ignore
   let load_additional_sysroot: (string) => void;
 
   const [triple, setTriple] = createSignal("wasm32-wasip1");
@@ -73,7 +76,7 @@ const App = (props: {
               if (load_additional_sysroot === undefined) {
                 load_additional_sysroot = new SharedObjectRef(
                   props.ctx.load_additional_sysroot_id,
-                ).proxy<(string) => void>();
+                ).proxy<(x: string) => void>();
               }
               load_additional_sysroot(value);
             }}
