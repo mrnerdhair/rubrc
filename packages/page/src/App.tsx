@@ -24,16 +24,16 @@ const App = (props: {
   ctx: Ctx;
   callback: (wasi_ref: WASIFarmRef) => void;
 }) => {
-  // @ts-ignore
+  // @ts-expect-error
   const handleMount = (_monaco, _editor) => {
     // Use monaco and editor instances here
   };
-  // @ts-ignore
+  // @ts-expect-error
   const handleEditorChange = (value) => {
     // Handle editor value change
     rust_file.data = new TextEncoder().encode(value);
   };
-  // @ts-ignore
+  // @ts-expect-error
   let load_additional_sysroot: (string) => void;
 
   const [triple, setTriple] = createSignal("wasm32-wasip1");

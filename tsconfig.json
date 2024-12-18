@@ -16,7 +16,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@oligami/rustc-browser-wasi_shim": ["./packages/lib/dist/*"]
+    },
   },
+  "include": [],
   "references": [
     {
       "path": "./packages/lib"

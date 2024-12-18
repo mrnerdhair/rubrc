@@ -45,7 +45,9 @@ export const SetupMyTerminal = (props: {
   write_terminal.reset_out_buff = () => {
     out_buff = "";
   };
-  shared_xterm = new SharedObject(write_terminal, props.ctx.terminal_id);
+  
+  // shared_xterm
+  new SharedObject(write_terminal, props.ctx.terminal_id);
 
   const handleMount = (terminal: Terminal) => {
     xterm = terminal;
@@ -66,7 +68,7 @@ export const SetupMyTerminal = (props: {
   let cmd_parser: (...args: string[]) => void;
 
   let before_cmd = "";
-  // @ts-ignore
+  // @ts-expect-error
   const on_enter = async (terminal) => {
     before_cmd = keys;
     terminal.write("\r\n");
@@ -83,7 +85,7 @@ export const SetupMyTerminal = (props: {
   };
   const keydown = (
     event: { key: string; domEvent: KeyboardEvent },
-    // @ts-ignore
+    // @ts-expect-error
     terminal,
   ) => {
     if (event.key === "\r") {
@@ -128,7 +130,7 @@ export const SetupMyTerminal = (props: {
   );
 };
 
-// @ts-ignore
+// @ts-expect-error
 const get_ref = (term, callback) => {
   class XtermStdio extends Fd {
     term: Terminal;

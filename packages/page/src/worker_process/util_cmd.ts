@@ -3,25 +3,26 @@ import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
 import type { Ctx } from "../ctx";
 import lsr from "../wasm/lsr.wasm?url";
 import tre from "../wasm/tre.wasm?url";
-import { get_data } from "../cat";
+import { get_data as base_get_data, type WASIFarmAnimal as LoosenedWASIFarmAnimal } from "../cat";
+import type { WASIFarmRefObject } from "./rustc";
 
 const shared: SharedObject[] = [];
+
+const get_data = (path: string, animal: WASIFarmAnimal) => base_get_data(path, ((x: WASIFarmAnimal): LoosenedWASIFarmAnimal => x as unknown as LoosenedWASIFarmAnimal)(animal))
 
 globalThis.addEventListener("message", async (event) => {
   const {
     wasi_refs,
     ctx,
   }: {
-    // WASIFarmRefObject is not export
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    wasi_refs: any[];
+    wasi_refs: WASIFarmRefObject[];
     ctx: Ctx;
   } = event.data;
 
   console.log("loading lsr and tre");
 
   const terminal = new SharedObjectRef(ctx.terminal_id).proxy<
-    (string) => Promise<void>
+    (x: string) => Promise<void>
   >();
   const waiter = new SharedObjectRef(ctx.waiter_id).proxy<{
     set_end_of_exec: (_end_of_exec: boolean) => Promise<void>;
@@ -50,13 +51,12 @@ globalThis.addEventListener("message", async (event) => {
   const ls_memory_reset_view = new Uint8Array(ls_memory_reset).slice();
 
   shared.push(
-    new SharedObject((...args) => {
+    new SharedObject((...args: string[]) => {
       // If I don't reset memory, I get some kind of error.
       const memory_view = new Uint8Array(ls_inst.exports.memory.buffer);
       memory_view.set(ls_memory_reset_view);
       ls_wasi.args = ["lsr", ...args];
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      ls_wasi.start(ls_inst as any);
+      ls_wasi.start(ls_inst);
     }, ctx.ls_id),
   );
 
@@ -82,13 +82,12 @@ globalThis.addEventListener("message", async (event) => {
   const tree_memory_reset_view = new Uint8Array(tree_memory_reset).slice();
 
   shared.push(
-    new SharedObject((...args) => {
+    new SharedObject((...args: string[]) => {
       // If I don't reset memory, I get some kind of error.
       tree_wasi.args = ["tre", ...args];
       const memory_view = new Uint8Array(tree_inst.exports.memory.buffer);
       memory_view.set(tree_memory_reset_view);
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      tree_wasi.start(tree_inst as any);
+      tree_wasi.start(tree_inst);
     }, ctx.tree_id),
   );
 
@@ -103,7 +102,7 @@ globalThis.addEventListener("message", async (event) => {
   );
 
   shared.push(
-    new SharedObject((...args) => {
+    new SharedObject((...args: string[]) => {
       (async (args: string[]) => {
         const exec_file = args[0];
         const exec_args = args.slice(1);
@@ -116,8 +115,7 @@ globalThis.addEventListener("message", async (event) => {
             exports: { memory: WebAssembly.Memory; _start: () => unknown };
           };
           animal.args = [exec_file, ...exec_args];
-          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-          animal.start(inst as any);
+          animal.start(inst);
         } catch (e) {
           terminal(`Error: ${e}\r\n`);
         }
@@ -127,14 +125,14 @@ globalThis.addEventListener("message", async (event) => {
   );
 
   shared.push(
-    new SharedObject((file) => {
+    new SharedObject((file: string) => {
       (async (file) => {
         console.log("exec_file", file);
         try {
           const file_data = get_data(file, animal);
           const blob = new Blob([file_data]);
           const url = URL.createObjectURL(blob);
-          await download_by_url(url, file.split("/").pop());
+          await download_by_url(url, file.split("/").pop()!);
           URL.revokeObjectURL(url);
         } catch (e) {
           terminal(`Error: ${e}\r\n`);

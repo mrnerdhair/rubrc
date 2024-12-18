@@ -1,15 +1,16 @@
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
-import { get_rustc_wasm } from "../../../lib/src/get_rustc_wasm";
+import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
 import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
 import type { Ctx } from "../ctx";
 
 import thread_spawn_path from "./thread_spawn.ts?worker&url";
 
-let terminal: (string) => void;
+export type WASIFarmRefObject = Extract<ConstructorParameters<typeof WASIFarmAnimal>[0], unknown[]>[number];
+
+let terminal: (x: string) => void;
 let compiler: WebAssembly.Module;
-const wasi_refs = [];
+const wasi_refs: WASIFarmRefObject[] = [];
 let ctx: Ctx;
-let rustc_shared: SharedObject;
 let waiter: {
   rustc: () => Promise<void>;
   end_rustc_fetch: () => Promise<void>;
@@ -19,7 +20,7 @@ globalThis.addEventListener("message", async (event) => {
   if (event.data.ctx) {
     ctx = event.data.ctx;
     terminal = new SharedObjectRef(ctx.terminal_id).proxy<
-      (string) => Promise<void>
+      (x: string) => Promise<void>
     >();
     await terminal("loading rustc\r\n");
     waiter = new SharedObjectRef(ctx.waiter_id).proxy<{
@@ -64,13 +65,15 @@ globalThis.addEventListener("message", async (event) => {
 
     wasi.get_share_memory().grow(200);
 
-    rustc_shared = new SharedObject((...args) => {
+    // rustc_shared
+    new SharedObject((...args: string[]) => {
       try {
         wasi.args = ["rustc", ...args];
         console.log("wasi.start");
         wasi.block_start_on_thread();
         console.log("wasi.start done");
       } catch (e) {
+        // @ts-expect-error
         terminal(`${e.toString()}\r\n`);
       }
     }, ctx.rustc_id);
