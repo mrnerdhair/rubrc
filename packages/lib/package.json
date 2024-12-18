@@ -5,10 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "prepare": "npm run build",
-    "fmt": "biome format --write .",
-    "lint": "biome lint src examples import-module-test",
-    "check": "biome check && tsc --noEmit"
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0",
