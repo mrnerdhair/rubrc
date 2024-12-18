@@ -1,13 +1,19 @@
-import type { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
+import type { WASIFarmAnimal as BaseWASIFarmAnimal, WASIFarmRef } from "@oligami/browser_wasi_shim-threads";
 import { wasi } from "@bjorn3/browser_wasi_shim";
+
+export type WASIFarmAnimal = {
+  [K in keyof BaseWASIFarmAnimal]: BaseWASIFarmAnimal[K]
+} & {
+  fd_map: BaseWASIFarmAnimal["fd_map"]
+  get_fd_and_wasi_ref: BaseWASIFarmAnimal["get_fd_and_wasi_ref"]
+  get_fd_and_wasi_ref_n: BaseWASIFarmAnimal["get_fd_and_wasi_ref_n"]
+  wasi_farm_refs: WASIFarmRef[],
+}
 
 export const get_data = (
   path__: string,
-  _animal: WASIFarmAnimal,
+  animal: WASIFarmAnimal,
 ): Uint8Array => {
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  const animal = _animal as any;
-
   // path is absolute
   let path = path__;
   if (!path.startsWith("/")) {
@@ -50,6 +56,7 @@ export const get_data = (
   console.log("dir_names", dir_names);
 
   // second: most match path
+  // @ts-expect-error
   let matched_fd = root_fd;
   let matched_dir_len = 1;
   const parts_path = path.split("/");
@@ -82,7 +89,7 @@ export const get_data = (
   console.log("rest_path", rest_path);
 
   // fourth: open file
-  const [mapped_fd, wasi_farm_ref_n] = animal.get_fd_and_wasi_ref_n(matched_fd);
+  const [mapped_fd, wasi_farm_ref_n] = (([x, y]) => [x, y!])(animal.get_fd_and_wasi_ref_n(matched_fd));
   const [opened_fd, ret] = animal.wasi_farm_refs[wasi_farm_ref_n].path_open(
     mapped_fd,
     0,
@@ -93,7 +100,7 @@ export const get_data = (
     0,
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-expect-error
   const mapped_opened_fd = animal.map_new_fd_and_notify(
     opened_fd,
     wasi_farm_ref_n,
@@ -107,7 +114,6 @@ export const get_data = (
   let file_data: Uint8Array = new Uint8Array();
   let offset = 0n;
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     console.log("offset", offset);
 

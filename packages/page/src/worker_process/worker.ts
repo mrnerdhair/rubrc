@@ -1,17 +1,16 @@
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
-import {
-  get_default_sysroot_wasi_farm,
-  load_additional_sysroot,
-} from "../../../lib/src/sysroot";
+import { sysroot } from "@oligami/rustc-browser-wasi_shim";
+import get_default_sysroot_wasi_farm = sysroot.get_default_sysroot_wasi_farm;
+import load_additional_sysroot = sysroot.load_additional_sysroot;
 import type { Ctx } from "../ctx";
+import type { WASIFarmRefObject } from "./rustc";
 
-let terminal: (string) => Promise<void>;
+let terminal: (x: string) => Promise<void>;
 let rustc_worker: Worker;
 let ctx: Ctx;
 import RustcWorker from "./rustc?worker";
-let shared: SharedObject;
 
-const wasi_refs = [];
+const wasi_refs: WASIFarmRefObject[] = [];
 
 globalThis.addEventListener("message", async (event) => {
   if (event.data.ctx) {
@@ -20,7 +19,7 @@ globalThis.addEventListener("message", async (event) => {
     rustc_worker.postMessage({ ctx });
 
     terminal = new SharedObjectRef(ctx.terminal_id).proxy<
-      (string) => Promise<void>
+      (x: string) => Promise<void>
     >();
 
     await terminal("loading sysroot\r\n");
@@ -33,7 +32,8 @@ globalThis.addEventListener("message", async (event) => {
 
     rustc_worker.postMessage({ wasi_ref });
 
-    shared = new SharedObject((triple) => {
+    // shared load_additional_sysroot
+    new SharedObject((triple: string) => {
       (async () => {
         terminal(`loading sysroot ${triple}\r\n`);
         await load_additional_sysroot(triple);
@@ -60,8 +60,7 @@ import util_cmd_worker from "./util_cmd?worker";
 import run_llvm_worker from "./llvm?worker";
 
 const setup_util_worker = (
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  wasi_refs: any[],
+  wasi_refs: WASIFarmRefObject[],
   ctx: Ctx,
 ) => {
   const util_worker = new util_cmd_worker();

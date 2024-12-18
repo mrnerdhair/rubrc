@@ -1,19 +1,32 @@
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import type { Ctx } from "./ctx";
-import { get_data } from "./cat";
 
+// @ts-expect-error
 let waiter: SharedObject;
 let is_all_done = false;
 let is_cmd_run_end = true;
 let end_of_exec = false;
 let is_rustc_fetch_end = false;
 
+type PromiseWithResolvers<T> = {
+  promise: Promise<T>,
+  resolve: (result: T | PromiseLike<T>) => void,
+  reject: (reason?: unknown) => void,
+}
+
 export const parser_setup = async (ctx: Ctx) => {
   const n = 1;
 
   const resolvers: PromiseWithResolvers<void>[] = [];
   for (let i = 0; i < n; i++) {
-    resolvers.push(Promise.withResolvers<void>());
+    resolvers.push((() => {
+      let resolve: () => void, reject: (reason?: unknown) => void;
+      const promise = new Promise<void>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve: resolve!, reject: reject! };
+    })());
   }
 
   waiter = new SharedObject(
@@ -47,32 +60,31 @@ export const parser_setup = async (ctx: Ctx) => {
   await all_done(ctx);
 };
 
-let cmd_parser: SharedObject;
-
 const all_done = async (ctx: Ctx) => {
   const rustc = new SharedObjectRef(ctx.rustc_id).proxy<
-    (...string) => Promise<void>
+    (...args: string[]) => Promise<void>
   >();
   const terminal = new SharedObjectRef(ctx.terminal_id).proxy<
-    (string) => Promise<void>
+    (x: string) => Promise<void>
   >();
   const ls = new SharedObjectRef(ctx.ls_id).proxy<
-    (...string) => Promise<void>
+    (...args: string[]) => Promise<void>
   >();
   const tree = new SharedObjectRef(ctx.tree_id).proxy<
-    (...string) => Promise<void>
+    (...args: string[]) => Promise<void>
   >();
   const exec_file = new SharedObjectRef(ctx.exec_file_id).proxy<
-    (...string) => Promise<void>
+    (...args: string[]) => Promise<void>
   >();
   const download = new SharedObjectRef(ctx.download_id).proxy<
-    (string) => Promise<void>
+    (x: string) => Promise<void>
   >();
   const clang = new SharedObjectRef(ctx.llvm_id).proxy<
-    (...string) => Promise<void>
+    (...args: string[]) => Promise<void>
   >();
 
-  cmd_parser = new SharedObject((...args) => {
+  // cmd_parser
+  new SharedObject((...args: string[]) => {
     is_cmd_run_end = false;
     (async (args: string[]) => {
       console.log(args);

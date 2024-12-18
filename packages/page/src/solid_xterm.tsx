@@ -12,8 +12,7 @@ import "@xterm/xterm/css/xterm.css";
 
 export type OnMountCleanup = () => void | (() => Promise<void>) | undefined;
 
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export type ITerminalAddonConstructor = new (...args: any[]) => ITerminalAddon;
+export type ITerminalAddonConstructor = new (...args: unknown[]) => ITerminalAddon;
 export interface XTermProps {
   /**
    * The CSS classes that will be applied to the terminal container.
@@ -176,14 +175,13 @@ const XTerm = ({
     const newTerminal = new Terminal(options);
     newTerminal.open(terminalContainerRef);
 
-    // biome-ignore lint/complexity/noForEach: <explanation>
-    addons.forEach((addon) => {
+    for (let addon of addons) {
       if (typeof addon === "function") {
         newTerminal?.loadAddon(new addon());
       } else {
         newTerminal?.loadAddon(addon);
       }
-    });
+    }
 
     setTerminal(newTerminal);
   };

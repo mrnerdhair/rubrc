@@ -9,9 +9,7 @@ globalThis.addEventListener("message", async (event) => {
     wasi_refs,
     ctx,
   }: {
-    // WASIFarmRefObject is not export
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    wasi_refs: any[];
+    wasi_refs: WASIFarmRefObject[];
     ctx: Ctx;
   } = event.data;
 
@@ -28,16 +26,16 @@ globalThis.addEventListener("message", async (event) => {
   await ready_llvm_wasm(wasi_refs, ctx);
 });
 
-import { get_llvm_wasm } from "../../../lib/src/get_llvm_wasm";
+import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import { strace } from "@bjorn3/browser_wasi_shim";
+import type { WASIFarmRefObject } from "./rustc";
 let linker: WebAssembly.Instance & {
   exports: { memory: WebAssembly.Memory; _start: () => unknown };
 };
 let wasi: WASIFarmAnimal;
 
 const ready_llvm_wasm = async (
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  wasi_refs: any[],
+  wasi_refs: WASIFarmRefObject[],
   ctx: Ctx,
 ) => {
   const linker_wasm = await get_llvm_wasm();
@@ -67,7 +65,7 @@ const ready_llvm_wasm = async (
   const memory_reset_view = new Uint8Array(memory_reset).slice();
 
   shared.push(
-    new SharedObject((...args) => {
+    new SharedObject((...args: string[]) => {
       try {
         if (args[0] !== "llvm") {
           wasi.args = ["llvm", ...args];

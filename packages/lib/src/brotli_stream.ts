@@ -1,5 +1,5 @@
 import init, { BrotliDecStream, BrotliStreamResultCode } from "brotli-dec-wasm/web"; // Import the default export
-// @ts-ignore
+// @ts-expect-error
 import brotli_dec_wasm_bg from "brotli-dec-wasm/web/bg.wasm?wasm&url"; // Import the wasm file
 
 const promise = init(brotli_dec_wasm_bg); // Import is async in browsers due to wasm requirements!

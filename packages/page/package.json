@@ -10,8 +10,7 @@
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "serve": "vite preview",
-    "fmt": "biome format --write ."
+    "serve": "vite preview"
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0",

@@ -2,26 +2,26 @@ import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import type { Ctx } from "./ctx";
 
 let ctx: Ctx;
-let cmd_parser: (...string) => Promise<void>;
+let cmd_parser: (...args: string[]) => Promise<void>;
 let waiter: {
   is_all_done: () => Promise<boolean>;
   is_cmd_run_end: () => Promise<boolean>;
 };
-let terminal: ((string) => Promise<void>) & {
+let terminal: ((x: string) => Promise<void>) & {
   reset_err_buff: () => Promise<void>;
   get_err_buff: () => Promise<string>;
   reset_out_buff: () => Promise<void>;
   get_out_buff: () => Promise<string>;
 };
-let shared_downloader: SharedObject;
-let exec_ref: (...string) => Promise<void>;
+let exec_ref: (...string: string[]) => Promise<void>;
 
 export const compile_and_run_setup = (_ctx: Ctx) => {
   ctx = _ctx;
 
   waiter = new SharedObjectRef(ctx.waiter_id).proxy();
 
-  shared_downloader = new SharedObject((url: string, name: string) => {
+  // shared_downloader
+  new SharedObject((url: string, name: string) => {
     (async () => {
       const a = document.createElement("a");
       a.href = url;
