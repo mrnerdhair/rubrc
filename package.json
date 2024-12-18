@@ -3,13 +3,13 @@
   "version": "1.1.1",
   "description": "rubrc root",
   "private": true,
-  "directories": {
-    "lib": "lib",
-    "page": "page"
-  },
   "author": "oligami <nziq53@gmail.com> (https://github.com/oligamiq)",
   "license": "MIT OR Apache-2.0",
   "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "tsc --build --verbose"
+  },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@swc/cli": "^0.5.2",
@@ -26,6 +26,5 @@
     "vite": "^6.0.3",
     "vite-plugin-dts": "^4.3.0",
     "vite-plugin-solid": "^2.11.0"
-  },
-  "workspaces": ["./lib", "./page"]
+  }
 }
