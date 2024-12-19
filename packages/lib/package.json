@@ -1,33 +1,24 @@
 {
   "name": "@oligami/rustc-browser-wasi_shim",
   "version": "1.1.1",
+  "private": true,
+  "author": "oligami <nziq53@gmail.com> (https://github.com/oligamiq)",
+  "license": "MIT OR Apache-2.0",
   "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "scripts": {
+    "clean": "tsc --build --clean && rimraf dist",
+    "build": "tsc --build --verbose"
+  },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0",
     "@oligami/browser_wasi_shim-threads": "^0.1.1",
     "brotli-dec-wasm": "^2.3.0",
     "nanotar": "^0.1.1"
   },
-  "private": false,
-  "publishConfig": {
-    "access": "public"
-  },
-  "author": "oligami <nziq53@gmail.com> (https://github.com/oligamiq)",
-  "license": "MIT OR Apache-2.0",
-  "description": "Rust compiler on web",
-  "homepage": "https://github.com/oligamiq/rubrc",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/oligamiq/rubrc.git"
-  },
-  "bugs": {
-    "url": "https://github.com/oligamiq/rubrc/issues"
-  },
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
-  "files": [
-    "dist",
-    "src"
-  ],
-  "keywords": []
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.2"
+  }
 }
