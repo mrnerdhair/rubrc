@@ -23,9 +23,6 @@ class WorkerBackground<T> {
 
   private start_worker?: Worker;
 
-  // @ts-ignore
-  private listen_holder: Promise<void>;
-
   constructor(
     override_object: T,
     lock?: SharedArrayBuffer,
@@ -38,7 +35,7 @@ class WorkerBackground<T> {
       allocator ??
       new AllocatorUseArrayBuffer(new SharedArrayBuffer(10 * 1024));
     this.signature_input = signature_input ?? new SharedArrayBuffer(24);
-    this.listen_holder = this.listen();
+    this.listen();
   }
 
   static init_self<T>(
@@ -333,14 +330,8 @@ class WorkerBackground<T> {
   }
 }
 
-// @ts-ignore
-let worker_background: WorkerBackground<unknown>;
-
 globalThis.onmessage = (e: MessageEvent) => {
   const { override_object, worker_background_ref_object } = e.data;
-  worker_background = WorkerBackground.init_self(
-    override_object,
-    worker_background_ref_object,
-  );
+  WorkerBackground.init_self(override_object, worker_background_ref_object);
   postMessage("ready");
 };

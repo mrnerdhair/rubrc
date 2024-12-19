@@ -86,10 +86,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // In other words, one size is 76 bytes
   private fd_func_sig: SharedArrayBuffer;
 
-  // listen base handle keep
-  // @ts-ignore
-  private listen_base_handle!: Promise<void>;
-
   // listen base lock and call etc
   private base_func_util: SharedArrayBuffer;
 
@@ -215,7 +211,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     for (let n = 0; n < this.fds.length; n++) {
       this.listen_fds.push(this.listen_fd(n));
     }
-    this.listen_base_handle = this.listen_base();
+    return this.listen_base();
   }
 
   // listen base

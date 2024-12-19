@@ -3,7 +3,7 @@ import type { WASIFarmRefObject } from "./ref.js";
 
 export abstract class WASIFarmPark {
   abstract get_ref(): WASIFarmRefObject;
-  abstract listen(): void;
+  abstract listen(): Promise<void>;
   abstract notify_set_fd(fd: number): void;
   abstract notify_rm_fd(fd: number): void;
   abstract can_set_new_fd(fd: number): [boolean, Promise<void> | undefined];
@@ -399,11 +399,12 @@ export abstract class WASIFarmPark {
     write_data: Uint8Array,
   ): Promise<[number | undefined, number]> {
     if (this.fds[fd] !== undefined) {
-      const fd_ret = this.fds[fd].fd_write(write_data);
+      const fd_ret_base = this.fds[fd].fd_write(write_data);
+      const fd_ret: typeof fd_ret_base | Promise<typeof fd_ret_base> =
+        fd_ret_base as typeof fd_ret_base | Promise<typeof fd_ret_base>;
       let ret: number;
       let nwritten: number;
       if (fd_ret instanceof Promise) {
-        // @ts-ignore
         ({ ret, nwritten } = await fd_ret);
       } else {
         ({ ret, nwritten } = fd_ret);
