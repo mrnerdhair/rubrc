@@ -49,7 +49,7 @@ export class WASIFarmAnimal {
   // child process can access parent process's fd.
   // so, it is necessary to manage the fd on global scope.
   // [fd, wasi_ref_n]
-  fd_map: Array<[number, number]> = [];
+  fd_map: Array<[number, number] | undefined> = [];
 
   get_fd_and_wasi_ref(
     fd: number,
@@ -295,7 +295,7 @@ export class WASIFarmAnimal {
     return n;
   }
 
-  // @ts-ignore
+  // @ts-expect-error
   private map_set_fd_and_notify(fd: number, wasi_ref_n: number, index: number) {
     if (this.fd_map[index] !== undefined) {
       throw new Error("fd is already mapped");
