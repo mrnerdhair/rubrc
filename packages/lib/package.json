@@ -2,11 +2,6 @@
   "name": "@oligami/rustc-browser-wasi_shim",
   "version": "1.1.1",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "prepare": "npm run build"
-  },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0",
     "@oligami/browser_wasi_shim-threads": "^0.1.1",

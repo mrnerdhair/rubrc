@@ -6,9 +6,11 @@
   "author": "oligami <nziq53@gmail.com> (https://github.com/oligamiq)",
   "license": "MIT OR Apache-2.0",
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "clean": "tsc --build --clean",
+    "clean": "tsc --build --clean && rimraf packages/lib/dist packages/page/dist",
     "build": "tsc --build --verbose",
     "fmt": "npx @biomejs/biome format --write .",
     "check": "npx @biomejs/biome check && tsc --build --verbose --noEmit",
@@ -20,6 +22,7 @@
     "@swc/core": "^1.10.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
+    "rimraf": "^6.0.1",
     "solid-devtools": "^0.31.4",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
