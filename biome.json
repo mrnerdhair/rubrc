@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["packages/lib/dist", "packages/page/dist"]
+    "ignore": ["packages/lib/dist", "packages/page/dist", "packages/shared-object/dist", "packages/threads/dist"]
   },
   "formatter": {
     "enabled": true,
