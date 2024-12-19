@@ -276,7 +276,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
             // console.log("listen_base fds_map", this.fds_map);
 
             // sleep 1000ms
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            // await new Promise((resolve) => setTimeout(resolve, 1000));
 
             break;
           }
