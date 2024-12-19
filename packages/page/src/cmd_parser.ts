@@ -21,11 +21,13 @@ export const parser_setup = async (ctx: Ctx) => {
   for (let i = 0; i < n; i++) {
     resolvers.push(
       (() => {
-        let resolve: () => void, reject: (reason?: unknown) => void;
+        let resolve: () => void;
+        let reject: (reason?: unknown) => void;
         const promise = new Promise<void>((res, rej) => {
           resolve = res;
           reject = rej;
         });
+        // biome-ignore lint/style/noNonNullAssertion: both set in promise constructor
         return { promise, resolve: resolve!, reject: reject! };
       })(),
     );

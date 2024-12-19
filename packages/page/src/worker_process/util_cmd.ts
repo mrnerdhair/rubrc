@@ -140,7 +140,9 @@ globalThis.addEventListener("message", async (event) => {
           const file_data = get_data(file, animal);
           const blob = new Blob([file_data]);
           const url = URL.createObjectURL(blob);
-          await download_by_url(url, file.split("/").pop()!);
+          const filename = file.split("/").pop();
+          if (!filename) throw new Error("filename is blank");
+          await download_by_url(url, filename);
           URL.revokeObjectURL(url);
         } catch (e) {
           terminal(`Error: ${e}\r\n`);
