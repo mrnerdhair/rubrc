@@ -54,10 +54,7 @@ export class WASIFarm {
       this.can_array_buffer = false;
       console.warn("SharedArrayBuffer is not supported:", e);
 
-      if (
-        !(globalThis as unknown as { crossOriginIsolated: unknown })
-          .crossOriginIsolated
-      ) {
+      if (!globalThis.crossOriginIsolated) {
         console.warn(
           "SharedArrayBuffer is not supported because crossOriginIsolated is not enabled.",
         );
@@ -81,7 +78,7 @@ export class WASIFarm {
   }
 
   private fds_ref(): Array<Fd> {
-    const fds = new Proxy([] as Array<Fd>, {
+    const fds = new Proxy<Fd[]>([], {
       get: (_, prop) => {
         if (prop === "push") {
           return (fd: Fd) => {
@@ -89,12 +86,12 @@ export class WASIFarm {
             return len;
           };
         }
-        // @ts-ignore
+        // @ts-expect-error
         return this.fds[prop];
       },
 
-      set: (_, prop, value) => {
-        // @ts-ignore
+      set: (_, prop, value: Fd) => {
+        // @ts-expect-error
         this.fds[prop] = value;
         return true;
       },

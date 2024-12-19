@@ -142,7 +142,7 @@ export class ThreadSpawner {
     start_arg: number,
     args: Array<string>,
     env: Array<string>,
-    fd_map: Array<[number, number]>,
+    fd_map: Array<[number, number] | undefined>,
   ): number {
     const worker = this.worker_background_ref.new_worker(
       this.worker_url,
@@ -164,7 +164,7 @@ export class ThreadSpawner {
   async async_start_on_thread(
     args: Array<string>,
     env: Array<string>,
-    fd_map: Array<[number, number]>,
+    fd_map: Array<[number, number] | undefined>,
   ): Promise<void> {
     if (!self.Worker.toString().includes("[native code]")) {
       if (self.Worker.toString().includes("function")) {
@@ -190,7 +190,7 @@ export class ThreadSpawner {
   block_start_on_thread(
     args: Array<string>,
     env: Array<string>,
-    fd_map: Array<[number, number]>,
+    fd_map: Array<[number, number] | undefined>,
   ): void {
     if (!self.Worker.toString().includes("[native code]")) {
       if (self.Worker.toString().includes("function")) {
