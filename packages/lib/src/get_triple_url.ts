@@ -20,7 +20,7 @@ import sparcv9_sun_solaris_url from "../data/sysroots/sparcv9-sun-solaris.tar.br
 import wasm32_unknown_emscripten_url from "../data/sysroots/wasm32-unknown-emscripten.tar.br?url";
 import wasm32_unknown_unknown_url from "../data/sysroots/wasm32-unknown-unknown.tar.br?url";
 import wasm32_wasip1_threads_url from "../data/sysroots/wasm32-wasip1-threads.tar.br?url";
-import wasm32_wasip1_url from "../data/sysroots/wasm32-wasip1.tar.br?url";
+import wasm32_wasip1_url from "../data/sysroots/wasm32-wasip1.tar?url";
 import x86_64_pc_windows_gnu_url from "../data/sysroots/x86_64-pc-windows-gnu.tar.br?url";
 import x86_64_unknown_freebsd_url from "../data/sysroots/x86_64-unknown-freebsd.tar.br?url";
 import x86_64_unknown_illumos_url from "../data/sysroots/x86_64-unknown-illumos.tar.br?url";
