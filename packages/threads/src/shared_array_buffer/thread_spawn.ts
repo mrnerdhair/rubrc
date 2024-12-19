@@ -14,6 +14,8 @@
 
 //  (import "wasi" "thread-spawn" (func $fimport$27 (param i32) (result i32)))
 
+import { as_wasi_p1_cmd, as_wasi_p1_thread } from "rubrc-util";
+
 import { WASIFarmAnimal } from "../animals.js";
 import type { WASIFarmRefObject } from "../ref.js";
 import type { WorkerBackgroundRefObject } from "./worker_background/index.js";
@@ -333,23 +335,18 @@ export const thread_spawn_on_worker = async (msg: {
         thread_spawner,
       );
 
-      const inst = await WebAssembly.instantiate(thread_spawn_wasm, {
-        env: {
-          memory: wasi.get_share_memory(),
-        },
-        wasi: wasi.wasiThreadImport,
-        wasi_snapshot_preview1: wasi.wasiImport,
-      });
+      const inst = as_wasi_p1_cmd(
+        await WebAssembly.instantiate(thread_spawn_wasm, {
+          env: {
+            memory: wasi.get_share_memory(),
+          },
+          wasi: wasi.wasiThreadImport,
+          wasi_snapshot_preview1: wasi.wasiImport,
+        }),
+      );
 
       try {
-        wasi.start(
-          inst as unknown as {
-            exports: {
-              memory: WebAssembly.Memory;
-              _start: () => unknown;
-            };
-          },
-        );
+        wasi.start(inst);
       } catch (e) {
         globalThis.postMessage({
           msg: "error",
@@ -383,29 +380,22 @@ export const thread_spawn_on_worker = async (msg: {
       thread_spawner,
     );
 
-    const inst = await WebAssembly.instantiate(thread_spawn_wasm, {
-      env: {
-        memory: wasi.get_share_memory(),
-      },
-      wasi: wasi.wasiThreadImport,
-      wasi_snapshot_preview1: wasi.wasiImport,
-    });
+    const inst = as_wasi_p1_thread(
+      await WebAssembly.instantiate(thread_spawn_wasm, {
+        env: {
+          memory: wasi.get_share_memory(),
+        },
+        wasi: wasi.wasiThreadImport,
+        wasi_snapshot_preview1: wasi.wasiImport,
+      }),
+    );
 
     globalThis.postMessage({
       msg: "ready",
     });
 
     try {
-      wasi.wasi_thread_start(
-        inst as unknown as {
-          exports: {
-            memory: WebAssembly.Memory;
-            wasi_thread_start: (thread_id: number, start_arg: number) => void;
-          };
-        },
-        thread_id,
-        start_arg,
-      );
+      wasi.wasi_thread_start(inst, thread_id, start_arg);
     } catch (e) {
       globalThis.postMessage({
         msg: "error",
