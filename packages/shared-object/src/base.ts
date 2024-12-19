@@ -1,5 +1,3 @@
-/// <reference types="@types/web" />
-
 /*
  * Project: https://github.com/oligamiq/SharedObject
  * Copyright (c) 2024 oligamiq
