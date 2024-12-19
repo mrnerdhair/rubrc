@@ -1,5 +1,3 @@
-/// <reference types="@better-typescript-lib/webworker" />
-
 // If you create a worker and try to increase the number of threads,
 // you will have to use Atomics.wait because they need to be synchronized.
 // However, this is essentially impossible because Atomics.wait blocks the threads.
@@ -80,7 +78,6 @@ class WorkerBackground<T> {
 
     const signature_input_view = new Int32Array(this.signature_input);
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         let lock: "not-equal" | "timed-out" | "ok";
@@ -113,16 +110,14 @@ class WorkerBackground<T> {
           });
         };
 
-        // biome-ignore lint/complexity/noBannedTypes: <explanation>
-        const gen_obj = (): Object => {
+        const gen_obj = (): Record<string, unknown> => {
           console.log("gen_obj");
           const json_ptr = Atomics.load(signature_input_view, 4);
           const json_len = Atomics.load(signature_input_view, 5);
           const json_buff = this.allocator.get_memory(json_ptr, json_len);
           this.allocator.free(json_ptr, json_len);
           const json = new TextDecoder().decode(json_buff);
-          // biome-ignore lint/complexity/noBannedTypes: <explanation>
-          return JSON.parse(json) as Object;
+          return JSON.parse(json) as Record<string, unknown>;
         };
 
         const signature_input = Atomics.load(signature_input_view, 0);
@@ -148,16 +143,14 @@ class WorkerBackground<T> {
               }
 
               if (msg === "done") {
-                // biome-ignore lint/style/noNonNullAssertion: <explanation>
-                this.workers[worker_id]!.terminate();
+                this.workers[worker_id]?.terminate();
                 this.workers[worker_id] = undefined;
 
                 console.log(`worker ${worker_id} done so terminate`);
               }
 
               if (msg === "error") {
-                // biome-ignore lint/style/noNonNullAssertion: <explanation>
-                this.workers[worker_id]!.terminate();
+                this.workers[worker_id]?.terminate();
                 this.workers[worker_id] = undefined;
 
                 let n = 0;
@@ -246,8 +239,7 @@ class WorkerBackground<T> {
                   n++;
                 }
 
-                // biome-ignore lint/style/noNonNullAssertion: <explanation>
-                this.start_worker!.terminate();
+                this.start_worker?.terminate();
                 this.start_worker = undefined;
 
                 console.log("start worker done so terminate");

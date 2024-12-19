@@ -1,6 +1,6 @@
 export type ToRefSenderUseArrayBufferObject = {
   data_size: number;
-  share_arrays_memory?: SharedArrayBuffer;
+  share_arrays_memory: SharedArrayBuffer;
 };
 
 // To ref sender abstract class
@@ -60,16 +60,13 @@ export abstract class ToRefSenderUseArrayBuffer {
   } {
     return {
       data_size: sl.data_size,
-      // biome-ignore lint/style/noNonNullAssertion: <explanation>
-      max_share_arrays_memory: sl.share_arrays_memory!.byteLength,
-      // biome-ignore lint/style/noNonNullAssertion: <explanation>
-      share_arrays_memory: sl.share_arrays_memory!,
+      max_share_arrays_memory: sl.share_arrays_memory.byteLength,
+      share_arrays_memory: sl.share_arrays_memory,
     };
   }
 
   private async async_lock(): Promise<void> {
     const view = new Int32Array(this.share_arrays_memory);
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       let lock: "not-equal" | "timed-out" | "ok";
       const { value } = Atomics.waitAsync(view, 0, 1);
@@ -90,7 +87,6 @@ export abstract class ToRefSenderUseArrayBuffer {
   }
 
   private block_lock(): void {
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const view = new Int32Array(this.share_arrays_memory);
       const lock = Atomics.wait(view, 0, 1);

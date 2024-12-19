@@ -139,8 +139,7 @@ export class SharedObjectRef {
 
         const ret = data as unknown as {
           msg: string;
-          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-          ret: any;
+          ret: unknown;
           can_post: boolean;
         };
 
@@ -191,11 +190,7 @@ export class SharedObjectRef {
     return proxy as unknown as Promise<unknown>;
   }
 
-  async call(
-    names: Array<string>,
-    args: unknown[],
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  ): Promise<any> {
+  async call(names: Array<string>, args: unknown[]): Promise<unknown> {
     const { promise, resolve } = Promise.withResolvers();
 
     const id = this.get_id();
@@ -217,8 +212,7 @@ export class SharedObjectRef {
       return (
         data as unknown as {
           msg: string;
-          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-          ret: any;
+          ret: unknown;
         }
       ).ret;
     }

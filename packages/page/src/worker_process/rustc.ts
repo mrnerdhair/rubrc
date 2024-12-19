@@ -76,8 +76,7 @@ globalThis.addEventListener("message", async (event) => {
         wasi.block_start_on_thread();
         console.log("wasi.start done");
       } catch (e) {
-        // @ts-expect-error
-        terminal(`${e.toString()}\r\n`);
+        terminal(`${e}\r\n`);
       }
     }, ctx.rustc_id);
 

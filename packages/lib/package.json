@@ -17,6 +17,7 @@
     "nanotar": "^0.1.1"
   },
   "devDependencies": {
+    "better-typescript-lib": "*",
     "rimraf": "*",
     "typescript": "*"
   }

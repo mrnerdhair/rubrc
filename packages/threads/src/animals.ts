@@ -11,13 +11,20 @@ export class WASIFarmAnimal {
   args: Array<string>;
   env: Array<string>;
 
-  private wasi_farm_refs: WASIFarmRef[];
+  wasi_farm_refs: WASIFarmRef[];
 
   private id_in_wasi_farm_ref: Array<number>;
 
-  inst: { exports: { memory: WebAssembly.Memory } } | undefined;
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  wasiImport: { [key: string]: (...args: Array<any>) => unknown };
+  _inst: { exports: { memory: WebAssembly.Memory } } | undefined;
+  get inst(): { exports: { memory: WebAssembly.Memory } } {
+    const out = this._inst;
+    if (!out) {
+      throw new Error("expected this._inst to be set by now");
+    }
+    return out;
+  }
+
+  wasiImport: ReturnType<typeof WASIFarmAnimal.makeWasiImport>;
 
   wasiThreadImport: {
     "thread-spawn": (start_arg: number) => number;
@@ -42,11 +49,11 @@ export class WASIFarmAnimal {
   // child process can access parent process's fd.
   // so, it is necessary to manage the fd on global scope.
   // [fd, wasi_ref_n]
-  protected fd_map: Array<[number, number]> = [];
+  fd_map: Array<[number, number]> = [];
 
-  protected get_fd_and_wasi_ref(
+  get_fd_and_wasi_ref(
     fd: number,
-  ): [number | undefined, WASIFarmRef | undefined] {
+  ): [number, WASIFarmRef] | [undefined, undefined] {
     const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
     if (!mapped_fd_and_wasi_ref_n) {
       // console.log("fd", fd, "is not found");
@@ -57,9 +64,7 @@ export class WASIFarmAnimal {
     return [mapped_fd, this.wasi_farm_refs[wasi_ref_n]];
   }
 
-  protected get_fd_and_wasi_ref_n(
-    fd: number,
-  ): [number | undefined, number | undefined] {
+  get_fd_and_wasi_ref_n(fd: number): [number, number] | [undefined, undefined] {
     const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
     if (!mapped_fd_and_wasi_ref_n) {
       // console.log("fd", fd, "is not found");
@@ -75,7 +80,7 @@ export class WASIFarmAnimal {
     // FIXME v0.3: close opened Fds after execution
     exports: { memory: WebAssembly.Memory; _start: () => unknown };
   }) {
-    this.inst = instance;
+    this._inst = instance;
 
     try {
       instance.exports._start();
@@ -91,8 +96,7 @@ export class WASIFarmAnimal {
     } catch (e) {
       if (e instanceof WASIProcExit) {
         if (this.can_thread_spawn) {
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          this.thread_spawner!.done_notify(e.code);
+          this.thread_spawner?.done_notify(e.code);
         }
 
         return e.code;
@@ -117,7 +121,7 @@ export class WASIFarmAnimal {
 
     await this.wait_worker_background_worker();
 
-    if (this.inst) {
+    if (this._inst) {
       throw new Error("what happened?");
     }
 
@@ -146,7 +150,7 @@ export class WASIFarmAnimal {
 
     console.log("block_start_on_thread");
 
-    if (this.inst) {
+    if (this._inst) {
       throw new Error("what happened?");
     }
 
@@ -176,7 +180,7 @@ export class WASIFarmAnimal {
     thread_id: number,
     start_arg: number,
   ) {
-    this.inst = instance;
+    this._inst = instance;
     try {
       instance.exports.wasi_thread_start(thread_id, start_arg);
       return 0;
@@ -192,7 +196,7 @@ export class WASIFarmAnimal {
   initialize(instance: {
     exports: { memory: WebAssembly.Memory; _initialize?: () => unknown };
   }) {
-    this.inst = instance;
+    this._inst = instance;
     if (instance.exports._initialize) {
       instance.exports._initialize();
     }
@@ -283,7 +287,7 @@ export class WASIFarmAnimal {
     return n;
   }
 
-  private map_new_fd_and_notify(fd: number, wasi_ref_n: number): number {
+  map_new_fd_and_notify(fd: number, wasi_ref_n: number): number {
     const n = this.map_new_fd(fd, wasi_ref_n);
     // console.log("animals: fd", fd, "is mapped to", n);
     // console.log("wasi_ref_n", wasi_ref_n);
@@ -424,12 +428,32 @@ export class WASIFarmAnimal {
 
     this.args = args;
     this.env = env;
-    const self = this;
-    this.wasiImport = {
+    this.wasiImport = WASIFarmAnimal.makeWasiImport(this);
+
+    this.wasiThreadImport = {
+      "thread-spawn": (start_arg: number) => {
+        this.check_fds();
+        if (!this.can_thread_spawn || !this.thread_spawner) {
+          throw new Error("thread_spawn is not allowed");
+        }
+
+        const thread_id = this.thread_spawner.thread_spawn(
+          start_arg,
+          this.args,
+          this.env,
+          this.fd_map,
+        );
+
+        return thread_id;
+      },
+    };
+  }
+
+  private static makeWasiImport(self: WASIFarmAnimal) {
+    return {
       args_sizes_get(argc: number, argv_buf_size: number): number {
         self.check_fds();
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
         buffer.setUint32(argc, self.args.length, true);
         let buf_size = 0;
         for (const arg of self.args) {
@@ -440,26 +464,23 @@ export class WASIFarmAnimal {
       },
       args_get(argv: number, argv_buf: number): number {
         self.check_fds();
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
+        let current_argv = argv;
+        let current_argv_buf = argv_buf;
         for (let i = 0; i < self.args.length; i++) {
-          buffer.setUint32(argv, argv_buf, true);
-          // biome-ignore lint/style/noParameterAssign: <explanation>
-          argv += 4;
+          buffer.setUint32(current_argv, current_argv_buf, true);
+          current_argv += 4;
           const arg = new TextEncoder().encode(self.args[i]);
-          buffer8.set(arg, argv_buf);
-          buffer.setUint8(argv_buf + arg.length, 0);
-          // biome-ignore lint/style/noParameterAssign: <explanation>
-          argv_buf += arg.length + 1;
+          buffer8.set(arg, current_argv_buf);
+          buffer.setUint8(current_argv_buf + arg.length, 0);
+          current_argv_buf += arg.length + 1;
         }
         return 0;
       },
       environ_sizes_get(environ_count: number, environ_size: number): number {
         self.check_fds();
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
         buffer.setUint32(environ_count, self.env.length, true);
         let buf_size = 0;
         for (const environ of self.env) {
@@ -470,23 +491,20 @@ export class WASIFarmAnimal {
       },
       environ_get(environ: number, environ_buf: number): number {
         self.check_fds();
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
+        let current_environ = environ;
+        let current_environ_buf = environ_buf;
         for (let i = 0; i < self.env.length; i++) {
-          buffer.setUint32(environ, environ_buf, true);
-          // biome-ignore lint/style/noParameterAssign: <explanation>
-          environ += 4;
+          buffer.setUint32(current_environ, current_environ_buf, true);
+          current_environ += 4;
           const e = new TextEncoder().encode(self.env[i]);
-          buffer8.set(e, environ_buf);
-          buffer.setUint8(environ_buf + e.length, 0);
-          // biome-ignore lint/style/noParameterAssign: <explanation>
-          environ_buf += e.length + 1;
+          buffer8.set(e, current_environ_buf);
+          buffer.setUint8(current_environ_buf + e.length, 0);
+          current_environ_buf += e.length + 1;
         }
         return 0;
       },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       clock_res_get(id: number, res_ptr: number): number {
         self.check_fds();
         let resolutionValue: bigint;
@@ -504,15 +522,13 @@ export class WASIFarmAnimal {
           default:
             return wasi.ERRNO_NOSYS;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const view = new DataView(self.inst!.exports.memory.buffer);
+        const view = new DataView(self.inst.exports.memory.buffer);
         view.setBigUint64(res_ptr, resolutionValue, true);
         return wasi.ERRNO_SUCCESS;
       },
       clock_time_get(id: number, _precision: bigint, time: number): number {
         self.check_fds();
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
         if (id === wasi.CLOCKID_REALTIME) {
           buffer.setBigUint64(
             time,
@@ -535,15 +551,7 @@ export class WASIFarmAnimal {
         }
         return 0;
       },
-      fd_advise(
-        fd: number,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _offset: bigint,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _len: bigint,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _advice: number,
-      ) {
+      fd_advise(fd: number, _offset: bigint, _len: bigint, _advice: number) {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -586,8 +594,7 @@ export class WASIFarmAnimal {
         const [fdstat, ret] = wasi_farm_ref.fd_fdstat_get(mapped_fd);
         if (fdstat) {
           fdstat.write_bytes(
-            // biome-ignore lint/style/noNonNullAssertion: <explanation>
-            new DataView(self.inst!.exports.memory.buffer),
+            new DataView(self.inst.exports.memory.buffer),
             fdstat_ptr,
           );
         }
@@ -626,8 +633,7 @@ export class WASIFarmAnimal {
         const [filestat, ret] = wasi_farm_ref.fd_filestat_get(mapped_fd);
         if (filestat) {
           filestat.write_bytes(
-            // biome-ignore lint/style/noNonNullAssertion: <explanation>
-            new DataView(self.inst!.exports.memory.buffer),
+            new DataView(self.inst.exports.memory.buffer),
             filestat_ptr,
           );
         }
@@ -671,10 +677,8 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovs_view = new Uint32Array(
           buffer.buffer,
           iovs_ptr,
@@ -717,8 +721,7 @@ export class WASIFarmAnimal {
         const [prestat, ret] = wasi_farm_ref.fd_prestat_get(mapped_fd);
         if (prestat) {
           const [tag, name_len] = prestat;
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          const buffer = new DataView(self.inst!.exports.memory.buffer);
+          const buffer = new DataView(self.inst.exports.memory.buffer);
           buffer.setUint32(prestat_ptr, tag, true);
           buffer.setUint32(prestat_ptr + 4, name_len, true);
         }
@@ -738,8 +741,7 @@ export class WASIFarmAnimal {
         if (path) {
           // console.log("fd_prestat_dir_name", new TextDecoder().decode(path));
           // console.log("fd_prestat_dir_name", path);
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+          const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
           buffer8.set(path, path_ptr);
         }
         return ret;
@@ -756,10 +758,8 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovecs = wasi.Ciovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
         const data = new Uint8Array(
           iovecs.reduce((acc, iovec) => acc + iovec.buf_len, 0),
@@ -789,10 +789,8 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovs_view = new Uint32Array(
           buffer.buffer,
           iovs_ptr,
@@ -844,10 +842,8 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return [undefined, wasi.ERRNO_BADF];
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const [nerad_and_read_data, ret] = wasi_farm_ref.fd_readdir(
           mapped_fd,
           buf_len,
@@ -900,8 +896,7 @@ export class WASIFarmAnimal {
           whence,
         );
         if (newoffset) {
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          const buffer = new DataView(self.inst!.exports.memory.buffer);
+          const buffer = new DataView(self.inst.exports.memory.buffer);
 
           // wasi.ts use BigInt for offset, but API use Uint64
           buffer.setBigUint64(newoffset_ptr, newoffset, true);
@@ -924,8 +919,7 @@ export class WASIFarmAnimal {
         }
         const [newoffset, ret] = wasi_farm_ref.fd_tell(mapped_fd);
         if (newoffset) {
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          const buffer = new DataView(self.inst!.exports.memory.buffer);
+          const buffer = new DataView(self.inst.exports.memory.buffer);
           buffer.setBigUint64(newoffset_ptr, newoffset, true);
         }
         return ret;
@@ -944,10 +938,8 @@ export class WASIFarmAnimal {
 
         // console.log("fd_write", fd, iovs_ptr, iovs_len, nwritten_ptr);
 
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovecs = wasi.Ciovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
         // console.log("iovecs", iovecs);
         const data = new Uint8Array(
@@ -980,8 +972,7 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_create_directory(mapped_fd, path);
       },
@@ -997,10 +988,8 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return [undefined, wasi.ERRNO_BADF];
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer = new DataView(self.inst!.exports.memory.buffer);
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer = new DataView(self.inst.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         const [filestat, ret] = wasi_farm_ref.path_filestat_get(
           mapped_fd,
@@ -1026,8 +1015,7 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return [undefined, wasi.ERRNO_BADF];
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_filestat_set_times(
           mapped_fd,
@@ -1063,8 +1051,7 @@ export class WASIFarmAnimal {
         if (wasi_farm_ref !== wasi_farm_ref_new) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const old_path = buffer8.slice(
           old_path_ptr,
           old_path_ptr + old_path_len,
@@ -1098,8 +1085,7 @@ export class WASIFarmAnimal {
           return wasi.ERRNO_BADF;
         }
         const wasi_farm_ref = self.wasi_farm_refs[wasi_farm_ref_n];
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         const [opened_fd, ret] = wasi_farm_ref.path_open(
           mapped_fd,
@@ -1118,8 +1104,7 @@ export class WASIFarmAnimal {
             opened_fd,
             wasi_farm_ref_n,
           );
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          const buffer = new DataView(self.inst!.exports.memory.buffer);
+          const buffer = new DataView(self.inst.exports.memory.buffer);
           buffer.setUint32(opened_fd_ptr, mapped_opened_fd, true);
         }
         return ret;
@@ -1137,8 +1122,7 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return [undefined, wasi.ERRNO_BADF];
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         const [buf, ret] = wasi_farm_ref.path_readlink(
           mapped_fd,
@@ -1146,8 +1130,7 @@ export class WASIFarmAnimal {
           buf_len,
         );
         if (buf) {
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          const buffer = new DataView(self.inst!.exports.memory.buffer);
+          const buffer = new DataView(self.inst.exports.memory.buffer);
           buffer.setUint32(buf_used_ptr, buf.length, true);
           buffer8.set(buf, buf_ptr);
         }
@@ -1159,8 +1142,7 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_remove_directory(mapped_fd, path);
       },
@@ -1191,8 +1173,7 @@ export class WASIFarmAnimal {
         if (wasi_farm_ref !== wasi_farm_ref_new) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const old_path = buffer8.slice(
           old_path_ptr,
           old_path_ptr + old_path_len,
@@ -1220,8 +1201,7 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const old_path = buffer8.slice(
           old_path_ptr,
           old_path_ptr + old_path_len,
@@ -1238,12 +1218,11 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
         }
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        const buffer8 = new Uint8Array(self.inst!.exports.memory.buffer);
+        const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_unlink_file(mapped_fd, path);
       },
-      poll_oneoff(_in_, _out, _nsubscriptions) {
+      poll_oneoff(_in_: unknown, _out: unknown, _nsubscriptions: unknown) {
         self.check_fds();
         throw "async io not supported";
       },
@@ -1261,14 +1240,12 @@ export class WASIFarmAnimal {
       random_get(buf: number, buf_len: number) {
         self.check_fds();
         const buffer8 = new Uint8Array(
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          self.inst!.exports.memory.buffer,
+          self.inst.exports.memory.buffer,
         ).subarray(buf, buf + buf_len);
 
         if (
           "crypto" in globalThis &&
-          // biome-ignore lint/style/noNonNullAssertion: <explanation>
-          !(self.inst!.exports.memory.buffer instanceof SharedArrayBuffer)
+          !(self.inst.exports.memory.buffer instanceof SharedArrayBuffer)
         ) {
           for (let i = 0; i < buf_len; i += 65536) {
             crypto.getRandomValues(buffer8.subarray(i, i + 65536));
@@ -1279,44 +1256,22 @@ export class WASIFarmAnimal {
           }
         }
       },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      sock_recv(_fd: number, _ri_data, _ri_flags) {
+      sock_recv(_fd: number, _ri_data: unknown, _ri_flags: unknown) {
         self.check_fds();
         throw "sockets not supported";
       },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      sock_send(_fd: number, _si_data, _si_flags) {
+      sock_send(_fd: number, _si_data: unknown, _si_flags: unknown) {
         self.check_fds();
         throw "sockets not supported";
       },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      sock_shutdown(_fd: number, _how) {
+      sock_shutdown(_fd: number, _how: unknown) {
         self.check_fds();
         throw "sockets not supported";
       },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      sock_accept(_fd: number, _flags) {
+      sock_accept(_fd: number, _flags: unknown) {
         self.check_fds();
         throw "sockets not supported";
       },
-    };
-
-    this.wasiThreadImport = {
-      "thread-spawn": (start_arg: number) => {
-        self.check_fds();
-        if (!self.can_thread_spawn || !self.thread_spawner) {
-          throw new Error("thread_spawn is not allowed");
-        }
-
-        const thread_id = self.thread_spawner.thread_spawn(
-          start_arg,
-          self.args,
-          self.env,
-          self.fd_map,
-        );
-
-        return thread_id;
-      },
-    };
+    } as const;
   }
 }

@@ -91,7 +91,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // lock base_func
   private lock_base_func(): void {
     const view = new Int32Array(this.base_func_util);
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const lock = Atomics.wait(view, 0, 1);
       if (lock === "timed-out") {
@@ -148,7 +147,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   private lock_fd(fd: number) {
     // console.log("lock_fd start", fd);
     const view = new Int32Array(this.lock_fds, fd * 12);
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const now_value = Atomics.load(view, 0);
       if (now_value !== 0) {
@@ -180,7 +178,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       return;
     }
     const view = new Int32Array(this.lock_fds);
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const now_value1 = Atomics.load(view, fd1 * 3);
       const value = Atomics.wait(view, fd1 * 3, now_value1);

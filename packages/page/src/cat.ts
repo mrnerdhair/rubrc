@@ -1,19 +1,5 @@
 import { wasi } from "@bjorn3/browser_wasi_shim";
-import type {
-  WASIFarmAnimal as BaseWASIFarmAnimal,
-  WASIFarmRef,
-} from "@oligami/browser_wasi_shim-threads";
-
-export type WASIFarmAnimal = {
-  [K in keyof BaseWASIFarmAnimal]: BaseWASIFarmAnimal[K];
-} & {
-  fd_map: BaseWASIFarmAnimal["fd_map"];
-  get_fd_and_wasi_ref: BaseWASIFarmAnimal["get_fd_and_wasi_ref"];
-  get_fd_and_wasi_ref_n: (
-    fd: number,
-  ) => [number, number] | [undefined, undefined];
-  wasi_farm_refs: WASIFarmRef[];
-};
+import type { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
 
 export const get_data = (
   path__: string,
@@ -26,7 +12,7 @@ export const get_data = (
   }
 
   // first: get opened fd dir name
-  let root_fd: number;
+  let root_fd: number | undefined = undefined;
   const dir_names: Map<number, string> = new Map();
   for (let fd = 0; fd < animal.fd_map.length; fd++) {
     const [mapped_fd, wasi_farm_ref] = animal.get_fd_and_wasi_ref(fd);
@@ -58,10 +44,12 @@ export const get_data = (
     }
   }
 
+  if (root_fd === undefined)
+    throw new Error("expected root_fd to be set by this point");
+
   console.log("dir_names", dir_names);
 
   // second: most match path
-  // @ts-expect-error
   let matched_fd = root_fd;
   let matched_dir_len = 1;
   const parts_path = path.split("/");
@@ -108,11 +96,9 @@ export const get_data = (
     0,
   );
 
-  // @ts-expect-error
-  const mapped_opened_fd = animal.map_new_fd_and_notify(
-    opened_fd,
-    wasi_farm_ref_n,
-  );
+  if (opened_fd === undefined) throw new Error(`path_open errored: ${ret}`);
+
+  animal.map_new_fd_and_notify(opened_fd, wasi_farm_ref_n);
 
   if (ret !== wasi.ERRNO_SUCCESS) {
     throw new Error("failed to open file");

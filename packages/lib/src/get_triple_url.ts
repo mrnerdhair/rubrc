@@ -1,3 +1,5 @@
+import aarch64_apple_darwin_url from "../data/sysroots/aarch64-apple-darwin.tar.br?url";
+import aarch64_pc_windows_msvc_url from "../data/sysroots/aarch64-pc-windows-msvc.tar.br?url";
 import aarch64_unknown_linux_gnu_url from "../data/sysroots/aarch64-unknown-linux-gnu.tar.br?url";
 import aarch64_unknown_linux_musl_url from "../data/sysroots/aarch64-unknown-linux-musl.tar.br?url";
 import arm_unknown_linux_gnueabi_url from "../data/sysroots/arm-unknown-linux-gnueabi.tar.br?url";
@@ -6,6 +8,8 @@ import arm_unknown_linux_musleabi_url from "../data/sysroots/arm-unknown-linux-m
 import arm_unknown_linux_musleabihf_url from "../data/sysroots/arm-unknown-linux-musleabihf.tar.br?url";
 import armv7_unknown_linux_gnueabihf_url from "../data/sysroots/armv7-unknown-linux-gnueabihf.tar.br?url";
 import i586_unknown_linux_gnu_url from "../data/sysroots/i586-unknown-linux-gnu.tar.br?url";
+import i686_pc_windows_gnu_url from "../data/sysroots/i686-pc-windows-gnu.tar.br?url";
+import i686_pc_windows_msvc_url from "../data/sysroots/i686-pc-windows-msvc.tar.br?url";
 import i686_unknown_linux_gnu_url from "../data/sysroots/i686-unknown-linux-gnu.tar.br?url";
 import i686_unknown_linux_musl_url from "../data/sysroots/i686-unknown-linux-musl.tar.br?url";
 import loongarch64_unknown_linux_gnu_url from "../data/sysroots/loongarch64-unknown-linux-gnu.tar.br?url";
@@ -21,18 +25,14 @@ import wasm32_unknown_emscripten_url from "../data/sysroots/wasm32-unknown-emscr
 import wasm32_unknown_unknown_url from "../data/sysroots/wasm32-unknown-unknown.tar.br?url";
 import wasm32_wasip1_threads_url from "../data/sysroots/wasm32-wasip1-threads.tar.br?url";
 import wasm32_wasip1_url from "../data/sysroots/wasm32-wasip1.tar?url";
+import x86_64_apple_darwin_url from "../data/sysroots/x86_64-apple-darwin.tar.br?url";
 import x86_64_pc_windows_gnu_url from "../data/sysroots/x86_64-pc-windows-gnu.tar.br?url";
+import x86_64_pc_windows_msvc_url from "../data/sysroots/x86_64-pc-windows-msvc.tar.br?url";
 import x86_64_unknown_freebsd_url from "../data/sysroots/x86_64-unknown-freebsd.tar.br?url";
 import x86_64_unknown_illumos_url from "../data/sysroots/x86_64-unknown-illumos.tar.br?url";
 import x86_64_unknown_linux_gnu_url from "../data/sysroots/x86_64-unknown-linux-gnu.tar.br?url";
 import x86_64_unknown_linux_musl_url from "../data/sysroots/x86_64-unknown-linux-musl.tar.br?url";
 import x86_64_unknown_netbsd_url from "../data/sysroots/x86_64-unknown-netbsd.tar.br?url";
-import aarch64_pc_windows_msvc_url from "../data/sysroots/aarch64-pc-windows-msvc.tar.br?url";
-import i686_pc_windows_gnu_url from "../data/sysroots/i686-pc-windows-gnu.tar.br?url";
-import i686_pc_windows_msvc_url from "../data/sysroots/i686-pc-windows-msvc.tar.br?url";
-import x86_64_pc_windows_msvc_url from "../data/sysroots/x86_64-pc-windows-msvc.tar.br?url";
-import aarch64_apple_darwin_url from "../data/sysroots/aarch64-apple-darwin.tar.br?url";
-import x86_64_apple_darwin_url from "../data/sysroots/x86_64-apple-darwin.tar.br?url";
 
 export function getTripleUrl(triple: string): string {
   switch (triple) {

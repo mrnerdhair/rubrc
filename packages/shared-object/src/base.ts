@@ -25,8 +25,7 @@ export class SharedObject {
 
   // call(
   //   name: string,
-  //   // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  //   args: any[]
+  //   args: unknown[]
   // ) {
   // }
 
@@ -66,14 +65,14 @@ export class SharedObject {
 
     const { names, args, id } = data as unknown as {
       names: Array<string>;
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      args: any[];
+      args: unknown[];
       id: string;
     };
     try {
       if (names.length === 1 && names[0] === ".self") {
-        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        const ret = (this.kept_object as any)(...args);
+        const ret = (this.kept_object as (...args: unknown[]) => unknown)(
+          ...args,
+        );
         bc.postMessage({
           msg: "func_call::return",
           ret,
@@ -85,13 +84,12 @@ export class SharedObject {
         return;
       }
 
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      let obj: any = this.kept_object;
+      let obj: unknown = this.kept_object;
       for (const name of names) {
-        obj = obj[name];
+        obj = (obj as Record<string, unknown>)[name];
       }
 
-      const ret = obj(...args);
+      const ret = (obj as (...args: unknown[]) => unknown)(...args);
 
       bc.postMessage({
         msg: "func_call::return",
@@ -119,10 +117,9 @@ export class SharedObject {
       id: string;
     };
     try {
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      let obj: any = this.kept_object;
+      let obj: unknown = this.kept_object;
       for (const name of names) {
-        obj = obj[name];
+        obj = (obj as Record<string, unknown>)[name];
       }
 
       bc.postMessage({

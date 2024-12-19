@@ -28,6 +28,12 @@
     },
     {
       "path": "./packages/page"
+    },
+    {
+      "path": "./packages/shared-object"
+    },
+    {
+      "path": "./packages/threads"
     }
   ]
 }

@@ -66,7 +66,6 @@ export class AllocatorUseArrayBuffer {
     ret_ptr: number,
   ): Promise<[number, number]> {
     const view = new Int32Array(this.share_arrays_memory);
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       let lock: "not-equal" | "timed-out" | "ok";
       const { value } = Atomics.waitAsync(view, 0, 1);
@@ -100,7 +99,6 @@ export class AllocatorUseArrayBuffer {
     // ptr, len
     ret_ptr: number,
   ): [number, number] {
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const view = new Int32Array(this.share_arrays_memory);
       const lock = Atomics.wait(view, 0, 1);
@@ -166,10 +164,11 @@ export class AllocatorUseArrayBuffer {
       const tmp = new ArrayBuffer(data.byteLength);
       new Uint32Array(tmp).set(data);
       data8 = new Uint8Array(tmp);
+    } else {
+      throw new Error("data8 used before assignment");
     }
 
-    // biome-ignore lint/style/noNonNullAssertion: <explanation>
-    view8.set(new Uint8Array(data8!), share_arrays_memory_kept);
+    view8.set(new Uint8Array(data8), share_arrays_memory_kept);
     Atomics.store(view, 2, new_memory_len);
 
     const memory_view = new Int32Array(memory);
