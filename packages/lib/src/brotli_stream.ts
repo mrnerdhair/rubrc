@@ -56,6 +56,25 @@ export const fetch_compressed_stream = async (
     throw new Error("No body in response");
   }
 
+  if (!/\.br(\?.*)?$/.test(url.toString())) {
+    return compressed_stream.body
+  }
+
+  // const full = new Uint8Array(await compressed_stream.arrayBuffer());
+
+  // const foo = await get_brotli_decompress_stream();
+  // const bar = foo.writable.getWriter();
+  // const baz = new Response(foo.readable).arrayBuffer();
+  // await bar.write(full);
+  // await bar.close();
+  // const done: Uint8Array = new Uint8Array(await baz);
+  // return new ReadableStream({
+  //   start(controller) {
+  //     controller.enqueue(done)
+  //     controller.close()
+  //   },
+  // })
+
   return compressed_stream.body.pipeThrough(
     await get_brotli_decompress_stream(),
   );
