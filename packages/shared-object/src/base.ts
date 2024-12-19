@@ -67,10 +67,10 @@ export class SharedObject {
     const bc = this.bc;
 
     const { names, args, id } = data as unknown as {
-      names: Array<string>,
+      names: Array<string>;
       // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      args: any[],
-      id: string,
+      args: any[];
+      id: string;
     };
     try {
       if (names.length === 1 && names[0] === ".self") {
@@ -117,8 +117,8 @@ export class SharedObject {
     const bc = this.bc;
 
     const { names, id } = data as unknown as {
-      names: Array<string>,
-      id: string,
+      names: Array<string>;
+      id: string;
     };
     try {
       // biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -133,7 +133,7 @@ export class SharedObject {
         id,
         from: this.id,
         to: data.from,
-        can_post: true
+        can_post: true,
       });
     } catch (e) {
       if ((e as { name: string }).name === "DataCloneError") {
@@ -143,7 +143,7 @@ export class SharedObject {
           id,
           from: this.id,
           to: data.from,
-          can_post: false
+          can_post: false,
         });
 
         return;
@@ -155,7 +155,7 @@ export class SharedObject {
         id,
         from: this.id,
         to: data.from,
-        can_post: false
+        can_post: false,
       });
     }
   }
