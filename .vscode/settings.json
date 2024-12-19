@@ -1,6 +1,5 @@
 {
   "editor.tabSize": 2,
-  "prettier.enable": false,
-  "cSpell.words": ["nanotar", "Preopen", "rustc", "rustlib", "wasip"],
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }
