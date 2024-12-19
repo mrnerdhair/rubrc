@@ -177,7 +177,7 @@ const XTerm = ({
     const newTerminal = new Terminal(options);
     newTerminal.open(terminalContainerRef);
 
-    for (let addon of addons) {
+    for (const addon of addons) {
       if (typeof addon === "function") {
         newTerminal?.loadAddon(new addon());
       } else {
