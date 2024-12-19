@@ -16,7 +16,7 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "paths": {
-      "@oligami/rustc-browser-wasi_shim": ["./packages/lib/dist/*"]
+      "@oligami/rustc-browser-wasi_shim": ["./packages/lib/src/*"]
     }
   },
   "include": [],
