@@ -1,0 +1,16 @@
+{
+  "name": "@oligami/shared-object",
+  "private": true,
+  "author": "oligami <nziq53@gmail.com> (https://github.com/oligamiq)",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "clean": "tsc --build --clean && rimraf dist",
+    "build": "tsc --build --verbose"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.2"
+  }
+}
