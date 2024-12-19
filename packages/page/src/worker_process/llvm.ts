@@ -1,5 +1,5 @@
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
+import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import type { Ctx } from "../ctx";
 
 const shared: SharedObject[] = [];
@@ -26,8 +26,8 @@ globalThis.addEventListener("message", async (event) => {
   await ready_llvm_wasm(wasi_refs, ctx);
 });
 
-import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import { strace } from "@bjorn3/browser_wasi_shim";
+import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import type { WASIFarmRefObject } from "./rustc";
 let linker: WebAssembly.Instance & {
   exports: { memory: WebAssembly.Memory; _start: () => unknown };

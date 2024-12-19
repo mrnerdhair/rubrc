@@ -1,8 +1,8 @@
 import {
+  Directory,
+  File,
   type Inode,
   PreopenDirectory,
-  File,
-  Directory,
 } from "@bjorn3/browser_wasi_shim";
 import { WASIFarm } from "@oligami/browser_wasi_shim-threads";
 

@@ -1,12 +1,12 @@
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
+import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
+import {
+  type WASIFarmAnimal as LoosenedWASIFarmAnimal,
+  get_data as base_get_data,
+} from "../cat";
 import type { Ctx } from "../ctx";
 import lsr from "../wasm/lsr.wasm?url";
 import tre from "../wasm/tre.wasm?url";
-import {
-  get_data as base_get_data,
-  type WASIFarmAnimal as LoosenedWASIFarmAnimal,
-} from "../cat";
 import type { WASIFarmRefObject } from "./rustc";
 
 const shared: SharedObject[] = [];

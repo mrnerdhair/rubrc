@@ -1,16 +1,16 @@
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
-import { FitAddon } from "@xterm/addon-fit";
-import type { Terminal } from "@xterm/xterm";
-import XTerm from "./solid_xterm";
-import { WASIFarm, type WASIFarmRef } from "@oligami/browser_wasi_shim-threads";
 import {
   Directory,
   Fd,
   type Inode,
   PreopenDirectory,
 } from "@bjorn3/browser_wasi_shim";
-import type { Ctx } from "./ctx";
+import { WASIFarm, type WASIFarmRef } from "@oligami/browser_wasi_shim-threads";
+import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
+import { FitAddon } from "@xterm/addon-fit";
+import type { Terminal } from "@xterm/xterm";
 import { rust_file } from "./config";
+import type { Ctx } from "./ctx";
+import XTerm from "./solid_xterm";
 
 let error_buff = "";
 let out_buff = "";
