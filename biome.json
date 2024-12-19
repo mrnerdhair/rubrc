@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": []
+    "ignore": ["packages/lib/dist", "packages/page/dist"]
   },
   "formatter": {
     "enabled": true,
