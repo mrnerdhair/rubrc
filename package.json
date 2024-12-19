@@ -15,7 +15,7 @@
   },
   "workspaces": ["packages/*"],
   "scripts": {
-    "clean": "npm run --workspaces clean",
+    "clean": "npm run --workspaces clean && rimraf node_modules",
     "build": "npm run --workspaces build",
     "fmt": "npx @biomejs/biome format --write .",
     "check": "npx @biomejs/biome check && tsc --build --verbose --noEmit",
