@@ -228,7 +228,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     Atomics.store(lock_view, 0, 0);
     Atomics.store(lock_view, 1, 0);
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         let lock: "not-equal" | "timed-out" | "ok";
@@ -319,7 +318,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     Atomics.store(lock_view, 1, 0);
     Atomics.store(func_sig_view_i32, errno_offset, -1);
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         let lock: "not-equal" | "timed-out" | "ok";

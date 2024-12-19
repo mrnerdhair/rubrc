@@ -309,9 +309,9 @@ export abstract class WASIFarmPark {
       let buf_used = 0;
       let offset = 0;
 
-      // eslint-disable-next-line no-constant-condition
+      let current_cookie = cookie;
       while (true) {
-        const { ret, dirent } = this.fds[fd].fd_readdir_single(cookie);
+        const { ret, dirent } = this.fds[fd].fd_readdir_single(current_cookie);
         if (ret !== wasi.ERRNO_SUCCESS) {
           return [[array, buf_used], ret];
         }
@@ -344,8 +344,7 @@ export abstract class WASIFarmPark {
         offset += dirent.name_length();
         buf_used += dirent.name_length();
 
-        // biome-ignore lint/style/noParameterAssign: <explanation>
-        cookie = dirent.d_next;
+        current_cookie = dirent.d_next;
       }
 
       return [[array, buf_used], wasi.ERRNO_SUCCESS];
@@ -554,7 +553,6 @@ export abstract class WASIFarmPark {
     new_path: string,
   ): number {
     if (this.fds[old_fd] !== undefined && this.fds[new_fd] !== undefined) {
-      // eslint-disable-next-line prefer-const
       let { ret, inode_obj } = this.fds[old_fd].path_unlink(old_path);
       if (inode_obj == null) {
         return ret;

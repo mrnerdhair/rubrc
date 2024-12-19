@@ -154,7 +154,7 @@ export abstract class WASIFarmRef {
     new_path: Uint8Array,
   ): number;
   abstract path_open(
-    fd: number | undefined,
+    fd: number,
     dirflags: number,
     path: Uint8Array,
     oflags: number,

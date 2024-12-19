@@ -57,7 +57,7 @@ export const fetch_compressed_stream = async (
   }
 
   if (!/\.br(\?.*)?$/.test(url.toString())) {
-    return compressed_stream.body
+    return compressed_stream.body;
   }
 
   // const full = new Uint8Array(await compressed_stream.arrayBuffer());
