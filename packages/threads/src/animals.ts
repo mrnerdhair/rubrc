@@ -875,7 +875,7 @@ export class WASIFarmAnimal {
 
         self.fd_map[to] = self.fd_map[fd];
 
-        (self.fd_map as Array<[number, number] | undefined>)[fd] = undefined;
+        self.fd_map[fd] = undefined;
 
         return wasi.ERRNO_SUCCESS;
       },

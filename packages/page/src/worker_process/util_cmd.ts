@@ -1,5 +1,6 @@
 import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
+import { as_wasi_p1_cmd } from "rubrc-util";
 import { get_data } from "../cat";
 import type { Ctx } from "../ctx";
 import lsr from "../wasm/lsr.wasm?url";
@@ -39,11 +40,11 @@ globalThis.addEventListener("message", async (event) => {
     [], // env
   );
 
-  const ls_inst = (await WebAssembly.instantiate(ls_wasm, {
-    wasi_snapshot_preview1: ls_wasi.wasiImport,
-  })) as unknown as {
-    exports: { memory: WebAssembly.Memory; _start: () => unknown };
-  };
+  const ls_inst = as_wasi_p1_cmd(
+    await WebAssembly.instantiate(ls_wasm, {
+      wasi_snapshot_preview1: ls_wasi.wasiImport,
+    }),
+  );
 
   const ls_memory_reset = ls_inst.exports.memory.buffer;
   const ls_memory_reset_view = new Uint8Array(ls_memory_reset).slice();
@@ -68,11 +69,11 @@ globalThis.addEventListener("message", async (event) => {
     [], // env
   );
 
-  const tree_inst = (await WebAssembly.instantiate(tree_wasm, {
-    wasi_snapshot_preview1: tree_wasi.wasiImport,
-  })) as unknown as {
-    exports: { memory: WebAssembly.Memory; _start: () => unknown };
-  };
+  const tree_inst = as_wasi_p1_cmd(
+    await WebAssembly.instantiate(tree_wasm, {
+      wasi_snapshot_preview1: tree_wasi.wasiImport,
+    }),
+  );
 
   console.log("tree_inst", tree_inst);
 
@@ -107,11 +108,11 @@ globalThis.addEventListener("message", async (event) => {
         try {
           const file = get_data(exec_file, animal);
           const compiled_wasm = await WebAssembly.compile(file);
-          const inst = (await WebAssembly.instantiate(compiled_wasm, {
-            wasi_snapshot_preview1: animal.wasiImport,
-          })) as unknown as {
-            exports: { memory: WebAssembly.Memory; _start: () => unknown };
-          };
+          const inst = as_wasi_p1_cmd(
+            await WebAssembly.instantiate(compiled_wasm, {
+              wasi_snapshot_preview1: animal.wasiImport,
+            }),
+          );
           animal.args = [exec_file, ...exec_args];
           animal.start(inst);
         } catch (e) {

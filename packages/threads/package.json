@@ -1,6 +1,6 @@
 {
   "name": "@oligami/browser_wasi_shim-threads",
-  "version": "0.1.1",
+  "version": "1.1.1",
   "private": true,
   "author": "oligami <nziq53@gmail.com> (https://github.com/oligamiq)",
   "license": "MIT OR Apache-2.0",
@@ -13,7 +13,8 @@
     "worker-minified": "spack --config ./src/shared_array_buffer/worker_background/spack.config.cjs && node src/shared_array_buffer/worker_background/minify.js"
   },
   "dependencies": {
-    "@bjorn3/browser_wasi_shim": "^0.3.0"
+    "@bjorn3/browser_wasi_shim": "^0.3.0",
+    "rubrc-util": "*"
   },
   "peerDependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0"
