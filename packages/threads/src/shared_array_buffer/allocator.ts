@@ -1,4 +1,3 @@
-// @ts-ignore
 // import { debug } from "../../debug.js";
 // import "../polyfill.js";
 
