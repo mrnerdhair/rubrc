@@ -1,4 +1,4 @@
 import { get_wasm } from "./get_wasm";
+import rustc_opt_wasm_br_url from "../data/rustc_opt.wasm.br?url";
 
-export const get_rustc_wasm = () =>
-  get_wasm("https://oligamiq.github.io/rust_wasm/v0.2.0/rustc_opt.wasm.br");
+export const get_rustc_wasm = () => get_wasm(rustc_opt_wasm_br_url);

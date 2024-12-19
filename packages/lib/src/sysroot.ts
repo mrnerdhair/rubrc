@@ -8,10 +8,11 @@ import { WASIFarm } from "@oligami/browser_wasi_shim-threads";
 
 import { fetch_compressed_stream } from "./brotli_stream";
 import { parseTar } from "./parse_tar";
+import { getTripleUrl } from "./get_triple_url";
 
 export const load_sysroot_part = async (triple: string): Promise<Directory> => {
   const decompressed_stream = await fetch_compressed_stream(
-    `https://oligamiq.github.io/rust_wasm/v0.2.0/${triple}.tar.br`,
+    getTripleUrl(triple),
   );
 
   const dir = new Map<string, Inode>();
