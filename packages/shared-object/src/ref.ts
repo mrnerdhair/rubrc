@@ -32,7 +32,7 @@ export class SharedObjectRef {
       get: (_, prop) => {
         // console.log("props:", prop);
 
-        return this.get([prop as string]);
+        return this.get([prop]);
       },
       apply: (_, __, args) => {
         // console.log("apply:", thisArg, args);
@@ -108,7 +108,7 @@ export class SharedObjectRef {
     }
   }
 
-  get(names: Array<string>): Promise<unknown> {
+  get(names: Array<string | symbol>): Promise<unknown> {
     const { promise, resolve } = Promise.withResolvers();
 
     const id = this.get_id();
@@ -155,7 +155,7 @@ export class SharedObjectRef {
             }
             // console.log("inner: props:", prop);
 
-            return this.get([...names, prop as string]);
+            return this.get([...names, prop]);
           },
           apply: (_, __, args) => {
             // console.log("inner: apply:", args);
@@ -178,7 +178,7 @@ export class SharedObjectRef {
         }
         // console.log("props:", prop);
 
-        return this.get([...names, prop as string]);
+        return this.get([...names, prop]);
       },
       apply: (_, __, args) => {
         // console.log("apply:", args);
@@ -190,7 +190,7 @@ export class SharedObjectRef {
     return proxy as unknown as Promise<unknown>;
   }
 
-  async call(names: Array<string>, args: unknown[]): Promise<unknown> {
+  async call(names: Array<string | symbol>, args: unknown[]): Promise<unknown> {
     const { promise, resolve } = Promise.withResolvers();
 
     const id = this.get_id();

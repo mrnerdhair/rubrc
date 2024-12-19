@@ -28,6 +28,8 @@ globalThis.addEventListener("message", async (event) => {
 
 import { strace } from "@bjorn3/browser_wasi_shim";
 import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
+import { as_wasi_p1_cmd } from "rubrc-util";
+
 import type { WASIFarmRefObject } from "./rustc";
 let linker: WebAssembly.Instance & {
   exports: { memory: WebAssembly.Memory; _start: () => unknown };
@@ -52,11 +54,11 @@ const ready_llvm_wasm = async (wasi_refs: WASIFarmRefObject[], ctx: Ctx) => {
     // },
   );
 
-  linker = (await WebAssembly.instantiate(linker_wasm, {
-    wasi_snapshot_preview1: strace(wasi.wasiImport, []),
-  })) as unknown as {
-    exports: { memory: WebAssembly.Memory; _start: () => unknown };
-  };
+  linker = as_wasi_p1_cmd(
+    await WebAssembly.instantiate(linker_wasm, {
+      wasi_snapshot_preview1: strace(wasi.wasiImport, []),
+    }),
+  );
 
   const memory_reset = linker.exports.memory.buffer;
   const memory_reset_view = new Uint8Array(memory_reset).slice();
