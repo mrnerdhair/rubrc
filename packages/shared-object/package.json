@@ -10,6 +10,7 @@
     "build": "tsc --build --verbose"
   },
   "devDependencies": {
+    "@types/serviceworker": "^0.0.107",
     "rimraf": "*",
     "typescript": "*"
   }

@@ -11,4 +11,4 @@
 const workerThis: ServiceWorkerGlobalScope =
   globalThis as unknown as ServiceWorkerGlobalScope;
 
-workerThis.onmessage = (event) => {};
+workerThis.onmessage = (_event) => {};
