@@ -7,7 +7,7 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "clean": "tsc --build --clean && rimraf dist",
+    "clean": "tsc --build --clean && rimraf dist node_modules",
     "build": "npm run worker && tsc --build --verbose",
     "worker": "spack --config ./src/shared_array_buffer/worker_background/spack.config.cjs",
     "worker-minified": "spack --config ./src/shared_array_buffer/worker_background/spack.config.cjs && node src/shared_array_buffer/worker_background/minify.js"

@@ -6,7 +6,7 @@
   "license": "MIT OR Apache-2.0",
   "type": "module",
   "scripts": {
-    "clean": "rimraf dist",
+    "clean": "rimraf dist node_modules",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
