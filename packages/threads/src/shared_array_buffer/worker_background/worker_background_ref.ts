@@ -22,7 +22,6 @@ export class WorkerBackgroundRef {
 
   private block_lock_base_func(): void {
     const view = new Int32Array(this.lock);
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const lock = Atomics.wait(view, 0, 1);
       if (lock === "timed-out") {
@@ -38,7 +37,6 @@ export class WorkerBackgroundRef {
 
   private async async_lock_base_func(): Promise<void> {
     const view = new Int32Array(this.lock);
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       let value: "timed-out" | "not-equal" | "ok";
       const { value: _value } = Atomics.waitAsync(view, 0, 1);

@@ -1,22 +1,12 @@
 import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
-import {
-  type WASIFarmAnimal as LoosenedWASIFarmAnimal,
-  get_data as base_get_data,
-} from "../cat";
+import { get_data } from "../cat";
 import type { Ctx } from "../ctx";
 import lsr from "../wasm/lsr.wasm?url";
 import tre from "../wasm/tre.wasm?url";
 import type { WASIFarmRefObject } from "./rustc";
 
 const shared: SharedObject[] = [];
-
-const get_data = (path: string, animal: WASIFarmAnimal) =>
-  base_get_data(
-    path,
-    ((x: WASIFarmAnimal): LoosenedWASIFarmAnimal =>
-      x as unknown as LoosenedWASIFarmAnimal)(animal),
-  );
 
 globalThis.addEventListener("message", async (event) => {
   const {

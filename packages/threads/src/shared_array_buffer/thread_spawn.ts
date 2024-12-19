@@ -279,7 +279,7 @@ export class ThreadSpawner {
 // issue: the fd passed to the child process is different from the parent process.
 export const thread_spawn_on_worker = async (msg: {
   this_is_thread_spawn: boolean;
-  worker_id?: number;
+  worker_id: number;
   start_arg: number;
   worker_background_ref: WorkerBackgroundRefObject;
   sl_object: ThreadSpawnerObject;
@@ -305,15 +305,13 @@ export const thread_spawn_on_worker = async (msg: {
 
     // Possibly null (undefined)
     for (const fd_and_wasi_ref_n of fd_map) {
-      // biome-ignore lint/suspicious/noDoubleEquals: <explanation>
-      if (fd_and_wasi_ref_n == undefined) {
-        continue;
+      if ((fd_and_wasi_ref_n ?? undefined) !== undefined) {
+        const [fd, wasi_ref_n] = fd_and_wasi_ref_n;
+        if (override_fd_map[wasi_ref_n] === undefined) {
+          override_fd_map[wasi_ref_n] = [];
+        }
+        override_fd_map[wasi_ref_n].push(fd);
       }
-      const [fd, wasi_ref_n] = fd_and_wasi_ref_n;
-      if (override_fd_map[wasi_ref_n] === undefined) {
-        override_fd_map[wasi_ref_n] = [];
-      }
-      override_fd_map[wasi_ref_n].push(fd);
     }
 
     const thread_spawner = ThreadSpawner.init_self_with_worker_background_ref(
@@ -405,8 +403,7 @@ export const thread_spawn_on_worker = async (msg: {
             wasi_thread_start: (thread_id: number, start_arg: number) => void;
           };
         },
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
-        thread_id!,
+        thread_id,
         start_arg,
       );
     } catch (e) {

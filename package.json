@@ -19,11 +19,13 @@
     "build": "npm run --workspaces build",
     "fmt": "npx @biomejs/biome format --write .",
     "check": "npx @biomejs/biome check && tsc --build --verbose --noEmit",
+    "check-fix": "npx @biomejs/biome check --fix && tsc --build --verbose --noEmit",
     "lint": "npx @biomejs/biome lint .",
     "dev": "npm run --workspace=rubrc dev"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "better-typescript-lib": "^2.10.0",
     "typescript": "^5.7.2"
   }
 }

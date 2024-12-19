@@ -4,7 +4,10 @@ import {
   type Inode,
   PreopenDirectory,
 } from "@bjorn3/browser_wasi_shim";
-import { WASIFarm, type WASIFarmRef } from "@oligami/browser_wasi_shim-threads";
+import {
+  WASIFarm,
+  type WASIFarmRefObject,
+} from "@oligami/browser_wasi_shim-threads";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
@@ -17,7 +20,7 @@ let out_buff = "";
 
 export const SetupMyTerminal = (props: {
   ctx: Ctx;
-  callback: (wasi_ref: WASIFarmRef) => void;
+  callback: (wasi_ref: WASIFarmRefObject) => void;
 }) => {
   let xterm: Terminal | undefined = undefined;
 
@@ -68,8 +71,7 @@ export const SetupMyTerminal = (props: {
   let cmd_parser: (...args: string[]) => void;
 
   let before_cmd = "";
-  // @ts-expect-error
-  const on_enter = async (terminal) => {
+  const on_enter = async (terminal: Terminal) => {
     before_cmd = keys;
     terminal.write("\r\n");
     if (await waiter.is_all_done()) {
@@ -85,8 +87,7 @@ export const SetupMyTerminal = (props: {
   };
   const keydown = (
     event: { key: string; domEvent: KeyboardEvent },
-    // @ts-expect-error
-    terminal,
+    terminal: Terminal,
   ) => {
     if (event.key === "\r") {
       terminal.write("\r\n");
@@ -130,8 +131,7 @@ export const SetupMyTerminal = (props: {
   );
 };
 
-// @ts-expect-error
-const get_ref = (term, callback) => {
+const get_ref = (term: Terminal, callback: (x: WASIFarmRefObject) => void) => {
   class XtermStdio extends Fd {
     term: Terminal;
 
