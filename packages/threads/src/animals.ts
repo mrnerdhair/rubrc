@@ -1,11 +1,11 @@
 import { WASIProcExit } from "@bjorn3/browser_wasi_shim";
+import { wasi } from "@bjorn3/browser_wasi_shim";
 import type { WASIFarmRef } from "./ref.js";
 import type { WASIFarmRefObject } from "./ref.js";
 import type { FdCloseSender } from "./sender.js";
 import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer/index.js";
 import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/index.js";
 import { ThreadSpawner } from "./shared_array_buffer/index.js";
-import { wasi } from "@bjorn3/browser_wasi_shim";
 
 export class WASIFarmAnimal {
   args: Array<string>;

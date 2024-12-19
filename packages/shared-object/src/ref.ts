@@ -9,7 +9,7 @@
 import type { Msg } from "./mod";
 
 export class SharedObjectRef {
-  private room_id: string
+  private room_id: string;
   private id: string;
   private map: Map<string, (value?: unknown) => void> = new Map();
   private bc: BroadcastChannel;
@@ -28,7 +28,7 @@ export class SharedObjectRef {
   }
 
   proxy<T>() {
-    return new Proxy(() => { }, {
+    return new Proxy(() => {}, {
       get: (_, prop) => {
         // console.log("props:", prop);
 
@@ -37,7 +37,7 @@ export class SharedObjectRef {
       apply: (_, __, args) => {
         // console.log("apply:", thisArg, args);
         return this.call([".self"], args);
-      }
+      },
     }) as T;
   }
 
@@ -88,7 +88,7 @@ export class SharedObjectRef {
           throw new Error("what happened? unreachable code");
         }
       }
-    }
+    };
   }
 
   private get_id() {
@@ -96,13 +96,15 @@ export class SharedObjectRef {
   }
 
   private check_msg_error(data: {
-    msg: string,
+    msg: string;
   }) {
     if (data.msg.endsWith("::error")) {
-      throw (data as {
-        msg: string,
-        error: Error
-      }).error;
+      throw (
+        data as {
+          msg: string;
+          error: Error;
+        }
+      ).error;
     }
   }
 
@@ -118,32 +120,34 @@ export class SharedObjectRef {
       names,
       id,
       from: this.id,
-      to: "parent"
+      to: "parent",
     });
 
     let is_await = false;
 
     const hook = async () => {
-      const data = await promise as Msg;
+      const data = (await promise) as Msg;
 
       this.check_msg_error(data);
 
       if (data.msg === "get::return" || data.msg === "get::data_clone_error") {
         if (is_await) {
-          console.warn("Warning!\nObjects that cannot be transferred are being retrieved.");
+          console.warn(
+            "Warning!\nObjects that cannot be transferred are being retrieved.",
+          );
         }
 
         const ret = data as unknown as {
-          msg: string,
+          msg: string;
           // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-          ret: any,
-          can_post: boolean
+          ret: any;
+          can_post: boolean;
         };
 
         if (ret.can_post) {
           return ret.ret;
         }
-        return new Proxy(() => { }, {
+        return new Proxy(() => {}, {
           get: (_, prop) => {
             if (prop === "then") {
               is_await = true;
@@ -158,16 +162,16 @@ export class SharedObjectRef {
             // console.log("inner: apply:", args);
 
             return this.call(names, args);
-          }
+          },
         });
       }
 
       throw new Error("what happened? unreachable code");
-    }
+    };
 
     const target = hook();
 
-    const proxy = new Proxy(() => { }, {
+    const proxy = new Proxy(() => {}, {
       get: (_, prop) => {
         if (prop === "then") {
           is_await = true;
@@ -181,7 +185,7 @@ export class SharedObjectRef {
         // console.log("apply:", args);
 
         return this.call(names, args);
-      }
+      },
     });
 
     return proxy as unknown as Promise<unknown>;
@@ -189,7 +193,7 @@ export class SharedObjectRef {
 
   async call(
     names: Array<string>,
-    args: unknown[]
+    args: unknown[],
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   ): Promise<any> {
     const { promise, resolve } = Promise.withResolvers();
@@ -205,28 +209,28 @@ export class SharedObjectRef {
       id,
     });
 
-    const data = await promise as Msg;
+    const data = (await promise) as Msg;
 
     this.check_msg_error(data);
 
     if (data.msg === "func_call::return") {
-      return (data as unknown as {
-        msg: string,
-        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        ret: any
-      }).ret;
+      return (
+        data as unknown as {
+          msg: string;
+          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+          ret: any;
+        }
+      ).ret;
     }
 
     throw new Error("what happened? unreachable code");
   }
 
-  async call_callback(
-    msg: Msg
-  ) {
+  async call_callback(msg: Msg) {
     const { name, args, id } = msg as unknown as {
-      name: string,
-      args: unknown[],
-      id: string
+      name: string;
+      args: unknown[];
+      id: string;
     };
 
     try {
@@ -270,9 +274,9 @@ export class SharedObjectRef {
   }
 
   private postMessage(data: {
-    msg: string,
-    id: string,
-    [key: string]: unknown
+    msg: string;
+    id: string;
+    [key: string]: unknown;
   }) {
     this.bc.postMessage({
       ...data,
