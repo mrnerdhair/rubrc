@@ -1,4 +1,4 @@
-import type { WASIFarmRef } from "@oligami/browser_wasi_shim-threads";
+import type { WASIFarmRefObject } from "@oligami/browser_wasi_shim-threads";
 import { Suspense, createSignal, lazy } from "solid-js";
 import { DownloadButton, RunButton } from "./btn";
 import { default_value, rust_file } from "./config";
@@ -22,19 +22,16 @@ const MonacoEditor = lazy(() =>
 
 const App = (props: {
   ctx: Ctx;
-  callback: (wasi_ref: WASIFarmRef) => void;
+  callback: (wasi_ref: WASIFarmRefObject) => void;
 }) => {
-  // @ts-expect-error
-  const handleMount = (_monaco, _editor) => {
+  const handleMount = (_monaco: unknown, _editor: unknown) => {
     // Use monaco and editor instances here
   };
-  // @ts-expect-error
-  const handleEditorChange = (value) => {
+  const handleEditorChange = (value: string) => {
     // Handle editor value change
     rust_file.data = new TextEncoder().encode(value);
   };
-  // @ts-expect-error
-  let load_additional_sysroot: (string) => void;
+  let load_additional_sysroot: (value: string) => void;
 
   const [triple, setTriple] = createSignal("wasm32-wasip1");
 

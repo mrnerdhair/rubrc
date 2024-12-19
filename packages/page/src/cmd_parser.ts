@@ -1,8 +1,6 @@
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import type { Ctx } from "./ctx";
 
-// @ts-expect-error
-let waiter: SharedObject;
 let is_all_done = false;
 let is_cmd_run_end = true;
 let end_of_exec = false;
@@ -19,21 +17,10 @@ export const parser_setup = async (ctx: Ctx) => {
 
   const resolvers: PromiseWithResolvers<void>[] = [];
   for (let i = 0; i < n; i++) {
-    resolvers.push(
-      (() => {
-        let resolve: () => void;
-        let reject: (reason?: unknown) => void;
-        const promise = new Promise<void>((res, rej) => {
-          resolve = res;
-          reject = rej;
-        });
-        // biome-ignore lint/style/noNonNullAssertion: both set in promise constructor
-        return { promise, resolve: resolve!, reject: reject! };
-      })(),
-    );
+    resolvers.push(Promise.withResolvers<void>());
   }
 
-  waiter = new SharedObject(
+  new SharedObject(
     {
       rustc: () => {
         resolvers[0].resolve();
