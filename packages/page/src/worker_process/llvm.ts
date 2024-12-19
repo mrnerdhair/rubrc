@@ -34,10 +34,7 @@ let linker: WebAssembly.Instance & {
 };
 let wasi: WASIFarmAnimal;
 
-const ready_llvm_wasm = async (
-  wasi_refs: WASIFarmRefObject[],
-  ctx: Ctx,
-) => {
+const ready_llvm_wasm = async (wasi_refs: WASIFarmRefObject[], ctx: Ctx) => {
   const linker_wasm = await get_llvm_wasm();
 
   console.log("linker_wasm", linker_wasm);
@@ -47,11 +44,11 @@ const ready_llvm_wasm = async (
     ["llvm"], // args
     [], // env
     // {
-      // debug: true,
-      // can_thread_spawn: true,
-      // thread_spawn_worker_url: new URL(thread_spawn_path, import.meta.url)
-      //   .href,
-      // thread_spawn_wasm: linker,
+    // debug: true,
+    // can_thread_spawn: true,
+    // thread_spawn_worker_url: new URL(thread_spawn_path, import.meta.url)
+    //   .href,
+    // thread_spawn_wasm: linker,
     // },
   );
 

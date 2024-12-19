@@ -5,7 +5,10 @@ import type { Ctx } from "../ctx";
 
 import thread_spawn_path from "./thread_spawn.ts?worker&url";
 
-export type WASIFarmRefObject = Extract<ConstructorParameters<typeof WASIFarmAnimal>[0], unknown[]>[number];
+export type WASIFarmRefObject = Extract<
+  ConstructorParameters<typeof WASIFarmAnimal>[0],
+  unknown[]
+>[number];
 
 let terminal: (x: string) => void;
 let compiler: WebAssembly.Module;
