@@ -1,17 +1,14 @@
 {
-  "name": "@oligami/shared-object",
+  "name": "rubrc-util",
   "version": "1.1.1",
   "private": true,
-  "author": "oligami <nziq53@gmail.com> (https://github.com/oligamiq)",
-  "license": "MIT",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./src/index.ts",
   "scripts": {
     "clean": "tsc --build --clean && rimraf dist",
     "build": "tsc --build --verbose"
   },
   "devDependencies": {
-    "@types/serviceworker": "^0.0.107",
     "better-typescript-lib": "*",
     "rimraf": "*",
     "typescript": "*"

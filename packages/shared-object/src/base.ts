@@ -131,7 +131,12 @@ export class SharedObject {
         can_post: true,
       });
     } catch (e) {
-      if ((e as { name: string }).name === "DataCloneError") {
+      if (
+        e &&
+        typeof e === "object" &&
+        "name" in e &&
+        e.name === "DataCloneError"
+      ) {
         bc.postMessage({
           msg: "get::data_clone_error",
           error: e,
