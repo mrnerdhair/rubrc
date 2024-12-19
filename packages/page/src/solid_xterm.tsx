@@ -12,7 +12,9 @@ import "@xterm/xterm/css/xterm.css";
 
 export type OnMountCleanup = () => void | (() => Promise<void>) | undefined;
 
-export type ITerminalAddonConstructor = new (...args: unknown[]) => ITerminalAddon;
+export type ITerminalAddonConstructor = new (
+  ...args: unknown[]
+) => ITerminalAddon;
 export interface XTermProps {
   /**
    * The CSS classes that will be applied to the terminal container.

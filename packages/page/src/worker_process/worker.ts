@@ -59,10 +59,7 @@ globalThis.addEventListener("message", async (event) => {
 import util_cmd_worker from "./util_cmd?worker";
 import run_llvm_worker from "./llvm?worker";
 
-const setup_util_worker = (
-  wasi_refs: WASIFarmRefObject[],
-  ctx: Ctx,
-) => {
+const setup_util_worker = (wasi_refs: WASIFarmRefObject[], ctx: Ctx) => {
   const util_worker = new util_cmd_worker();
   const llvm_worker = new run_llvm_worker();
 
@@ -75,4 +72,4 @@ const setup_util_worker = (
     wasi_refs,
     ctx,
   });
-}
+};

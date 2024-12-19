@@ -9,24 +9,26 @@ let end_of_exec = false;
 let is_rustc_fetch_end = false;
 
 type PromiseWithResolvers<T> = {
-  promise: Promise<T>,
-  resolve: (result: T | PromiseLike<T>) => void,
-  reject: (reason?: unknown) => void,
-}
+  promise: Promise<T>;
+  resolve: (result: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+};
 
 export const parser_setup = async (ctx: Ctx) => {
   const n = 1;
 
   const resolvers: PromiseWithResolvers<void>[] = [];
   for (let i = 0; i < n; i++) {
-    resolvers.push((() => {
-      let resolve: () => void, reject: (reason?: unknown) => void;
-      const promise = new Promise<void>((res, rej) => {
-        resolve = res;
-        reject = rej;
-      });
-      return { promise, resolve: resolve!, reject: reject! };
-    })());
+    resolvers.push(
+      (() => {
+        let resolve: () => void, reject: (reason?: unknown) => void;
+        const promise = new Promise<void>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        return { promise, resolve: resolve!, reject: reject! };
+      })(),
+    );
   }
 
   waiter = new SharedObject(
@@ -93,7 +95,32 @@ const all_done = async (ctx: Ctx) => {
 
       console.log(cmd);
 
-      const llvm_tools = ["symbolizer", "addr2line", "size", "objdump", "otool", "objcopy", "install-name-tool", "bitcode-strip", "strip", "cxxfilt", "c++filt", "ar", "ranlib", "lib", "dlltool", "lld", "lld-link", "ld.lld", "ld64.lld", "wasm-ld", "ld", "clang", "clang", "clang++"];
+      const llvm_tools = [
+        "symbolizer",
+        "addr2line",
+        "size",
+        "objdump",
+        "otool",
+        "objcopy",
+        "install-name-tool",
+        "bitcode-strip",
+        "strip",
+        "cxxfilt",
+        "c++filt",
+        "ar",
+        "ranlib",
+        "lib",
+        "dlltool",
+        "lld",
+        "lld-link",
+        "ld.lld",
+        "ld64.lld",
+        "wasm-ld",
+        "ld",
+        "clang",
+        "clang",
+        "clang++",
+      ];
 
       if (cmd === "rustc") {
         console.log("rustc");
@@ -143,8 +170,19 @@ const all_done = async (ctx: Ctx) => {
           await new Promise<void>((resolve) => setTimeout(resolve, 100));
         }
       } else {
-        const cmd_list = ["rustc", "clang", "llvm", "echo", "ls", "tree", "download", ...llvm_tools];
-        await terminal(`command not found: ${cmd}\r\navailable commands: ${cmd_list.join(", ")}\r\n`);
+        const cmd_list = [
+          "rustc",
+          "clang",
+          "llvm",
+          "echo",
+          "ls",
+          "tree",
+          "download",
+          ...llvm_tools,
+        ];
+        await terminal(
+          `command not found: ${cmd}\r\navailable commands: ${cmd_list.join(", ")}\r\n`,
+        );
       }
       await terminal(">");
       is_cmd_run_end = true;

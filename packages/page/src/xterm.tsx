@@ -45,7 +45,7 @@ export const SetupMyTerminal = (props: {
   write_terminal.reset_out_buff = () => {
     out_buff = "";
   };
-  
+
   // shared_xterm
   new SharedObject(write_terminal, props.ctx.terminal_id);
 
