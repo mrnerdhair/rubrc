@@ -1,13 +1,13 @@
 // solid-xterm's code fork
 // https://github.com/WVAviator/solid-xterm
 
-import { createEffect, createSignal, onCleanup } from "solid-js";
 import {
   type ITerminalAddon,
   type ITerminalInitOnlyOptions,
   type ITerminalOptions,
   Terminal,
 } from "@xterm/xterm";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import "@xterm/xterm/css/xterm.css";
 
 export type OnMountCleanup = () => void | (() => Promise<void>) | undefined;

@@ -1,8 +1,8 @@
+import { wasi } from "@bjorn3/browser_wasi_shim";
 import type {
   WASIFarmAnimal as BaseWASIFarmAnimal,
   WASIFarmRef,
 } from "@oligami/browser_wasi_shim-threads";
-import { wasi } from "@bjorn3/browser_wasi_shim";
 
 export type WASIFarmAnimal = {
   [K in keyof BaseWASIFarmAnimal]: BaseWASIFarmAnimal[K];

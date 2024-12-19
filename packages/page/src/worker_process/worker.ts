@@ -1,5 +1,5 @@
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import { sysroot } from "@oligami/rustc-browser-wasi_shim";
+import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import get_default_sysroot_wasi_farm = sysroot.get_default_sysroot_wasi_farm;
 import load_additional_sysroot = sysroot.load_additional_sysroot;
 import type { Ctx } from "../ctx";
@@ -56,8 +56,8 @@ globalThis.addEventListener("message", async (event) => {
   }
 });
 
-import util_cmd_worker from "./util_cmd?worker";
 import run_llvm_worker from "./llvm?worker";
+import util_cmd_worker from "./util_cmd?worker";
 
 const setup_util_worker = (wasi_refs: WASIFarmRefObject[], ctx: Ctx) => {
   const util_worker = new util_cmd_worker();

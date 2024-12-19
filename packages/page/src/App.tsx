@@ -1,10 +1,10 @@
-import { createSignal, lazy, Suspense } from "solid-js";
-import { SetupMyTerminal } from "./xterm";
 import type { WASIFarmRef } from "@oligami/browser_wasi_shim-threads";
-import type { Ctx } from "./ctx";
-import { default_value, rust_file } from "./config";
+import { Suspense, createSignal, lazy } from "solid-js";
 import { DownloadButton, RunButton } from "./btn";
+import { default_value, rust_file } from "./config";
+import type { Ctx } from "./ctx";
 import { triples } from "./sysroot";
+import { SetupMyTerminal } from "./xterm";
 
 const Select = lazy(async () => {
   const selector = import("@thisbeyond/solid-select");
