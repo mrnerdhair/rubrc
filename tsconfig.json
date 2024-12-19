@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2024",
     "module": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2024", "DOM"],
     "moduleResolution": "bundler",
     "composite": true,
     "esModuleInterop": true,
