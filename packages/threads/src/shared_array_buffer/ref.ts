@@ -16,6 +16,7 @@ export type WASIFarmRefUseArrayBufferObject = {
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;
   base_func_util: SharedArrayBuffer;
+  fd_close_receiver: FdCloseSenderUseArrayBufferObject;
 } & WASIFarmRefObject;
 
 // Transmittable objects to communicate with Park
@@ -28,6 +29,8 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;
   base_func_util: SharedArrayBuffer;
+
+  declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
   constructor(
     allocator: AllocatorUseArrayBufferObject,
@@ -72,7 +75,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       sl.fds_len_and_num,
       sl.fd_func_sig,
       sl.base_func_util,
-      sl.fd_close_receiver as unknown as FdCloseSenderUseArrayBufferObject,
+      sl.fd_close_receiver,
       sl.stdin,
       sl.stdout,
       sl.stderr,
