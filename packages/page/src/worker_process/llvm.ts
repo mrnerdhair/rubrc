@@ -1,5 +1,11 @@
-import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
+import { strace } from "@bjorn3/browser_wasi_shim";
+import {
+  WASIFarmAnimal,
+  type WASIFarmRefUseArrayBufferObject,
+} from "@oligami/browser_wasi_shim-threads";
+import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
+import { as_wasi_p1_cmd } from "rubrc-util";
 import type { Ctx } from "../ctx";
 
 const shared: SharedObject[] = [];
@@ -9,7 +15,7 @@ globalThis.addEventListener("message", async (event) => {
     wasi_refs,
     ctx,
   }: {
-    wasi_refs: WASIFarmRefObject[];
+    wasi_refs: WASIFarmRefUseArrayBufferObject[];
     ctx: Ctx;
   } = event.data;
 
@@ -26,17 +32,15 @@ globalThis.addEventListener("message", async (event) => {
   await ready_llvm_wasm(wasi_refs, ctx);
 });
 
-import { strace } from "@bjorn3/browser_wasi_shim";
-import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
-import { as_wasi_p1_cmd } from "rubrc-util";
-
-import type { WASIFarmRefObject } from "./rustc";
 let linker: WebAssembly.Instance & {
   exports: { memory: WebAssembly.Memory; _start: () => unknown };
 };
 let wasi: WASIFarmAnimal;
 
-const ready_llvm_wasm = async (wasi_refs: WASIFarmRefObject[], ctx: Ctx) => {
+const ready_llvm_wasm = async (
+  wasi_refs: WASIFarmRefUseArrayBufferObject[],
+  ctx: Ctx,
+) => {
   const linker_wasm = await get_llvm_wasm();
 
   console.log("linker_wasm", linker_wasm);

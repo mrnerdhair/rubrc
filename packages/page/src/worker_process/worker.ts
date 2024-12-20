@@ -2,15 +2,17 @@ import { sysroot } from "@oligami/rustc-browser-wasi_shim";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import get_default_sysroot_wasi_farm = sysroot.get_default_sysroot_wasi_farm;
 import load_additional_sysroot = sysroot.load_additional_sysroot;
+import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
 import type { Ctx } from "../ctx";
-import type { WASIFarmRefObject } from "./rustc";
+import run_llvm_worker from "./llvm?worker";
+import RustcWorker from "./rustc?worker";
+import util_cmd_worker from "./util_cmd?worker";
 
 let terminal: (x: string) => Promise<void>;
 let rustc_worker: Worker;
 let ctx: Ctx;
-import RustcWorker from "./rustc?worker";
 
-const wasi_refs: WASIFarmRefObject[] = [];
+const wasi_refs: WASIFarmRefUseArrayBufferObject[] = [];
 
 globalThis.addEventListener("message", async (event) => {
   if (event.data.ctx) {
@@ -56,10 +58,10 @@ globalThis.addEventListener("message", async (event) => {
   }
 });
 
-import run_llvm_worker from "./llvm?worker";
-import util_cmd_worker from "./util_cmd?worker";
-
-const setup_util_worker = (wasi_refs: WASIFarmRefObject[], ctx: Ctx) => {
+const setup_util_worker = (
+  wasi_refs: WASIFarmRefUseArrayBufferObject[],
+  ctx: Ctx,
+) => {
   const util_worker = new util_cmd_worker();
   const llvm_worker = new run_llvm_worker();
 
