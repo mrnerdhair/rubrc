@@ -6,13 +6,15 @@
  * and the MIT License (see LICENSE-MIT for details).
  */
 
-import type { Msg } from "./mod";
+import type { Msg, MsgBase } from "./mod";
 
 export class SharedObjectRef {
   private room_id: string;
   private id: string;
-  private map: Map<string, (value?: unknown) => void> = new Map();
-  private bc: BroadcastChannel;
+  private map: Map<string, (value: Msg | PromiseLike<Msg>) => void> = new Map();
+  private bc: Omit<BroadcastChannel, "postMessage"> & {
+    postMessage(message: Msg): void;
+  };
   private callbacks: Array<(...args: unknown[]) => unknown> = [];
 
   constructor(id: string) {
@@ -27,18 +29,17 @@ export class SharedObjectRef {
     return msg.from === this.id;
   }
 
-  proxy<T>() {
-    return new Proxy(() => {}, {
+  proxy<T extends object>() {
+    return new Proxy<T>((() => {}) as T, {
       get: (_, prop) => {
         // console.log("props:", prop);
-
         return this.get([prop]);
       },
       apply: (_, __, args) => {
         // console.log("apply:", thisArg, args);
         return this.call([".self"], args);
       },
-    }) as T;
+    });
   }
 
   addCallback(callback: (...args: unknown[]) => void) {
@@ -55,8 +56,8 @@ export class SharedObjectRef {
   private register() {
     const bc = this.bc;
 
-    bc.onmessage = (event) => {
-      const data = event.data as Msg;
+    bc.onmessage = (event: { data: Msg }) => {
+      const data = event.data;
 
       if (data.msg === undefined) {
         throw new Error("Invalid message");
@@ -95,21 +96,18 @@ export class SharedObjectRef {
     return Math.random().toString(36).slice(2);
   }
 
-  private check_msg_error(data: {
-    msg: string;
-  }) {
-    if (data.msg.endsWith("::error")) {
-      throw (
-        data as {
-          msg: string;
-          error: Error;
-        }
-      ).error;
+  private check_msg_error(data: Msg) {
+    if (
+      data.msg === "get::error" ||
+      data.msg === "func_call::error" ||
+      data.msg === "callback::error"
+    ) {
+      throw data.error;
     }
   }
 
-  get(names: Array<string | symbol>): Promise<unknown> {
-    const { promise, resolve } = Promise.withResolvers();
+  get(names: Array<string | symbol>): PromiseLike<unknown> {
+    const { promise, resolve } = Promise.withResolvers<Msg>();
 
     const id = this.get_id();
 
@@ -126,7 +124,7 @@ export class SharedObjectRef {
     let is_await = false;
 
     const hook = async () => {
-      const data = (await promise) as Msg;
+      const data = await promise;
 
       this.check_msg_error(data);
 
@@ -137,11 +135,7 @@ export class SharedObjectRef {
           );
         }
 
-        const ret = data as unknown as {
-          msg: string;
-          ret: unknown;
-          can_post: boolean;
-        };
+        const ret = data;
 
         if (ret.can_post) {
           return ret.ret;
@@ -170,28 +164,39 @@ export class SharedObjectRef {
 
     const target = hook();
 
-    const proxy = new Proxy(() => {}, {
-      get: (_, prop) => {
-        if (prop === "then") {
-          is_await = true;
-          return target.then.bind(target);
-        }
-        // console.log("props:", prop);
+    const proxy = new Proxy<PromiseLike<unknown>>(
+      Object.assign(() => {}, {
+        // biome-ignore lint/suspicious/noThenProperty: intentionally used to simulate a PromiseLike target
+        then(..._args: unknown[]): never {
+          throw new Error("unreachable");
+        },
+      }),
+      {
+        get: (_, prop) => {
+          if (prop === "then") {
+            is_await = true;
+            return target.then.bind(target);
+          }
+          // console.log("props:", prop);
 
-        return this.get([...names, prop]);
+          return this.get([...names, prop]);
+        },
+        apply: (_, __, args) => {
+          // console.log("apply:", args);
+
+          return this.call(names, args);
+        },
       },
-      apply: (_, __, args) => {
-        // console.log("apply:", args);
+    );
 
-        return this.call(names, args);
-      },
-    });
-
-    return proxy as unknown as Promise<unknown>;
+    return proxy;
   }
 
-  async call(names: Array<string | symbol>, args: unknown[]): Promise<unknown> {
-    const { promise, resolve } = Promise.withResolvers();
+  async call(
+    names: Array<string | number | symbol>,
+    args: unknown[],
+  ): Promise<unknown> {
+    const { promise, resolve } = Promise.withResolvers<Msg>();
 
     const id = this.get_id();
 
@@ -204,31 +209,23 @@ export class SharedObjectRef {
       id,
     });
 
-    const data = (await promise) as Msg;
+    const data = await promise;
 
     this.check_msg_error(data);
 
     if (data.msg === "func_call::return") {
-      return (
-        data as unknown as {
-          msg: string;
-          ret: unknown;
-        }
-      ).ret;
+      return data.ret;
     }
 
     throw new Error("what happened? unreachable code");
   }
 
   async call_callback(msg: Msg) {
-    const { name, args, id } = msg as unknown as {
-      name: string;
-      args: unknown[];
-      id: string;
-    };
+    const { id } = msg;
 
     try {
       if (msg.msg === "callback::call") {
+        const { name, args } = msg;
         const obj = this.callbacks.find((obj) => obj.name === name);
 
         if (obj === undefined) {
@@ -243,11 +240,9 @@ export class SharedObjectRef {
             id,
           });
 
-          const ret_ = await ret;
-
           this.postMessage({
             msg: "callback::promise_return",
-            ret: ret_,
+            ret: await ret,
             id,
           });
         } else {
@@ -267,11 +262,7 @@ export class SharedObjectRef {
     }
   }
 
-  private postMessage(data: {
-    msg: string;
-    id: string;
-    [key: string]: unknown;
-  }) {
+  private postMessage(data: MsgBase) {
     this.bc.postMessage({
       ...data,
       from: this.id,
