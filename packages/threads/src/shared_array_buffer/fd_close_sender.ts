@@ -1,8 +1,8 @@
-import type { FdCloseSender } from "../sender.js";
+import type { FdCloseSender } from "../sender";
 import {
   ToRefSenderUseArrayBuffer,
   type ToRefSenderUseArrayBufferObject,
-} from "./sender.js";
+} from "./sender";
 
 export type FdCloseSenderUseArrayBufferObject = {
   max_share_arrays_memory?: number;
