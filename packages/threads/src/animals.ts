@@ -206,9 +206,7 @@ export class WASIFarmAnimal {
     wasi_farm_refs: Array<WASIFarmRef>,
     override_fd_maps?: Array<number[]>,
   ) {
-    this.fd_map = [undefined, undefined, undefined] as unknown as Array<
-      [number, number]
-    >;
+    this.fd_map = [undefined, undefined, undefined];
 
     // console.log("wasi_farm_refs", wasi_farm_refs);
     for (let i = 0; i < wasi_farm_refs.length; i++) {
@@ -279,9 +277,7 @@ export class WASIFarmAnimal {
       }
     }
     if (n === -1) {
-      n =
-        (this.fd_map as Array<[number, number] | undefined>).push(undefined) -
-        1;
+      n = this.fd_map.push(undefined) - 1;
     }
     this.fd_map[n] = [fd, wasi_ref_n];
     return n;
@@ -325,7 +321,7 @@ export class WASIFarmAnimal {
         const [fd, wasi_ref_n] = fd_and_wasi_ref_n;
         for (const [rm_fd_fd, rm_fd_wasi_ref_n] of rm_fds) {
           if (fd === rm_fd_fd && wasi_ref_n === rm_fd_wasi_ref_n) {
-            (this.fd_map as Array<[number, number] | undefined>)[i] = undefined;
+            this.fd_map[i] = undefined;
             // console.log("fd", i, "is removed");
             break;
           }
@@ -360,10 +356,9 @@ export class WASIFarmAnimal {
   ) {
     let wasi_farm_refs_tmp: WASIFarmRefObject[];
     if (Array.isArray(wasi_farm_refs)) {
-      wasi_farm_refs_tmp =
-        wasi_farm_refs as unknown as Array<WASIFarmRefObject>;
+      wasi_farm_refs_tmp = wasi_farm_refs;
     } else {
-      wasi_farm_refs_tmp = [wasi_farm_refs as unknown as WASIFarmRefObject];
+      wasi_farm_refs_tmp = [wasi_farm_refs];
     }
 
     try {

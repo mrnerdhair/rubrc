@@ -79,7 +79,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private fds_len_and_num: SharedArrayBuffer;
 
   // listen promise keep
-  private listen_fds: Array<Promise<void>> = [];
+  private listen_fds: Array<Promise<void> | undefined> = [];
 
   // The largest size is u32 * 18 + 1
   // Alignment is troublesome, so make it u32 * 18 + 4
@@ -178,7 +178,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   async notify_rm_fd(fd: number) {
     (async () => {
       await this.listen_fds[fd];
-      (this.listen_fds as Array<Promise<void> | undefined>)[fd] = undefined;
+      this.listen_fds[fd] = undefined;
     })();
 
     // console.log("notify_rm_fd", fd);
