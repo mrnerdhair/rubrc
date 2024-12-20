@@ -8,11 +8,19 @@
 
 import type { Msg } from "./mod";
 
+function isIndexable(
+  x: unknown,
+): x is Record<string | number | symbol, unknown> {
+  return x !== null && (typeof x === "object" || typeof x === "function");
+}
+
 export class SharedObject {
   kept_object: unknown;
   room_id: string;
   id: string;
-  bc: globalThis.BroadcastChannel;
+  bc: Omit<globalThis.BroadcastChannel, "postMessage"> & {
+    postMessage(message: Msg): void;
+  };
 
   constructor(object: unknown, id: string) {
     this.kept_object = object;
@@ -32,8 +40,8 @@ export class SharedObject {
   private register() {
     const bc = this.bc;
 
-    bc.onmessage = (event) => {
-      const data = event.data as Msg;
+    bc.onmessage = (event: { data: Msg }) => {
+      const data = event.data;
       if (data.msg === undefined) {
         throw new Error("Invalid message");
       }
@@ -60,19 +68,16 @@ export class SharedObject {
     return msg.from === this.id;
   }
 
-  private func_call(data: Msg) {
+  private func_call(data: Msg & { msg: "func_call::call" }) {
     const bc = this.bc;
 
-    const { names, args, id } = data as unknown as {
-      names: Array<string>;
-      args: unknown[];
-      id: string;
-    };
+    const { names, args, id } = data;
     try {
       if (names.length === 1 && names[0] === ".self") {
-        const ret = (this.kept_object as (...args: unknown[]) => unknown)(
-          ...args,
-        );
+        if (typeof this.kept_object !== "function") {
+          throw new Error("expected function");
+        }
+        const ret = this.kept_object(...args);
         bc.postMessage({
           msg: "func_call::return",
           ret,
@@ -86,10 +91,12 @@ export class SharedObject {
 
       let obj: unknown = this.kept_object;
       for (const name of names) {
-        obj = (obj as Record<string, unknown>)[name];
+        if (!isIndexable(obj)) throw new Error("expected indexable object");
+        obj = obj[name];
       }
 
-      const ret = (obj as (...args: unknown[]) => unknown)(...args);
+      if (typeof obj !== "function") throw new Error("expected function");
+      const ret = obj(...args);
 
       bc.postMessage({
         msg: "func_call::return",
@@ -109,17 +116,15 @@ export class SharedObject {
     }
   }
 
-  private get(data: Msg) {
+  private get(data: Msg & { msg: "get::get" }) {
     const bc = this.bc;
 
-    const { names, id } = data as unknown as {
-      names: Array<string>;
-      id: string;
-    };
+    const { names, id } = data;
     try {
       let obj: unknown = this.kept_object;
       for (const name of names) {
-        obj = (obj as Record<string, unknown>)[name];
+        if (!isIndexable(obj)) throw new Error("expected indexable object");
+        obj = obj[name];
       }
 
       bc.postMessage({
