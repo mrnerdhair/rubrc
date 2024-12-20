@@ -4,9 +4,9 @@
 // Therefore, a dedicated worker that creates a subworker (worker in worker) is prepared.
 // The request is made using BroadcastChannel.
 
-import { AllocatorUseArrayBuffer } from "../allocator.js";
-import * as Serializer from "../serialize_error.js";
-import type { WorkerBackgroundRefObject } from "./worker_export.js";
+import { AllocatorUseArrayBuffer } from "../allocator";
+import * as Serializer from "../serialize_error";
+import type { WorkerBackgroundRefObject } from "./worker_export";
 
 // Note that postMessage, etc.
 // cannot be used in a blocking environment such as during wasm execution.

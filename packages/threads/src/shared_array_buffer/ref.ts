@@ -1,14 +1,14 @@
 import { wasi } from "@bjorn3/browser_wasi_shim";
-import { WASIFarmRef, type WASIFarmRefObject } from "../ref.js";
+import { WASIFarmRef, type WASIFarmRefObject } from "../ref";
 import {
   AllocatorUseArrayBuffer,
   type AllocatorUseArrayBufferObject,
-} from "./allocator.js";
+} from "./allocator";
 import {
   FdCloseSenderUseArrayBuffer,
   type FdCloseSenderUseArrayBufferObject,
-} from "./fd_close_sender.js";
-import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park.js";
+} from "./fd_close_sender";
+import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
 
 export type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBuffer;

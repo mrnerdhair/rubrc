@@ -1,5 +1,5 @@
-// import { debug } from "../../debug.js";
-// import "../polyfill.js";
+// import { debug } from "../../debug";
+// import "../polyfill";
 
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;

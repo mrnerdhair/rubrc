@@ -1,5 +1,5 @@
 import { type Fd as BaseFd, wasi } from "@bjorn3/browser_wasi_shim";
-import type { WASIFarmRefObject } from "./ref.js";
+import type { WASIFarmRefObject } from "./ref";
 
 // Not sure why we're special-casing this possibly being async, but there was runtime
 // code to handle it in place already, and it's better to have an explicit type definition

@@ -16,14 +16,14 @@
 
 import { as_wasi_p1_cmd, as_wasi_p1_thread } from "rubrc-util";
 
-import { WASIFarmAnimal } from "../animals.js";
-import type { WASIFarmRefObject } from "../ref.js";
-import type { WorkerBackgroundRefObject } from "./worker_background/index.js";
+import { WASIFarmAnimal } from "../animals";
+import type { WASIFarmRefObject } from "../ref";
+import type { WorkerBackgroundRefObject } from "./worker_background/index";
 import {
   WorkerBackgroundRef,
   worker_background_worker_url,
-} from "./worker_background/index.js";
-import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker_export.js";
+} from "./worker_background/index";
+import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker_export";
 
 type ThreadSpawnerObject = {
   share_memory: WebAssembly.Memory;
