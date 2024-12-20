@@ -229,9 +229,9 @@ export class WorkerBackgroundRef {
     const size = Atomics.load(notify_view, 2);
     const error_buffer = this.allocator.get_memory(ptr, size);
     const error_txt = new TextDecoder().decode(error_buffer);
-    const error_serialized = JSON.parse(
-      error_txt,
-    ) as Serializer.SerializedError;
+    const error_serialized = JSON.parse(error_txt);
+    if (!Serializer.isSerializedError(error_serialized))
+      throw new Error("expected SerializedError");
     const error = Serializer.deserialize(error_serialized);
 
     const old = Atomics.compareExchange(notify_view, 0, 1, 0);
@@ -281,9 +281,9 @@ export class WorkerBackgroundRef {
     const size = Atomics.load(notify_view, 2);
     const error_buffer = this.allocator.get_memory(ptr, size);
     const error_txt = new TextDecoder().decode(error_buffer);
-    const error_serialized = JSON.parse(
-      error_txt,
-    ) as Serializer.SerializedError;
+    const error_serialized = JSON.parse(error_txt);
+    if (!Serializer.isSerializedError(error_serialized))
+      throw new Error("expected SerializedError");
     const error = Serializer.deserialize(error_serialized);
 
     const old = Atomics.compareExchange(notify_view, 0, 1, 0);
