@@ -1,4 +1,4 @@
-import type { AllocatorUseArrayBufferObject } from "../allocator.js";
+import type { AllocatorUseArrayBufferObject } from "../allocator";
 
 export type WorkerBackgroundRefObject = {
   allocator: AllocatorUseArrayBufferObject;
