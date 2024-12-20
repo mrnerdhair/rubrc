@@ -1,11 +1,13 @@
-import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
+import {
+  WASIFarmAnimal,
+  type WASIFarmRefUseArrayBufferObject,
+} from "@oligami/browser_wasi_shim-threads";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import { as_wasi_p1_cmd } from "rubrc-util";
 import { get_data } from "../cat";
 import type { Ctx } from "../ctx";
 import lsr from "../wasm/lsr.wasm?url";
 import tre from "../wasm/tre.wasm?url";
-import type { WASIFarmRefObject } from "./rustc";
 
 const shared: SharedObject[] = [];
 
@@ -14,7 +16,7 @@ globalThis.addEventListener("message", async (event) => {
     wasi_refs,
     ctx,
   }: {
-    wasi_refs: WASIFarmRefObject[];
+    wasi_refs: WASIFarmRefUseArrayBufferObject[];
     ctx: Ctx;
   } = event.data;
 

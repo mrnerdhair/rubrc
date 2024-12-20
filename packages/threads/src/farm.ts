@@ -1,7 +1,9 @@
 import type { Fd } from "@bjorn3/browser_wasi_shim";
 import type { WASIFarmPark } from "./park";
-import type { WASIFarmRefObject } from "./ref";
-import { WASIFarmParkUseArrayBuffer } from "./shared_array_buffer/index";
+import {
+  WASIFarmParkUseArrayBuffer,
+  type WASIFarmRefUseArrayBufferObject,
+} from "./shared_array_buffer/index";
 
 export class WASIFarm {
   private fds: Array<Fd>;
@@ -100,7 +102,7 @@ export class WASIFarm {
     return fds;
   }
 
-  get_ref(): WASIFarmRefObject {
+  get_ref(): WASIFarmRefUseArrayBufferObject {
     return this.park.get_ref();
   }
 }

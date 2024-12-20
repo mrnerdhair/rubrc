@@ -1,18 +1,16 @@
-import { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
+import {
+  WASIFarmAnimal,
+  type WASIFarmRefUseArrayBufferObject,
+} from "@oligami/browser_wasi_shim-threads";
 import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import type { Ctx } from "../ctx";
 
 import thread_spawn_path from "./thread_spawn.ts?worker&url";
 
-export type WASIFarmRefObject = Extract<
-  ConstructorParameters<typeof WASIFarmAnimal>[0],
-  unknown[]
->[number];
-
 let terminal: (x: string) => void;
 let compiler: WebAssembly.Module;
-const wasi_refs: WASIFarmRefObject[] = [];
+const wasi_refs: WASIFarmRefUseArrayBufferObject[] = [];
 let ctx: Ctx;
 let waiter: {
   rustc: () => Promise<void>;
