@@ -29,10 +29,10 @@ export abstract class ToRefSenderUseArrayBuffer {
   // n * 4 bytes: target allocation numbers
   // Data
   // data_size bytes: data
-  private share_arrays_memory: SharedArrayBuffer;
+  share_arrays_memory: SharedArrayBuffer;
 
   // The size of the data
-  private data_size: number;
+  data_size: number;
 
   constructor(
     // data is Uint32Array
