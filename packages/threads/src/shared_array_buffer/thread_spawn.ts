@@ -19,10 +19,8 @@ import { as_wasi_p1_cmd, as_wasi_p1_thread } from "rubrc-util";
 import { WASIFarmAnimal } from "../animals";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import type { WorkerBackgroundRefObject } from "./worker_background/index";
-import {
-  WorkerBackgroundRef,
-  worker_background_worker_url,
-} from "./worker_background/index";
+import { WorkerBackgroundRef } from "./worker_background/index";
+import Worker from "./worker_background/worker?worker";
 import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker_export";
 
 type ThreadSpawnerObject = {
@@ -88,12 +86,7 @@ export class ThreadSpawner {
       });
 
     if (worker_background_ref_object === undefined) {
-      const worker_background_worker_url__ = worker_background_worker_url();
-      this.worker_background_worker = new Worker(
-        worker_background_worker_url__,
-        { type: "module" },
-      );
-      URL.revokeObjectURL(worker_background_worker_url__);
+      this.worker_background_worker = new Worker();
       const { promise, resolve } = Promise.withResolvers<void>();
       this.worker_background_worker_promise = promise;
       this.worker_background_worker.onmessage = () => {
