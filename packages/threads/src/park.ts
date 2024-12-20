@@ -8,7 +8,7 @@ export abstract class WASIFarmPark {
   abstract notify_rm_fd(fd: number): void;
   abstract can_set_new_fd(fd: number): [boolean, Promise<void> | undefined];
 
-  protected fds: Array<Fd>;
+  protected fds: Array<Fd | undefined>;
   protected stdin: number | undefined;
   protected stdout: number | undefined;
   protected stderr: number | undefined;
@@ -103,7 +103,7 @@ export abstract class WASIFarmPark {
   protected async fd_close(fd: number): Promise<number> {
     if (this.fds[fd] !== undefined) {
       const ret = this.fds[fd].fd_close();
-      (this.fds as Array<Fd | undefined>)[fd] = undefined;
+      this.fds[fd] = undefined;
       // console.log("fd_close1", fd);
       await this.notify_rm_fd(fd);
       // console.log("fd_close2", fd);
