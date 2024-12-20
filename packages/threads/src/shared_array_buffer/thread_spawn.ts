@@ -17,7 +17,7 @@
 import { as_wasi_p1_cmd, as_wasi_p1_thread } from "rubrc-util";
 
 import { WASIFarmAnimal } from "../animals";
-import type { WASIFarmRefObject } from "../ref";
+import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import type { WorkerBackgroundRefObject } from "./worker_background/index";
 import {
   WorkerBackgroundRef,
@@ -27,7 +27,7 @@ import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker
 
 type ThreadSpawnerObject = {
   share_memory: WebAssembly.Memory;
-  wasi_farm_refs_object: Array<WASIFarmRefObject>;
+  wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
   worker_url: string;
   worker_background_ref_object: WorkerBackgroundRefObject;
   // inst_default_buffer_kept: WebAssembly.Memory;
@@ -35,7 +35,7 @@ type ThreadSpawnerObject = {
 
 export class ThreadSpawner {
   private share_memory: WebAssembly.Memory;
-  private wasi_farm_refs_object: Array<WASIFarmRefObject>;
+  private wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
   private worker_url: string;
   private worker_background_ref: WorkerBackgroundRef;
   private worker_background_ref_object: WorkerBackgroundRefObject;
@@ -49,7 +49,7 @@ export class ThreadSpawner {
 
   constructor(
     worker_url: string,
-    wasi_farm_refs_object: Array<WASIFarmRefObject>,
+    wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>,
     share_memory?: WebAssembly.Memory,
     // 16MB for the time being.
     // https://users.rust-lang.org/t/what-is-the-size-limit-of-threads-stack-in-rust/11867/3

@@ -1,7 +1,6 @@
 import { WASIProcExit } from "@bjorn3/browser_wasi_shim";
 import { wasi } from "@bjorn3/browser_wasi_shim";
 import type { WASIFarmRef } from "./ref";
-import type { WASIFarmRefObject } from "./ref";
 import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer/index";
 import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/index";
 import { ThreadSpawner } from "./shared_array_buffer/index";
@@ -341,7 +340,9 @@ export class WASIFarmAnimal {
   }
 
   constructor(
-    wasi_farm_refs: WASIFarmRefObject[] | WASIFarmRefObject,
+    wasi_farm_refs:
+      | WASIFarmRefUseArrayBufferObject[]
+      | WASIFarmRefUseArrayBufferObject,
     args: Array<string>,
     env: Array<string>,
     options: {
@@ -353,7 +354,7 @@ export class WASIFarmAnimal {
     override_fd_maps?: Array<number[]>,
     thread_spawner?: ThreadSpawner,
   ) {
-    let wasi_farm_refs_tmp: WASIFarmRefObject[];
+    let wasi_farm_refs_tmp: WASIFarmRefUseArrayBufferObject[];
     if (Array.isArray(wasi_farm_refs)) {
       wasi_farm_refs_tmp = wasi_farm_refs;
     } else {
@@ -372,9 +373,7 @@ export class WASIFarmAnimal {
     for (let i = 0; i < wasi_farm_refs_tmp.length; i++) {
       if (this.can_array_buffer) {
         this.wasi_farm_refs.push(
-          WASIFarmRefUseArrayBuffer.init_self(
-            wasi_farm_refs_tmp[i] as WASIFarmRefUseArrayBufferObject,
-          ),
+          WASIFarmRefUseArrayBuffer.init_self(wasi_farm_refs_tmp[i]),
         );
       } else {
         throw new Error("Non SharedArrayBuffer is not supported yet");
