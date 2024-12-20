@@ -1,5 +1,5 @@
 import type { wasi } from "@bjorn3/browser_wasi_shim";
-import type { FdCloseSender } from "./sender.js";
+import type { FdCloseSender } from "./sender";
 
 export type WASIFarmRefObject = {
   stdin: number | undefined;
