@@ -1,5 +1,14 @@
-import { type Fd, wasi } from "@bjorn3/browser_wasi_shim";
+import { type Fd as BaseFd, wasi } from "@bjorn3/browser_wasi_shim";
 import type { WASIFarmRefObject } from "./ref.js";
+
+// Not sure why we're special-casing this possibly being async, but there was runtime
+// code to handle it in place already, and it's better to have an explicit type definition
+// than a bare type assertion.
+export type Fd = Omit<BaseFd, "fd_write"> & {
+  fd_write(
+    ...args: Parameters<BaseFd["fd_write"]>
+  ): ReturnType<BaseFd["fd_write"]> | Promise<ReturnType<BaseFd["fd_write"]>>;
+};
 
 export abstract class WASIFarmPark {
   abstract get_ref(): WASIFarmRefObject;
@@ -55,7 +64,7 @@ export abstract class WASIFarmPark {
         if (ret === -1) {
           ret = this.fds.length;
           // console.log("push_fd", this.fds.length)
-          (this.fds as Array<Fd | undefined>).push(undefined);
+          this.fds.push(undefined);
           this.fds_map.push([]);
           // console.log("push_fd", this.fds.length)
         }
@@ -399,9 +408,7 @@ export abstract class WASIFarmPark {
     write_data: Uint8Array,
   ): Promise<[number | undefined, number]> {
     if (this.fds[fd] !== undefined) {
-      const fd_ret_base = this.fds[fd].fd_write(write_data);
-      const fd_ret: typeof fd_ret_base | Promise<typeof fd_ret_base> =
-        fd_ret_base as typeof fd_ret_base | Promise<typeof fd_ret_base>;
+      const fd_ret = this.fds[fd].fd_write(write_data);
       let ret: number;
       let nwritten: number;
       if (fd_ret instanceof Promise) {
