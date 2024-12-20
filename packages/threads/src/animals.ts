@@ -2,7 +2,6 @@ import { WASIProcExit } from "@bjorn3/browser_wasi_shim";
 import { wasi } from "@bjorn3/browser_wasi_shim";
 import type { WASIFarmRef } from "./ref";
 import type { WASIFarmRefObject } from "./ref";
-import type { FdCloseSender } from "./sender";
 import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer/index";
 import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/index";
 import { ThreadSpawner } from "./shared_array_buffer/index";
@@ -304,7 +303,7 @@ export class WASIFarmAnimal {
     const rm_fds: Array<[number, number]> = [];
     for (let i = 0; i < this.id_in_wasi_farm_ref.length; i++) {
       const id = this.id_in_wasi_farm_ref[i];
-      const removed_fds = (this.wasi_farm_refs[i] as FdCloseSender).get(id);
+      const removed_fds = this.wasi_farm_refs[i].get(id);
       if (removed_fds) {
         for (const fd of removed_fds) {
           rm_fds.push([fd, i]);
