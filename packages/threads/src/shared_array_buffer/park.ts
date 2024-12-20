@@ -1,6 +1,5 @@
 import { type Fd, wasi } from "@bjorn3/browser_wasi_shim";
 import { WASIFarmPark } from "../park";
-import type { FdCloseSender } from "../sender";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
@@ -90,7 +89,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private base_func_util: SharedArrayBuffer;
 
   // tell other processes that the file descriptor has been closed
-  private fd_close_receiver: FdCloseSender;
+  private fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
   // this is not send by postMessage,
   // so it is not necessary to keep shared_array_buffer
