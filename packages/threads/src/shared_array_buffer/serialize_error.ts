@@ -21,3 +21,18 @@ export const deserialize = (serializedError: SerializedError): Error => {
   error.cause = serializedError.cause;
   return error;
 };
+
+export const isSerializedError = (value: unknown): value is SerializedError => {
+  return (
+    value !== undefined &&
+    value !== null &&
+    typeof value === "object" &&
+    "message" in value &&
+    typeof value.message === "string" &&
+    "name" in value &&
+    typeof value.name === "string" &&
+    (!("stack" in value) ||
+      value.stack === undefined ||
+      typeof value.stack === "string")
+  );
+};

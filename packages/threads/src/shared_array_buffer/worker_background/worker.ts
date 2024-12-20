@@ -114,7 +114,10 @@ class WorkerBackground<T> {
           const json_buff = this.allocator.get_memory(json_ptr, json_len);
           this.allocator.free(json_ptr, json_len);
           const json = new TextDecoder().decode(json_buff);
-          return JSON.parse(json) as Record<string, unknown>;
+          const out = JSON.parse(json);
+          if (!out || typeof out !== "object" || Array.isArray(out))
+            throw new Error("expected JSON object");
+          return out;
         };
 
         const signature_input = Atomics.load(signature_input_view, 0);
