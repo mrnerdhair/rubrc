@@ -263,15 +263,6 @@ export class WASIFarmAnimal {
     return n;
   }
 
-  // @ts-expect-error
-  private map_set_fd_and_notify(fd: number, wasi_ref_n: number, index: number) {
-    if (this.fd_map[index] !== undefined) {
-      throw new Error("fd is already mapped");
-    }
-    this.fd_map[index] = [fd, wasi_ref_n];
-    this.wasi_farm_refs[wasi_ref_n].set_park_fds_map([fd]);
-  }
-
   private check_fds() {
     const rm_fds: Array<[number, number]> = [];
     for (let i = 0; i < this.id_in_wasi_farm_ref.length; i++) {
