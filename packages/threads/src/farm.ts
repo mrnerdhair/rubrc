@@ -64,18 +64,17 @@ export class WASIFarm {
     }
 
     if (this.can_array_buffer) {
-      this.park = new WASIFarmParkUseArrayBuffer(
-        this.fds,
-        stdin_,
-        stdout_,
-        stderr_,
-        default_allow_fds,
-        options?.allocator_size,
-      );
-    } else {
       throw new Error("Non SharedArrayBuffer is not supported yet");
     }
 
+    this.park = new WASIFarmParkUseArrayBuffer(
+      this.fds,
+      stdin_,
+      stdout_,
+      stderr_,
+      default_allow_fds,
+      options?.allocator_size,
+    );
     this.park.listen();
   }
 
