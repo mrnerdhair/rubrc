@@ -241,7 +241,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
               const fd = data[i];
               if (this.fds_map[fd] === undefined) {
                 this.fds_map[fd] = [];
-                console.error("listen_base fd is not defined");
+                throw new Error("listen_base fd is not defined");
               }
               this.fds_map[fd].push(wasi_farm_ref_id);
             }
@@ -263,9 +263,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           throw new Error(`notify failed: ${num}`);
         }
       } catch (e) {
-        console.error("error", e);
         Atomics.store(lock_view, 1, 0);
         Atomics.notify(lock_view, 1, 1);
+        throw e;
       }
     }
   }
@@ -920,15 +920,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           break;
         }
       } catch (e) {
-        console.error(e);
-
-        // sleep 1000ms
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
         const lock_view = new Int32Array(this.lock_fds);
         Atomics.exchange(lock_view, 1, 0);
         const func_sig_view = new Int32Array(this.fd_func_sig);
         Atomics.exchange(func_sig_view, 16, -1);
+
+        throw e;
       }
     }
   }
