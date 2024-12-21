@@ -39,7 +39,6 @@ export abstract class WASIFarmPark {
     for (let i = 0; i < fds.length; i++) {
       this.fds_map[i] = [];
     }
-    // console.log("first fds_map", this.fds_map);
   }
 
   private get_new_fd_lock = new Array<() => Promise<void>>();
@@ -63,10 +62,8 @@ export abstract class WASIFarmPark {
         }
         if (ret === -1) {
           ret = this.fds.length;
-          // console.log("push_fd", this.fds.length)
           this.fds.push(undefined);
           this.fds_map.push([]);
-          // console.log("push_fd", this.fds.length)
         }
 
         const [can, promise] = this.can_set_new_fd(ret);
@@ -113,9 +110,7 @@ export abstract class WASIFarmPark {
     if (this.fds[fd] !== undefined) {
       const ret = this.fds[fd].fd_close();
       this.fds[fd] = undefined;
-      // console.log("fd_close1", fd);
       await this.notify_rm_fd(fd);
-      // console.log("fd_close2", fd);
       return ret;
     }
     return wasi.ERRNO_BADF;
@@ -238,23 +233,14 @@ export abstract class WASIFarmPark {
       if (prestat) {
         const prestat_dir_name = prestat.inner.pr_name;
 
-        // console.log("fd_prestat_dir_name: park: inner: ", prestat_dir_name);
-        // console.log("fd_prestat_dir_name: park: inner: ", new TextDecoder().decode(prestat_dir_name));
-
-        // console.log("fd_prestat_dir_name: park: path_len: ", path_len);
-
         if (prestat_dir_name.length <= path_len) {
-          // console.log("fd_prestat_dir_name: park: A");
           return [prestat_dir_name, ret];
         }
 
-        // console.log("fd_prestat_dir_name: park: B");
         return [prestat_dir_name.slice(0, path_len), wasi.ERRNO_NAMETOOLONG];
       }
-      // console.log("fd_prestat_dir_name: park: C");
       return [undefined, ret];
     }
-    // console.log("fd_prestat_dir_name: park: D");
     return [undefined, wasi.ERRNO_BADF];
   }
 
@@ -277,16 +263,9 @@ export abstract class WASIFarmPark {
     if (this.fds[fd] !== undefined) {
       let nread = 0;
 
-      // console.log("fd_read: park: iovecs: ", iovecs);
-
-      // const sum_len = iovecs.reduce((acc, iovec) => acc + iovec.buf_len, 0);
-
-      // console.warn("fd_read: park: sum_len: ", sum_len);
-
       let buffer8 = new Uint8Array(0);
       for (const iovec of iovecs) {
         const { ret, data } = this.fds[fd].fd_read(iovec.buf_len);
-        // console.log("fd_read: park: data: ", data);
         if (ret !== wasi.ERRNO_SUCCESS) {
           return [[nread, buffer8], ret];
         }
@@ -299,8 +278,6 @@ export abstract class WASIFarmPark {
           break;
         }
       }
-
-      // console.log("fd_read: park: nread: ", nread);
 
       return [[nread, buffer8], wasi.ERRNO_SUCCESS];
     }
@@ -360,21 +337,6 @@ export abstract class WASIFarmPark {
     }
     return [undefined, wasi.ERRNO_BADF];
   }
-
-  // protected async fd_renumber(fd: number, to: number): Promise<number> {
-  //   if (this.fds[fd] != undefined) {
-  //     const ret = this.fds[to].fd_close();
-  //     if (ret != wasi.ERRNO_SUCCESS) {
-  //       return ret;
-  //     }
-  //     this.fds[to] = this.fds[fd];
-  //     this.fds[fd] = undefined;
-  //     await this.notify_rm_fd(fd);
-  //     return wasi.ERRNO_SUCCESS;
-  //   } else {
-  //     return wasi.ERRNO_BADF;
-  //   }
-  // }
 
   protected fd_seek(
     fd: number,
@@ -501,14 +463,11 @@ export abstract class WASIFarmPark {
         fs_rights_inheriting,
         fs_flags,
       );
-      // console.log("path_open: park: ", ret, fd_obj);
       if (ret !== wasi.ERRNO_SUCCESS) {
         return [undefined, ret];
       }
 
       const [resolve, opened_fd] = await this.get_new_fd();
-
-      // console.log("path_open: park: ", path, "opened_fd" ,opened_fd);
 
       if (!fd_obj) {
         throw "fd_obj should not be null";
@@ -517,10 +476,6 @@ export abstract class WASIFarmPark {
       this.fds[opened_fd] = fd_obj;
 
       await resolve();
-
-      // console.log("path_open: park: len: ", len);
-
-      // console.log("path_open: park: ", opened_fd);
 
       return [opened_fd, wasi.ERRNO_SUCCESS];
     }
