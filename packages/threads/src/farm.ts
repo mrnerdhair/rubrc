@@ -63,7 +63,7 @@ export class WASIFarm {
       }
     }
 
-    if (this.can_array_buffer) {
+    if (!this.can_array_buffer) {
       throw new Error("Non SharedArrayBuffer is not supported yet");
     }
 

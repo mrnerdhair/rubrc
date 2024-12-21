@@ -332,13 +332,12 @@ export class WASIFarmAnimal {
     this.id_in_wasi_farm_ref = [];
     this.wasi_farm_refs = [];
     for (let i = 0; i < wasi_farm_refs_tmp.length; i++) {
-      if (this.can_array_buffer) {
-        this.wasi_farm_refs.push(
-          WASIFarmRefUseArrayBuffer.init_self(wasi_farm_refs_tmp[i]),
-        );
-      } else {
+      if (!this.can_array_buffer) {
         throw new Error("Non SharedArrayBuffer is not supported yet");
       }
+      this.wasi_farm_refs.push(
+        WASIFarmRefUseArrayBuffer.init_self(wasi_farm_refs_tmp[i]),
+      );
       this.id_in_wasi_farm_ref.push(this.wasi_farm_refs[i].set_id());
     }
 
