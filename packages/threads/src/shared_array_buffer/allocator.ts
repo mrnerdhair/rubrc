@@ -126,8 +126,6 @@ export class AllocatorUseArrayBuffer {
     // ptr, len
     ret_ptr: number,
   ): [number, number] {
-    // console.log("data", data);
-
     const view = new Int32Array(this.share_arrays_memory);
     const view8 = new Uint8Array(this.share_arrays_memory);
 
@@ -136,12 +134,10 @@ export class AllocatorUseArrayBuffer {
     let share_arrays_memory_kept: number;
     if (old_num === 0) {
       // Reset because there were no users.
-      // debug.log("reset allocator");
       share_arrays_memory_kept = Atomics.store(view, 2, 12);
     } else {
       share_arrays_memory_kept = Atomics.load(view, 2);
     }
-    // console.log("num", Atomics.load(view, 1));
 
     const memory_len = this.share_arrays_memory.byteLength;
     const len = data.byteLength;
@@ -174,16 +170,12 @@ export class AllocatorUseArrayBuffer {
     Atomics.store(memory_view, ret_ptr, share_arrays_memory_kept);
     Atomics.store(memory_view, ret_ptr + 1, len);
 
-    // console.log("allocator: allocate", share_arrays_memory_kept, len);
-
     return [share_arrays_memory_kept, len];
   }
 
   // free allocated memory
   free(_pointer: number, _len: number) {
     Atomics.sub(new Int32Array(this.share_arrays_memory), 1, 1);
-
-    // console.log("allocator: free", pointer, len);
   }
 
   // get memory from pointer and length

@@ -266,7 +266,6 @@ export abstract class WASIFarmPark {
       let buffer8 = new Uint8Array(0);
       for (const iovec of iovecs) {
         const { ret, data } = this.fds[fd].fd_read(iovec.buf_len);
-        // console.log("fd_read: park: data: ", data);
         if (ret !== wasi.ERRNO_SUCCESS) {
           return [[nread, buffer8], ret];
         }

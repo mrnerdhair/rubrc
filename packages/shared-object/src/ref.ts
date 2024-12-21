@@ -32,11 +32,9 @@ export class SharedObjectRef {
   proxy<T extends object>() {
     return new Proxy<T>((() => {}) as T, {
       get: (_, prop) => {
-        // console.log("props:", prop);
         return this.get([prop]);
       },
       apply: (_, __, args) => {
-        // console.log("apply:", thisArg, args);
         return this.call([".self"], args);
       },
     });
@@ -147,12 +145,10 @@ export class SharedObjectRef {
               // 即座に終わるPromiseを生成して返す
               return Promise.resolve(target);
             }
-            // console.log("inner: props:", prop);
 
             return this.get([...names, prop]);
           },
           apply: (_, __, args) => {
-            // console.log("inner: apply:", args);
 
             return this.call(names, args);
           },
@@ -177,13 +173,9 @@ export class SharedObjectRef {
             is_await = true;
             return target.then.bind(target);
           }
-          // console.log("props:", prop);
-
           return this.get([...names, prop]);
         },
         apply: (_, __, args) => {
-          // console.log("apply:", args);
-
           return this.call(names, args);
         },
       },
