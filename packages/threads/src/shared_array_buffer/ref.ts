@@ -106,10 +106,10 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   private call_base_func(): void {
     const view = new Int32Array(this.base_func_util);
     const old = Atomics.exchange(view, 1, 1);
-    if (old !== 0) {
-      console.error("what happened?");
-    }
     Atomics.notify(view, 1, 1);
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
   }
 
   // wait base_func
@@ -148,8 +148,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       if (now_value !== 0) {
         const value = Atomics.wait(view, 0, now_value);
         if (value === "timed-out") {
-          console.error("lock_fd timed-out");
-          continue;
+          throw new Error("lock_fd timed-out");
         }
       }
       const old = Atomics.compareExchange(view, 0, 0, 1);
@@ -175,8 +174,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const now_value1 = Atomics.load(view, fd1 * 3);
       const value = Atomics.wait(view, fd1 * 3, now_value1);
       if (value === "timed-out") {
-        console.error("lock_double_fd timed-out");
-        continue;
+        throw new Error("lock_double_fd timed-out");
       }
       const old1 = Atomics.exchange(view, fd1 * 3, 2);
       if (old1 === 0) {
@@ -192,8 +190,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         }
         const value = Atomics.wait(view, fd2 * 3, now_value2);
         if (value === "timed-out") {
-          console.error("lock_double_fd timed-out");
-          continue;
+          throw new Error("lock_double_fd timed-out");
         }
         const old2 = Atomics.exchange(view, fd2 * 3, 2);
         if (old2 === 0) {
@@ -224,8 +221,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     const view = new Int32Array(this.lock_fds, fd * 12 + 4);
     const old = Atomics.exchange(view, 0, 1);
     if (old === 1) {
-      console.error(`invoke_fd_func already invoked\nfd: ${fd}`);
-      return false;
+      throw new Error(`invoke_fd_func already invoked\nfd: ${fd}`);
     }
     const n = Atomics.notify(view, 0);
     if (n !== 1) {
@@ -234,17 +230,15 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         if (len <= fd) {
           const lock = Atomics.exchange(view, 0, 0);
           if (lock !== 1) {
-            console.error("what happened?");
+            throw new Error("what happened?");
           }
           Atomics.notify(view, 0, 1);
-          console.error("what happened?: len", len, "fd", fd);
-          return true;
+          throw new Error(`what happened?: len ${len} fd ${fd}`);
         }
         console.warn("invoke_func_loop is late");
         return true;
       }
-      console.error("invoke_fd_func notify failed:", n);
-      return false;
+      throw new Error(`invoke_fd_func notify failed: ${n}`);
     }
     return true;
   }
@@ -253,7 +247,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     const view = new Int32Array(this.lock_fds, fd * 12 + 4);
     const value = Atomics.wait(view, 0, 1);
     if (value === "timed-out") {
-      console.error("wait call park_fd_func timed-out");
+      throw new Error("wait call park_fd_func timed-out");
     }
   }
 
@@ -612,11 +606,11 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
     const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
 
-    if (nread !== buf_len) {
-      console.error("pread nread !== buf_len");
-    }
-
     this.allocator.free(buf_ptr, buf_len);
+
+    if (nread !== buf_len) {
+      throw new Error("pread nread !== buf_len");
+    }
 
     return [[nread, buf], error];
   }
@@ -772,11 +766,11 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     // ref.ts:655 fd_read: ref:  21
     const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
 
-    if (nread !== buf_len) {
-      console.error("read nread !== buf_len");
-    }
-
     this.allocator.free(buf_ptr, buf_len);
+
+    if (nread !== buf_len) {
+      throw new Error("read nread !== buf_len");
+    }
 
     return [[nread, buf], error];
   }

@@ -69,21 +69,17 @@ const ready_llvm_wasm = async (
 
   shared.push(
     new SharedObject((...args: string[]) => {
-      try {
-        if (args[0] !== "llvm") {
-          wasi.args = ["llvm", ...args];
-        } else {
-          wasi.args = args;
-        }
-        console.log(`wasi.start: ${wasi.args}`);
-        console.log(wasi);
-        const memory_view = new Uint8Array(linker.exports.memory.buffer);
-        memory_view.set(memory_reset_view);
-        wasi.start(linker);
-        console.log("wasi.start done");
-      } catch (e) {
-        console.error(e);
+      if (args[0] !== "llvm") {
+        wasi.args = ["llvm", ...args];
+      } else {
+        wasi.args = args;
       }
+      console.log(`wasi.start: ${wasi.args}`);
+      console.log(wasi);
+      const memory_view = new Uint8Array(linker.exports.memory.buffer);
+      memory_view.set(memory_reset_view);
+      wasi.start(linker);
+      console.log("wasi.start done");
     }, ctx.llvm_id),
   );
 
