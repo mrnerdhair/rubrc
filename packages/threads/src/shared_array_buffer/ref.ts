@@ -56,11 +56,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.fd_func_sig = fd_func_sig;
     this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
-
-    // console.log("fds_len_and_num", this.fds_len_and_num);
-
-    // const view = new Int32Array(this.fds_len_and_num);
-    // Atomics.store(view, 0, 0);
   }
 
   get_fds_len(): number {
@@ -139,7 +134,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     const view = new Int32Array(this.base_func_util);
     Atomics.store(view, 2, 0);
     const fds_array = new Uint32Array(fds);
-    // console.log("fds_array", fds_array);
     this.allocator.block_write(fds_array, this.base_func_util, 3);
     Atomics.store(view, 5, this.id);
     this.call_base_func();
@@ -148,7 +142,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private lock_fd(fd: number) {
-    // console.log("lock_fd start", fd);
     const view = new Int32Array(this.lock_fds, fd * 12);
     while (true) {
       const now_value = Atomics.load(view, 0);
@@ -161,21 +154,18 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       }
       const old = Atomics.compareExchange(view, 0, 0, 1);
       if (old === 0) {
-        // console.log("lock_fd success", fd);
         return;
       }
     }
   }
 
   private release_fd(fd: number) {
-    // console.log("release_fd", fd);
     const view = new Int32Array(this.lock_fds, fd * 12);
     Atomics.store(view, 0, 0);
     Atomics.notify(view, 0, 1);
   }
 
   private lock_double_fd(fd1: number, fd2: number) {
-    // console.log("lock_double_fd", fd1, fd2);
     if (fd1 === fd2) {
       this.lock_fd(fd1);
       return;
@@ -216,7 +206,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private release_double_fd(fd1: number, fd2: number) {
-    // console.log("release_double_fd", fd1, fd2);
     if (fd1 === fd2) {
       this.release_fd(fd1);
       return;
@@ -232,7 +221,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     if (fd === undefined) {
       return false;
     }
-    // console.log("invoke_fd_func", fd);
     const view = new Int32Array(this.lock_fds, fd * 12 + 4);
     const old = Atomics.exchange(view, 0, 1);
     if (old === 1) {
@@ -262,7 +250,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private wait_fd_func(fd: number) {
-    // console.log("wait_fd_func", fd);
     const view = new Int32Array(this.lock_fds, fd * 12 + 4);
     const value = Atomics.wait(view, 0, 1);
     if (value === "timed-out") {
@@ -274,10 +261,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     if (!this.invoke_fd_func(fd)) {
       return false;
     }
-    // console.log("call_fd_func", fd);
     this.wait_fd_func(fd);
-    // console.log("wait_fd_func", fd);
-    // console.log("call_fd_func released", fd);
     return true;
   }
 
@@ -287,7 +271,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       fd * fd_func_sig_bytes,
     );
     const errno_offset = fd_func_sig_u32_size - 1;
-    // console.log("get_error: offset", errno_offset);
     return Atomics.load(func_sig_view_i32, errno_offset);
   }
 
@@ -350,20 +333,14 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     Atomics.store(func_sig_view_u32, 0, 9);
     Atomics.store(func_sig_view_u32, 1, fd);
 
-    // console.log("fd_close: ref", fd);
-
     if (!this.call_fd_func(fd)) {
       this.release_fd(fd);
       return wasi.ERRNO_BADF;
     }
 
-    // console.log("fd_close: ref2", fd);
-
     const error = this.get_error(fd);
 
     this.release_fd(fd);
-
-    // console.log("fd_close: ref3", fd);
 
     return error;
   }
@@ -765,16 +742,11 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     Atomics.store(func_sig_view_u32, 0, 21);
     Atomics.store(func_sig_view_u32, 1, fd);
 
-    // console.log("fd_read: ref: iovs", iovs);
-    // console.log("iovs.buffer", iovs.buffer.slice(0, iovs.byteLength));
-
     const [ptr, len] = this.allocator.block_write(
       iovs,
       this.fd_func_sig,
       fd * fd_func_sig_u32_size + 2,
     );
-
-    // console.log("fd_read: ref: iovs", iovs);
 
     if (!this.call_fd_func(fd)) {
       this.allocator.free(ptr, len);
@@ -789,8 +761,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     const buf_len = Atomics.load(func_sig_view_u32, 2);
     this.release_fd(fd);
 
-    // console.log("fd_read: ref: ", nread, buf_ptr, buf_len);
-
     if (error === wasi.ERRNO_BADF) {
       this.allocator.free(buf_ptr, buf_len);
       return [undefined, error];
@@ -801,9 +771,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     // fd_read: ref:  21 52 32
     // ref.ts:655 fd_read: ref:  21
     const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
-    // console.log("fd_read: ref: ", nread, new TextDecoder().decode(buf));
-
-    // console.log("fd_read: nread", nread, new TextDecoder().decode(buf));
 
     if (nread !== buf_len) {
       console.error("read nread !== buf_len");
@@ -978,8 +945,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   fd_write(fd: number, write_data: Uint8Array): [number | undefined, number] {
     this.lock_fd(fd);
 
-    // console.log("fd_write: ref: write_data", new TextDecoder().decode(write_data));
-
     const bytes_offset = fd * fd_func_sig_bytes;
     const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
@@ -992,19 +957,12 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     );
 
     if (!this.call_fd_func(fd)) {
-      // console.log("fd_write: ref: error", "wasi.ERRNO_BADF");
-
       this.allocator.free(ptr, len);
       this.release_fd(fd);
       return [undefined, wasi.ERRNO_BADF];
     }
 
     const error = this.get_error(fd);
-
-    // console.log("fd_write: ref: error", this.get_error(fd));
-
-    // console.log("fd_write: ref: error", error);
-
     if (error === wasi.ERRNO_BADF) {
       this.release_fd(fd);
       return [undefined, error];

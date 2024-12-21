@@ -137,8 +137,6 @@ export abstract class ToRefSenderUseArrayBuffer {
     );
     data_view.set(data);
 
-    // console.log("async_send send", targets, data);
-
     Atomics.add(view, 1, 1);
 
     this.release_lock();
@@ -158,9 +156,7 @@ export abstract class ToRefSenderUseArrayBuffer {
     const return_data: Array<Uint32Array> = [];
 
     let offset = 12;
-    // console.log("data_num", data_num);
     for (let i = 0; i < data_num; i++) {
-      // console.log("this.share_arrays_memory", this.share_arrays_memory);
       const header = new Int32Array(this.share_arrays_memory, offset);
       const target_num = header[1];
       const targets = new Int32Array(
@@ -196,14 +192,12 @@ export abstract class ToRefSenderUseArrayBuffer {
           );
           const now_tail = new Int32Array(this.share_arrays_memory, offset);
           now_tail.set(next_tail);
-          // console.log("new_used_len", new_used_len);
         } else {
           offset += data_len + 8 + target_num * 4;
         }
       } else {
         offset += data_len + 8 + target_num * 4;
       }
-      // console.log("offset", offset);
     }
 
     if (offset !== Atomics.load(view, 2)) {
@@ -211,8 +205,6 @@ export abstract class ToRefSenderUseArrayBuffer {
     }
 
     this.release_lock();
-
-    // console.log("get_data get: return_data", return_data);
 
     return return_data;
   }

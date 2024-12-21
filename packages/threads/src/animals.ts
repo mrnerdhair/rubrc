@@ -54,22 +54,18 @@ export class WASIFarmAnimal {
   ): [number, WASIFarmRef] | [undefined, undefined] {
     const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
     if (!mapped_fd_and_wasi_ref_n) {
-      // console.log("fd", fd, "is not found");
       return [undefined, undefined];
     }
     const [mapped_fd, wasi_ref_n] = mapped_fd_and_wasi_ref_n;
-    // console.log("fd", fd, "is found", "mapped_fd", mapped_fd, "wasi_ref_n", wasi_ref_n);
     return [mapped_fd, this.wasi_farm_refs[wasi_ref_n]];
   }
 
   get_fd_and_wasi_ref_n(fd: number): [number, number] | [undefined, undefined] {
     const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
     if (!mapped_fd_and_wasi_ref_n) {
-      // console.log("fd", fd, "is not found");
       return [undefined, undefined];
     }
     const [mapped_fd, wasi_ref_n] = mapped_fd_and_wasi_ref_n;
-    // console.log("fd", fd, "is found", "mapped_fd", mapped_fd, "wasi_ref_n", wasi_ref_n);
     return [mapped_fd, wasi_ref_n];
   }
 
@@ -142,11 +138,7 @@ export class WASIFarmAnimal {
       throw new Error("thread_spawn is not supported");
     }
 
-    console.log("block_start_on_thread");
-
     this.check_worker_background_worker();
-
-    console.log("block_start_on_thread");
 
     if (this._inst) {
       throw new Error("what happened?");
@@ -155,15 +147,9 @@ export class WASIFarmAnimal {
     const view = new Uint8Array(this.get_share_memory().buffer);
     view.fill(0);
 
-    console.log("block_start_on_thread: start");
-
     this.thread_spawner.block_start_on_thread(this.args, this.env, this.fd_map);
 
-    console.log("block_start_on_thread: wait");
-
     const code = this.thread_spawner.block_wait_done_or_error();
-
-    console.log("block_start_on_thread: done");
 
     return code;
   }
@@ -206,20 +192,14 @@ export class WASIFarmAnimal {
   ) {
     this.fd_map = [undefined, undefined, undefined];
 
-    // console.log("wasi_farm_refs", wasi_farm_refs);
     for (let i = 0; i < wasi_farm_refs.length; i++) {
-      // console.log("fd_map", [...fd_map]);
-
       const wasi_farm_ref = wasi_farm_refs[i];
-      // console.log("override_fd_map", wasi_farm_ref.default_fds);
       const override_fd_map = override_fd_maps
         ? override_fd_maps[i]
         : wasi_farm_ref.default_fds;
-      // console.log("override_fd_map", override_fd_map);
       const stdin = wasi_farm_ref.get_stdin();
       const stdout = wasi_farm_ref.get_stdout();
       const stderr = wasi_farm_ref.get_stderr();
-      // console.log("stdin", stdin, "stdout", stdout, "stderr", stderr);
       if (stdin !== undefined) {
         if (this.fd_map[0] === undefined) {
           if (override_fd_map.includes(stdin)) {
@@ -228,10 +208,8 @@ export class WASIFarmAnimal {
         }
       }
       if (stdout !== undefined) {
-        // console.log("stdout", stdout, i, "override_fd_map", override_fd_map);
         if (this.fd_map[1] === undefined) {
           if (override_fd_map.includes(stdout)) {
-            // console.log("stdout defined");
             this.fd_map[1] = [stdout, i];
           }
         }
@@ -250,8 +228,6 @@ export class WASIFarmAnimal {
         this.map_new_fd(j, i);
       }
       wasi_farm_ref.set_park_fds_map(override_fd_map);
-
-      // console.log("this.fd_map", this.fd_map);
     }
 
     if (this.fd_map[0] === undefined) {
@@ -283,8 +259,6 @@ export class WASIFarmAnimal {
 
   map_new_fd_and_notify(fd: number, wasi_ref_n: number): number {
     const n = this.map_new_fd(fd, wasi_ref_n);
-    // console.log("animals: fd", fd, "is mapped to", n);
-    // console.log("wasi_ref_n", wasi_ref_n);
     this.wasi_farm_refs[wasi_ref_n].set_park_fds_map([fd]);
     return n;
   }
@@ -320,14 +294,10 @@ export class WASIFarmAnimal {
         for (const [rm_fd_fd, rm_fd_wasi_ref_n] of rm_fds) {
           if (fd === rm_fd_fd && wasi_ref_n === rm_fd_wasi_ref_n) {
             this.fd_map[i] = undefined;
-            // console.log("fd", i, "is removed");
             break;
           }
         }
-        // console.log("fd_and_wasi_ref_n", fd_and_wasi_ref_n);
       }
-      // console.log("rm_fds.length", rm_fds.length);
-      // console.log("rm_fds", rm_fds);
     }
   }
 
@@ -381,8 +351,6 @@ export class WASIFarmAnimal {
       this.id_in_wasi_farm_ref.push(this.wasi_farm_refs[i].set_id());
     }
 
-    // console.log("this.wasi_farm_refs", this.wasi_farm_refs);
-
     if (options.can_thread_spawn) {
       this.can_thread_spawn = options.can_thread_spawn;
 
@@ -416,8 +384,6 @@ export class WASIFarmAnimal {
     if (options.hand_override_fd_map) {
       this.fd_map = options.hand_override_fd_map;
     }
-
-    // console.log("this.fd_map", this.fd_map);
 
     this.args = args;
     this.env = env;
@@ -726,14 +692,11 @@ export class WASIFarmAnimal {
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return [undefined, wasi.ERRNO_BADF];
         }
-        // console.log("fd_prestat_dir_name: fd", mapped_fd, "path_len", path_len);
         const [path, ret] = wasi_farm_ref.fd_prestat_dir_name(
           mapped_fd,
           path_len,
         );
         if (path) {
-          // console.log("fd_prestat_dir_name", new TextDecoder().decode(path));
-          // console.log("fd_prestat_dir_name", path);
           const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
           buffer8.set(path, path_ptr);
         }
@@ -801,11 +764,6 @@ export class WASIFarmAnimal {
             iovs_len,
           );
           const [nread, read_data] = nerad_and_read_data;
-
-          // console.log("fd_read: nread", nread, new TextDecoder().decode(read_data));
-
-          // fd_read: ref:  14 30 14
-          // animals.ts:325 fd_read: nread 14 Hello, world!
 
           buffer.setUint32(nread_ptr, nread, true);
           let nreaded = 0;
@@ -929,16 +887,12 @@ export class WASIFarmAnimal {
           return wasi.ERRNO_BADF;
         }
 
-        // console.log("fd_write", fd, iovs_ptr, iovs_len, nwritten_ptr);
-
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovecs = wasi.Ciovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
-        // console.log("iovecs", iovecs);
         const data = new Uint8Array(
           iovecs.reduce((acc, iovec) => acc + iovec.buf_len, 0),
         );
-        // console.log("data", data);
         let nwritten = 0;
         for (const iovec of iovecs) {
           data.set(
@@ -947,13 +901,7 @@ export class WASIFarmAnimal {
           );
           nwritten += iovec.buf_len;
         }
-
-        // console.log("fd_write: ", fd, new TextDecoder().decode(data));
-
         const [written, ret] = wasi_farm_ref.fd_write(mapped_fd, data);
-
-        // console.log("fd_write end", fd, ret, written);
-
         if (written) {
           buffer.setUint32(nwritten_ptr, written, true);
         }

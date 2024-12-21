@@ -29,8 +29,6 @@ export class FdCloseSenderUseArrayBuffer
     if (targets === undefined || targets.length === 0) {
       throw new Error("targets is empty");
     }
-    // console.log("fd_close_sender send", targets, fd);
-
     await this.async_send(targets, new Uint32Array([fd]));
   }
 
@@ -40,8 +38,6 @@ export class FdCloseSenderUseArrayBuffer
     if (data === undefined) {
       return undefined;
     }
-
-    // console.log("fd_close_sender get", data);
 
     const array = [];
     for (const i of data) {
