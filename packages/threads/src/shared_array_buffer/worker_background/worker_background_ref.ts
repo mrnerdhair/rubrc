@@ -56,10 +56,10 @@ export class WorkerBackgroundRef {
   private call_base_func(): void {
     const view = new Int32Array(this.lock);
     const old = Atomics.exchange(view, 1, 1);
-    if (old !== 0) {
-      console.error("what happened?");
-    }
     Atomics.notify(view, 1, 1);
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
   }
 
   // wait base_func
@@ -171,9 +171,7 @@ export class WorkerBackgroundRef {
     const old = Atomics.compareExchange(notify_view, 0, 0, 2);
 
     if (old !== 0) {
-      console.error("what happened?");
-
-      return;
+      throw new Error("what happened?");
     }
 
     Atomics.store(notify_view, 1, code);
@@ -214,7 +212,7 @@ export class WorkerBackgroundRef {
       const code = Atomics.load(notify_view, 1);
 
       if (old !== 2) {
-        console.error("what happened?");
+        throw new Error("what happened?");
       }
 
       return code;
@@ -266,7 +264,7 @@ export class WorkerBackgroundRef {
       const code = Atomics.load(notify_view, 1);
 
       if (old !== 2) {
-        console.error("what happened?");
+        throw new Error("what happened?");
       }
 
       return code;
