@@ -65,7 +65,7 @@ export class WASIFarm {
 
     if (this.can_array_buffer) {
       this.park = new WASIFarmParkUseArrayBuffer(
-        this.fds_ref(),
+        this.fds,
         stdin_,
         stdout_,
         stderr_,
@@ -77,29 +77,6 @@ export class WASIFarm {
     }
 
     this.park.listen();
-  }
-
-  private fds_ref(): Array<Fd> {
-    const fds = new Proxy<Fd[]>([], {
-      get: (_, prop) => {
-        if (prop === "push") {
-          return (fd: Fd) => {
-            const len = this.fds.push(fd);
-            return len;
-          };
-        }
-        // @ts-expect-error
-        return this.fds[prop];
-      },
-
-      set: (_, prop, value: Fd) => {
-        // @ts-expect-error
-        this.fds[prop] = value;
-        return true;
-      },
-    });
-
-    return fds;
   }
 
   get_ref(): WASIFarmRefUseArrayBufferObject {
