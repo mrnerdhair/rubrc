@@ -402,7 +402,6 @@ export class WASIFarmAnimal {
   private static makeWasiImport(self: WASIFarmAnimal) {
     return {
       args_sizes_get(argc: number, argv_buf_size: number): number {
-        self.check_fds();
         const buffer = new DataView(self.inst.exports.memory.buffer);
         buffer.setUint32(argc, self.args.length, true);
         let buf_size = 0;
@@ -413,7 +412,6 @@ export class WASIFarmAnimal {
         return 0;
       },
       args_get(argv: number, argv_buf: number): number {
-        self.check_fds();
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         let current_argv = argv;
@@ -429,7 +427,6 @@ export class WASIFarmAnimal {
         return 0;
       },
       environ_sizes_get(environ_count: number, environ_size: number): number {
-        self.check_fds();
         const buffer = new DataView(self.inst.exports.memory.buffer);
         buffer.setUint32(environ_count, self.env.length, true);
         let buf_size = 0;
@@ -440,7 +437,6 @@ export class WASIFarmAnimal {
         return 0;
       },
       environ_get(environ: number, environ_buf: number): number {
-        self.check_fds();
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         let current_environ = environ;
@@ -456,7 +452,6 @@ export class WASIFarmAnimal {
         return 0;
       },
       clock_res_get(id: number, res_ptr: number): number {
-        self.check_fds();
         let resolutionValue: bigint;
         switch (id) {
           case wasi.CLOCKID_MONOTONIC: {
@@ -477,7 +472,6 @@ export class WASIFarmAnimal {
         return wasi.ERRNO_SUCCESS;
       },
       clock_time_get(id: number, _precision: bigint, time: number): number {
-        self.check_fds();
         const buffer = new DataView(self.inst.exports.memory.buffer);
         if (id === wasi.CLOCKID_REALTIME) {
           buffer.setBigUint64(
@@ -1155,22 +1149,16 @@ export class WASIFarmAnimal {
         return wasi_farm_ref.path_unlink_file(mapped_fd, path);
       },
       poll_oneoff(_in_: unknown, _out: unknown, _nsubscriptions: unknown) {
-        self.check_fds();
         throw new Error("async io not supported");
       },
       proc_exit(exit_code: number) {
-        self.check_fds();
         throw new WASIProcExit(exit_code);
       },
       proc_raise(sig: number) {
-        self.check_fds();
         throw new Error(`raised signal ${sig}`);
       },
-      sched_yield() {
-        self.check_fds();
-      },
+      sched_yield() {},
       random_get(buf: number, buf_len: number) {
-        self.check_fds();
         const buffer8 = new Uint8Array(
           self.inst.exports.memory.buffer,
         ).subarray(buf, buf + buf_len);
@@ -1189,19 +1177,15 @@ export class WASIFarmAnimal {
         }
       },
       sock_recv(_fd: number, _ri_data: unknown, _ri_flags: unknown) {
-        self.check_fds();
         throw new Error("sockets not supported");
       },
       sock_send(_fd: number, _si_data: unknown, _si_flags: unknown) {
-        self.check_fds();
         throw new Error("sockets not supported");
       },
       sock_shutdown(_fd: number, _how: unknown) {
-        self.check_fds();
         throw new Error("sockets not supported");
       },
       sock_accept(_fd: number, _flags: unknown) {
-        self.check_fds();
         throw new Error("sockets not supported");
       },
     } as const;
