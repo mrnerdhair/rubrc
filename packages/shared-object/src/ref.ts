@@ -149,7 +149,6 @@ export class SharedObjectRef {
             return this.get([...names, prop]);
           },
           apply: (_, __, args) => {
-
             return this.call(names, args);
           },
         });
