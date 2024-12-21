@@ -470,7 +470,7 @@ export abstract class WASIFarmPark {
       const [resolve, opened_fd] = await this.get_new_fd();
 
       if (!fd_obj) {
-        throw "fd_obj should not be null";
+        throw new Error("fd_obj should not be null");
       }
 
       this.fds[opened_fd] = fd_obj;

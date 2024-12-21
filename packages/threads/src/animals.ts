@@ -1155,7 +1155,7 @@ export class WASIFarmAnimal {
       },
       poll_oneoff(_in_: unknown, _out: unknown, _nsubscriptions: unknown) {
         self.check_fds();
-        throw "async io not supported";
+        throw new Error("async io not supported");
       },
       proc_exit(exit_code: number) {
         self.check_fds();
@@ -1163,7 +1163,7 @@ export class WASIFarmAnimal {
       },
       proc_raise(sig: number) {
         self.check_fds();
-        throw `raised signal ${sig}`;
+        throw new Error(`raised signal ${sig}`);
       },
       sched_yield() {
         self.check_fds();
@@ -1189,19 +1189,19 @@ export class WASIFarmAnimal {
       },
       sock_recv(_fd: number, _ri_data: unknown, _ri_flags: unknown) {
         self.check_fds();
-        throw "sockets not supported";
+        throw new Error("sockets not supported");
       },
       sock_send(_fd: number, _si_data: unknown, _si_flags: unknown) {
         self.check_fds();
-        throw "sockets not supported";
+        throw new Error("sockets not supported");
       },
       sock_shutdown(_fd: number, _how: unknown) {
         self.check_fds();
-        throw "sockets not supported";
+        throw new Error("sockets not supported");
       },
       sock_accept(_fd: number, _flags: unknown) {
         self.check_fds();
-        throw "sockets not supported";
+        throw new Error("sockets not supported");
       },
     } as const;
   }
