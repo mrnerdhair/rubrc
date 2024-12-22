@@ -8,9 +8,7 @@
 
 import type { Msg } from "./mod";
 
-function isIndexable(
-  x: unknown,
-): x is Record<string | number | symbol, unknown> {
+function isIndexable(x: unknown): x is Record<PropertyKey, unknown> {
   return x !== null && (typeof x === "object" || typeof x === "function");
 }
 
