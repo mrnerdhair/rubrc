@@ -68,15 +68,9 @@ export abstract class ToRefSenderUseArrayBuffer {
   private async async_lock(): Promise<void> {
     const view = new Int32Array(this.share_arrays_memory);
     while (true) {
-      let lock: "not-equal" | "timed-out" | "ok";
-      const { value } = Atomics.waitAsync(view, 0, 1);
-      if (value instanceof Promise) {
-        lock = await value;
-      } else {
-        lock = value;
-      }
+      const lock = await Atomics.waitAsync(view, 0, 1).value;
       if (lock === "timed-out") {
-        throw new Error("timed-out lock");
+        throw new Error("timed-out");
       }
       const old = Atomics.compareExchange(view, 0, 0, 1);
       if (old !== 0) {
@@ -91,7 +85,7 @@ export abstract class ToRefSenderUseArrayBuffer {
       const view = new Int32Array(this.share_arrays_memory);
       const lock = Atomics.wait(view, 0, 1);
       if (lock === "timed-out") {
-        throw new Error("timed-out lock");
+        throw new Error("timed-out");
       }
       const old = Atomics.compareExchange(view, 0, 0, 1);
       if (old !== 0) {

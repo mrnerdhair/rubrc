@@ -76,14 +76,7 @@ class WorkerBackground<T> {
     const signature_input_view = new Int32Array(this.signature_input);
 
     while (true) {
-      let lock: "not-equal" | "timed-out" | "ok";
-
-      const { value } = Atomics.waitAsync(lock_view, 1, 0);
-      if (value instanceof Promise) {
-        lock = await value;
-      } else {
-        lock = value;
-      }
+      const lock = await Atomics.waitAsync(lock_view, 1, 0).value;
       if (lock === "timed-out") {
         throw new Error("timed-out");
       }
