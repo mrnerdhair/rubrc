@@ -5,8 +5,10 @@ import { render } from "solid-js/web";
 import App from "./App";
 import { parser_setup } from "./cmd_parser";
 import { gen_ctx } from "./ctx";
-import MainWorker from "./worker_process/worker?worker";
+import type { MainWorker } from "./worker_process/worker";
+import main_worker from "./worker_process/worker?worker";
 import "./monaco_worker";
+import * as Comlink from "comlink";
 import { compile_and_run_setup } from "./compile_and_run";
 
 const root = document.getElementById("root");
@@ -20,20 +22,20 @@ if (/*import.meta.env.DEV && */ !(root instanceof HTMLElement)) {
 const ctx = gen_ctx();
 
 // create worker
-const worker = new MainWorker();
+const worker = Comlink.wrap<MainWorker>(new main_worker());
 
 parser_setup(ctx);
 compile_and_run_setup(ctx);
 
 // send message to worker
-worker.postMessage({ ctx });
+worker({ ctx });
 
 render(
   () => (
     <App
       ctx={ctx}
       callback={(wasi_ref) =>
-        worker.postMessage({
+        worker({
           wasi_ref,
         })
       }
