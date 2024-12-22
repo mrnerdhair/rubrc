@@ -1,4 +1,4 @@
-import type { WASIFarmRefObject } from "@oligami/browser_wasi_shim-threads";
+import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
 import { Suspense, createSignal, lazy } from "solid-js";
 import { DownloadButton, RunButton } from "./btn";
 import { default_value, rust_file } from "./config";
@@ -22,7 +22,7 @@ const MonacoEditor = lazy(() =>
 
 const App = (props: {
   ctx: Ctx;
-  callback: (wasi_ref: WASIFarmRefObject) => void;
+  callback: (wasi_ref: WASIFarmRefUseArrayBufferObject) => void;
 }) => {
   const handleMount = (_monaco: unknown, _editor: unknown) => {
     // Use monaco and editor instances here
