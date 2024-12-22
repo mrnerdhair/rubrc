@@ -142,7 +142,7 @@ export class SharedObjectRef {
           get: (_, prop) => {
             if (prop === "then") {
               is_await = true;
-              // 即座に終わるPromiseを生成して返す
+              // Creates and returns a Promise that expires immediately.
               return Promise.resolve(target);
             }
 

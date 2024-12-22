@@ -25,10 +25,10 @@ export const compile_and_run_setup = (_ctx: Ctx) => {
     (async () => {
       const a = document.createElement("a");
       a.href = url;
-      a.download = name; // ダウンロード時のファイル名を指定
-      document.body.appendChild(a); // DOM に追加
-      a.click(); // クリックしてダウンロードを開始
-      document.body.removeChild(a); // すぐに削除
+      a.download = name; // Specify the file name when downloading
+      document.body.appendChild(a); // Add to DOM
+      a.click(); // Click to start download
+      document.body.removeChild(a); // Delete immediately
     })();
   }, ctx.download_by_url_id);
 
