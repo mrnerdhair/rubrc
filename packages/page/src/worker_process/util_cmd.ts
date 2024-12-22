@@ -26,7 +26,7 @@ globalThis.addEventListener("message", async (event) => {
     (x: string) => Promise<void>
   >();
   const waiter = new SharedObjectRef(ctx.waiter_id).proxy<{
-    set_end_of_exec: (_end_of_exec: boolean) => Promise<void>;
+    set_end_of_exec: () => Promise<void>;
   }>();
   const download_by_url = new SharedObjectRef(ctx.download_by_url_id).proxy<
     (url: string, name: string) => Promise<void>
@@ -120,7 +120,7 @@ globalThis.addEventListener("message", async (event) => {
         } catch (e) {
           terminal(`Error: ${e}\r\n`);
         }
-        waiter.set_end_of_exec(true);
+        waiter.set_end_of_exec();
       })(args);
     }, ctx.exec_file_id),
   );
@@ -140,7 +140,7 @@ globalThis.addEventListener("message", async (event) => {
         } catch (e) {
           terminal(`Error: ${e}\r\n`);
         }
-        waiter.set_end_of_exec(true);
+        waiter.set_end_of_exec();
       })(file);
     }, ctx.download_id),
   );

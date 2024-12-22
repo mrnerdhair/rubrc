@@ -48,75 +48,74 @@ export const compile_and_run = async (triple: string) => {
       terminal = new SharedObjectRef(ctx.terminal_id).proxy();
 
       await terminal("this is not done yet\r\n");
+      return;
     }
   }
 
-  if (can_setup) {
-    const exec = [
-      "rustc",
-      "/main.rs",
-      "--sysroot",
-      "/sysroot",
-      "--target",
-      triple,
-      "--out-dir",
-      "/tmp",
-      "-Ccodegen-units=1",
-    ];
-    if (triple === "wasm32-wasip1") {
-      exec.push("-Clinker-flavor=wasm-ld");
-      exec.push("-Clinker=wasm-ld");
-    } else {
-      // exec.push("-Zunstable-options");
-      // exec.push("-Clinker-flavor=gnu");
-      exec.push("-Clinker=lld");
+  const exec = [
+    "rustc",
+    "/main.rs",
+    "--sysroot",
+    "/sysroot",
+    "--target",
+    triple,
+    "--out-dir",
+    "/tmp",
+    "-Ccodegen-units=1",
+  ];
+  if (triple === "wasm32-wasip1") {
+    exec.push("-Clinker-flavor=wasm-ld");
+    exec.push("-Clinker=wasm-ld");
+  } else {
+    // exec.push("-Zunstable-options");
+    // exec.push("-Clinker-flavor=gnu");
+    exec.push("-Clinker=lld");
 
-      await terminal.reset_err_buff();
-    }
-    await terminal(`${exec.join(" ")}\r\n`);
-    await cmd_parser(...exec);
+    await terminal.reset_err_buff();
+  }
+  await terminal(`${exec.join(" ")}\r\n`);
+  await cmd_parser(...exec);
+  while (!(await waiter.is_cmd_run_end())) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  if (triple === "wasm32-wasip1") {
+    await terminal("/tmp/main.wasm\r\n");
+    await cmd_parser("/tmp/main.wasm");
     while (!(await waiter.is_cmd_run_end())) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+  } else if (triple === "x86_64-pc-windows-gnu") {
+    const err_msg = await terminal.get_out_buff();
+    console.log("err_msg: ", err_msg);
 
-    if (triple === "wasm32-wasip1") {
-      await terminal("/tmp/main.wasm\r\n");
-      await cmd_parser("/tmp/main.wasm");
-      while (!(await waiter.is_cmd_run_end())) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-    } else if (triple === "x86_64-pc-windows-gnu") {
-      const err_msg = await terminal.get_out_buff();
-      console.log("err_msg: ", err_msg);
+    const lld_args_and_etc = err_msg
+      .split("\r\n")
+      .find((line) => line.includes("Linking using"));
+    if (!lld_args_and_etc) {
+      throw new Error("cannot get lld arguments");
+    }
 
-      const lld_args_and_etc = err_msg
-        .split("\r\n")
-        .find((line) => line.includes("Linking using"));
-      if (!lld_args_and_etc) {
-        throw new Error("cannot get lld arguments");
-      }
+    // split by space
+    const lld_args_str = lld_args_and_etc
+      .split(' "')
+      ?.slice(1)
+      .map((arg) => arg.slice(0, -1));
 
-      // split by space
-      const lld_args_str = lld_args_and_etc
-        .split(' "')
-        ?.slice(1)
-        .map((arg) => arg.slice(0, -1));
+    // first args to lld-link
+    const clang_args = lld_args_str;
+    clang_args[0] = "lld-link";
 
-      // first args to lld-link
-      const clang_args = lld_args_str;
-      clang_args[0] = "lld-link";
+    // // add -fuse-ld=lld
+    // clang_args.push("-fuse-ld=lld");
 
-      // // add -fuse-ld=lld
-      // clang_args.push("-fuse-ld=lld");
-
-      await terminal(`${clang_args.join(" ")}\r\n`);
-      await cmd_parser(...clang_args);
-    } else {
-      await terminal("download /tmp/main\r\n");
-      await cmd_parser("download", "/tmp/main");
-      while (!(await waiter.is_cmd_run_end())) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
+    await terminal(`${clang_args.join(" ")}\r\n`);
+    await cmd_parser(...clang_args);
+  } else {
+    await terminal("download /tmp/main\r\n");
+    await cmd_parser("download", "/tmp/main");
+    while (!(await waiter.is_cmd_run_end())) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 };

@@ -31,7 +31,12 @@ const App = (props: {
     // Handle editor value change
     rust_file.data = new TextEncoder().encode(value);
   };
-  let load_additional_sysroot: (value: string) => void;
+  const load_additional_sysroot = (value: string) => {
+    const load_additional_sysroot = new SharedObjectRef(
+      props.ctx.load_additional_sysroot_id,
+    ).proxy<(x: string) => void>();
+    load_additional_sysroot(value);
+  };
 
   const [triple, setTriple] = createSignal("wasm32-wasip1");
 
@@ -70,11 +75,6 @@ const App = (props: {
             onChange={(value) => {
               console.log(value);
               setTriple(value);
-              if (load_additional_sysroot === undefined) {
-                load_additional_sysroot = new SharedObjectRef(
-                  props.ctx.load_additional_sysroot_id,
-                ).proxy<(x: string) => void>();
-              }
               load_additional_sysroot(value);
             }}
           />

@@ -1,57 +1,41 @@
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import type { Ctx } from "./ctx";
 
-let is_all_done = false;
 let is_cmd_run_end = true;
 let end_of_exec = false;
 let is_rustc_fetch_end = false;
 
-type PromiseWithResolvers<T> = {
-  promise: Promise<T>;
-  resolve: (result: T | PromiseLike<T>) => void;
-  reject: (reason?: unknown) => void;
-};
-
 export const parser_setup = async (ctx: Ctx) => {
-  const n = 1;
+  let is_all_done = false;
 
-  const resolvers: PromiseWithResolvers<void>[] = [];
-  for (let i = 0; i < n; i++) {
-    resolvers.push(Promise.withResolvers<void>());
-  }
-
-  new SharedObject(
-    {
-      rustc: () => {
-        resolvers[0].resolve();
+  await new Promise<void>((resolve) => {
+    new SharedObject(
+      {
+        rustc: () => {
+          resolve();
+        },
+        end_rustc_fetch: () => {
+          is_rustc_fetch_end = true;
+        },
+        is_rustc_fetch_end: () => {
+          return is_rustc_fetch_end;
+        },
+        is_all_done: (): boolean => {
+          return is_all_done;
+        },
+        is_cmd_run_end: () => {
+          return is_cmd_run_end;
+        },
+        set_end_of_exec: () => {
+          end_of_exec = true;
+        },
       },
-      end_rustc_fetch: () => {
-        is_rustc_fetch_end = true;
-      },
-      is_rustc_fetch_end: () => {
-        return is_rustc_fetch_end;
-      },
-      is_all_done: (): boolean => {
-        return is_all_done;
-      },
-      is_cmd_run_end: () => {
-        return is_cmd_run_end;
-      },
-      set_end_of_exec: (_end_of_exec: boolean) => {
-        end_of_exec = _end_of_exec;
-      },
-    },
-    ctx.waiter_id,
-  );
-
-  await Promise.all(resolvers.map((r) => r.promise));
+      ctx.waiter_id,
+    );
+  });
 
   is_all_done = true;
 
-  await all_done(ctx);
-};
-
-const all_done = async (ctx: Ctx) => {
   const rustc = new SharedObjectRef(ctx.rustc_id).proxy<
     (...args: string[]) => Promise<void>
   >();
