@@ -18,7 +18,7 @@ export type MsgBase = {
 } & (
   | {
       msg: "func_call::call";
-      names: Array<string | number | symbol>;
+      names: Array<PropertyKey>;
       args: unknown[];
     }
   | {
@@ -31,7 +31,7 @@ export type MsgBase = {
     }
   | {
       msg: "get::get";
-      names: Array<string | number | symbol>;
+      names: Array<PropertyKey>;
     }
   | {
       msg: "get::return";
@@ -50,7 +50,7 @@ export type MsgBase = {
     }
   | {
       msg: "callback::call";
-      name: string | number | symbol;
+      name: PropertyKey;
       args: unknown[];
     }
   | {
