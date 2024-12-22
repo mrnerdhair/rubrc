@@ -1,11 +1,13 @@
+/// <reference lib="webworker" />
+
 import {
   WASIFarmAnimal,
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
+import * as Comlink from "comlink";
 import type { Ctx } from "../ctx";
-
 import thread_spawn_path from "./thread_spawn.ts?worker&url";
 
 let terminal: (x: string) => void;
@@ -17,9 +19,15 @@ let waiter: {
   end_rustc_fetch: () => Promise<void>;
 };
 
-globalThis.addEventListener("message", async (event) => {
-  if (event.data.ctx) {
-    ctx = event.data.ctx;
+export type RustcWorker = (data: {
+  ctx?: Ctx;
+  wasi_ref?: WASIFarmRefUseArrayBufferObject;
+  wasi_ref_ui?: WASIFarmRefUseArrayBufferObject;
+}) => Promise<void>;
+
+const rustc_worker: RustcWorker = async (data) => {
+  if (data.ctx) {
+    ctx = data.ctx;
     terminal = new SharedObjectRef(ctx.terminal_id).proxy<
       (x: string) => Promise<void>
     >();
@@ -31,8 +39,8 @@ globalThis.addEventListener("message", async (event) => {
     compiler = await get_rustc_wasm();
 
     await waiter.end_rustc_fetch();
-  } else if (event.data.wasi_ref) {
-    const { wasi_ref } = event.data;
+  } else if (data.wasi_ref) {
+    const { wasi_ref } = data;
 
     wasi_refs.push(wasi_ref);
 
@@ -79,7 +87,9 @@ globalThis.addEventListener("message", async (event) => {
     }, ctx.rustc_id);
 
     waiter.rustc();
-  } else if (event.data.wasi_ref_ui) {
-    wasi_refs.push(event.data.wasi_ref_ui);
+  } else if (data.wasi_ref_ui) {
+    wasi_refs.push(data.wasi_ref_ui);
   }
-});
+};
+
+Comlink.expose(rustc_worker, self);
