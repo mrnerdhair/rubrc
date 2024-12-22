@@ -28,8 +28,6 @@ export class WASIFarmAnimal {
     "thread-spawn": (start_arg: number) => number;
   };
 
-  private can_array_buffer;
-
   private can_thread_spawn?: boolean;
 
   private thread_spawner?: ThreadSpawner;
@@ -324,17 +322,13 @@ export class WASIFarmAnimal {
 
     try {
       new SharedArrayBuffer(4);
-      this.can_array_buffer = true;
-    } catch (_) {
-      this.can_array_buffer = false;
+    } catch {
+      throw new Error("Non SharedArrayBuffer is not supported yet");
     }
 
     this.id_in_wasi_farm_ref = [];
     this.wasi_farm_refs = [];
     for (let i = 0; i < wasi_farm_refs_tmp.length; i++) {
-      if (!this.can_array_buffer) {
-        throw new Error("Non SharedArrayBuffer is not supported yet");
-      }
       this.wasi_farm_refs.push(
         WASIFarmRefUseArrayBuffer.init_self(wasi_farm_refs_tmp[i]),
       );
