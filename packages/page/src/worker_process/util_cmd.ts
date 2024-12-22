@@ -1,8 +1,11 @@
+/// <reference lib="webworker" />
+
 import {
   WASIFarmAnimal,
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
+import * as Comlink from "comlink";
 import { as_wasi_p1_cmd } from "rubrc-util";
 import { get_data } from "../cat";
 import type { Ctx } from "../ctx";
@@ -11,15 +14,12 @@ import tre from "../wasm/tre.wasm?url";
 
 const shared: SharedObject[] = [];
 
-globalThis.addEventListener("message", async (event) => {
-  const {
-    wasi_refs,
-    ctx,
-  }: {
-    wasi_refs: WASIFarmRefUseArrayBufferObject[];
-    ctx: Ctx;
-  } = event.data;
+export type UtilCmdWorker = (data: {
+  wasi_refs: WASIFarmRefUseArrayBufferObject[];
+  ctx: Ctx;
+}) => Promise<void>;
 
+const util_cmd_worker: UtilCmdWorker = async ({ wasi_refs, ctx }) => {
   console.log("loading lsr and tre");
 
   const terminal = new SharedObjectRef(ctx.terminal_id).proxy<
@@ -144,4 +144,6 @@ globalThis.addEventListener("message", async (event) => {
       })(file);
     }, ctx.download_id),
   );
-});
+};
+
+Comlink.expose(util_cmd_worker, self);

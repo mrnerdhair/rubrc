@@ -1,24 +1,35 @@
+/// <reference lib="webworker" />
+
 import { sysroot } from "@oligami/rustc-browser-wasi_shim";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import get_default_sysroot_wasi_farm = sysroot.get_default_sysroot_wasi_farm;
 import load_additional_sysroot = sysroot.load_additional_sysroot;
 import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
+import * as Comlink from "comlink";
 import type { Ctx } from "../ctx";
+import type { LlvmWorker } from "./llvm";
 import run_llvm_worker from "./llvm?worker";
-import RustcWorker from "./rustc?worker";
+import type { RustcWorker } from "./rustc";
+import rustc_worker_constructor from "./rustc?worker";
+import type { UtilCmdWorker } from "./util_cmd";
 import util_cmd_worker from "./util_cmd?worker";
 
 let terminal: (x: string) => Promise<void>;
-let rustc_worker: Worker;
+let rustc_worker: RustcWorker;
 let ctx: Ctx;
 
 const wasi_refs: WASIFarmRefUseArrayBufferObject[] = [];
 
-globalThis.addEventListener("message", async (event) => {
-  if (event.data.ctx) {
-    rustc_worker = new RustcWorker();
-    ctx = event.data.ctx;
-    rustc_worker.postMessage({ ctx });
+export type MainWorker = (data: {
+  wasi_ref?: WASIFarmRefUseArrayBufferObject;
+  ctx?: Ctx;
+}) => Promise<void>;
+
+const main_worker: MainWorker = async (data) => {
+  if (data.ctx) {
+    rustc_worker = Comlink.wrap<RustcWorker>(new rustc_worker_constructor());
+    ctx = data.ctx;
+    rustc_worker({ ctx });
 
     terminal = new SharedObjectRef(ctx.terminal_id).proxy<
       (x: string) => Promise<void>
@@ -32,7 +43,7 @@ globalThis.addEventListener("message", async (event) => {
 
     const wasi_ref = farm.get_ref();
 
-    rustc_worker.postMessage({ wasi_ref });
+    rustc_worker({ wasi_ref });
 
     // shared load_additional_sysroot
     new SharedObject((triple: string) => {
@@ -47,30 +58,32 @@ globalThis.addEventListener("message", async (event) => {
     if (wasi_refs.length === 2) {
       setup_util_worker(wasi_refs, ctx);
     }
-  } else if (event.data.wasi_ref) {
-    const { wasi_ref } = event.data;
+  } else if (data.wasi_ref) {
+    const { wasi_ref } = data;
 
-    rustc_worker.postMessage({ wasi_ref_ui: wasi_ref });
+    rustc_worker({ wasi_ref_ui: wasi_ref });
     wasi_refs.push(wasi_ref);
     if (wasi_refs.length === 2) {
       setup_util_worker(wasi_refs, ctx);
     }
   }
-});
+};
+
+Comlink.expose(main_worker, self);
 
 const setup_util_worker = (
   wasi_refs: WASIFarmRefUseArrayBufferObject[],
   ctx: Ctx,
 ) => {
-  const util_worker = new util_cmd_worker();
-  const llvm_worker = new run_llvm_worker();
+  const util_worker = Comlink.wrap<UtilCmdWorker>(new util_cmd_worker());
+  const llvm_worker = Comlink.wrap<LlvmWorker>(new run_llvm_worker());
 
-  util_worker.postMessage({
+  util_worker({
     wasi_refs,
     ctx,
   });
 
-  llvm_worker.postMessage({
+  llvm_worker({
     wasi_refs,
     ctx,
   });

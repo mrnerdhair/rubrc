@@ -6,7 +6,7 @@ import {
 } from "@bjorn3/browser_wasi_shim";
 import {
   WASIFarm,
-  type WASIFarmRefObject,
+  type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import { FitAddon } from "@xterm/addon-fit";
@@ -20,7 +20,7 @@ let out_buff = "";
 
 export const SetupMyTerminal = (props: {
   ctx: Ctx;
-  callback: (wasi_ref: WASIFarmRefObject) => void;
+  callback: (wasi_ref: WASIFarmRefUseArrayBufferObject) => void;
 }) => {
   let xterm: Terminal | undefined = undefined;
 
@@ -131,7 +131,10 @@ export const SetupMyTerminal = (props: {
   );
 };
 
-const get_ref = (term: Terminal, callback: (x: WASIFarmRefObject) => void) => {
+const get_ref = (
+  term: Terminal,
+  callback: (x: WASIFarmRefUseArrayBufferObject) => void,
+) => {
   class XtermStdio extends Fd {
     term: Terminal;
 

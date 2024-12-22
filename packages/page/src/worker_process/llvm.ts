@@ -1,3 +1,5 @@
+/// <reference lib="webworker" />
+
 import { strace } from "@bjorn3/browser_wasi_shim";
 import {
   WASIFarmAnimal,
@@ -5,20 +7,18 @@ import {
 } from "@oligami/browser_wasi_shim-threads";
 import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
+import * as Comlink from "comlink";
 import { as_wasi_p1_cmd } from "rubrc-util";
 import type { Ctx } from "../ctx";
 
 const shared: SharedObject[] = [];
 
-globalThis.addEventListener("message", async (event) => {
-  const {
-    wasi_refs,
-    ctx,
-  }: {
-    wasi_refs: WASIFarmRefUseArrayBufferObject[];
-    ctx: Ctx;
-  } = event.data;
+export type LlvmWorker = (data: {
+  wasi_refs: WASIFarmRefUseArrayBufferObject[];
+  ctx: Ctx;
+}) => Promise<void>;
 
+const llvm_worker: LlvmWorker = async ({ wasi_refs, ctx }) => {
   const waiter = new SharedObjectRef(ctx.waiter_id).proxy<{
     is_rustc_fetch_end: () => Promise<boolean>;
   }>();
@@ -30,7 +30,9 @@ globalThis.addEventListener("message", async (event) => {
   console.log("loading llvm");
 
   await ready_llvm_wasm(wasi_refs, ctx);
-});
+};
+
+Comlink.expose(llvm_worker, self);
 
 let linker: WebAssembly.Instance & {
   exports: { memory: WebAssembly.Memory; _start: () => unknown };
