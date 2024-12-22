@@ -166,7 +166,7 @@ export abstract class ToRefSenderUseArrayBuffer {
           data_len / 4,
         );
 
-        // なぜかわからないが、上では正常に動作せず、以下のようにすると動作する
+        // I don't know why, but the above doesn't work, but the following works:
         // return_data.push(new Uint32Array(data));
         return_data.push(new Uint32Array([...data]));
 
