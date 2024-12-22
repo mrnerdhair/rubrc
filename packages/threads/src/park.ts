@@ -43,7 +43,7 @@ export abstract class WASIFarmPark {
 
   private get_new_fd_lock = new Array<() => Promise<void>>();
 
-  // fdに対して、現在そのfdにidがアクセス可能かを示す。
+  // For an fd, indicates whether id currently has access to that fd.
   protected fds_map: Array<number[]>;
 
   // If the reassigned value is accessed after being closed,
