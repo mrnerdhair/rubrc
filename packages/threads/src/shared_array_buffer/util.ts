@@ -1,68 +1,33 @@
-export const get_func_name_from_number = (num: number): string => {
-  switch (num) {
-    case 7:
-      return "fd_advise";
-    case 8:
-      return "fd_allocate";
-    case 9:
-      return "fd_close";
-    case 10:
-      return "fd_datasync";
-    case 11:
-      return "fd_fdstat_get";
-    case 12:
-      return "fd_fdstat_set_flags";
-    case 13:
-      return "fd_fdstat_set_rights";
-    case 14:
-      return "fd_filestat_get";
-    case 15:
-      return "fd_filestat_set_size";
-    case 16:
-      return "fd_filestat_set_times";
-    case 17:
-      return "fd_pread";
-    case 18:
-      return "fd_prestat_get";
-    case 19:
-      return "fd_prestat_dir_name";
-    case 20:
-      return "fd_pwrite";
-    case 21:
-      return "fd_read";
-    case 22:
-      return "fd_readdir";
-    case 23:
-      return "fd_renumber";
-    case 24:
-      return "fd_seek";
-    case 25:
-      return "fd_sync";
-    case 26:
-      return "fd_tell";
-    case 27:
-      return "fd_write";
-    case 28:
-      return "path_create_directory";
-    case 29:
-      return "path_filestat_get";
-    case 30:
-      return "path_filestat_set_times";
-    case 31:
-      return "path_link";
-    case 32:
-      return "path_open";
-    case 33:
-      return "path_readlink";
-    case 34:
-      return "path_remove_directory";
-    case 35:
-      return "path_rename";
-    case 36:
-      return "path_symlink";
-    case 37:
-      return "path_unlink_file";
-    default:
-      return "unknown";
-  }
-};
+export enum FuncNames {
+  fd_advise = 7,
+  fd_allocate = 8,
+  fd_close = 9,
+  fd_datasync = 10,
+  fd_fdstat_get = 11,
+  fd_fdstat_set_flags = 12,
+  fd_fdstat_set_rights = 13,
+  fd_filestat_get = 14,
+  fd_filestat_set_size = 15,
+  fd_filestat_set_times = 16,
+  fd_pread = 17,
+  fd_prestat_get = 18,
+  fd_prestat_dir_name = 19,
+  fd_pwrite = 20,
+  fd_read = 21,
+  fd_readdir = 22,
+  fd_renumber = 23,
+  fd_seek = 24,
+  fd_sync = 25,
+  fd_tell = 26,
+  fd_write = 27,
+  path_create_directory = 28,
+  path_filestat_get = 29,
+  path_filestat_set_times = 30,
+  path_link = 31,
+  path_open = 32,
+  path_readlink = 33,
+  path_remove_directory = 34,
+  path_rename = 35,
+  path_symlink = 36,
+  path_unlink_file = 37,
+}
