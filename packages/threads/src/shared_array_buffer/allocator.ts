@@ -1,6 +1,3 @@
-// import { debug } from "../../debug";
-// import "../polyfill";
-
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
 };
