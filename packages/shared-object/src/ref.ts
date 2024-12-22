@@ -184,7 +184,7 @@ export class SharedObjectRef {
   }
 
   async call(
-    names: Array<string | number | symbol>,
+    names: Array<PropertyKey>,
     args: unknown[],
   ): Promise<unknown> {
     const { promise, resolve } = Promise.withResolvers<Msg>();
