@@ -104,7 +104,7 @@ export class SharedObjectRef {
     }
   }
 
-  get(names: Array<string | symbol>): PromiseLike<unknown> {
+  get(names: Array<PropertyKey>): PromiseLike<unknown> {
     const { promise, resolve } = Promise.withResolvers<Msg>();
 
     const id = this.get_id();
@@ -183,10 +183,7 @@ export class SharedObjectRef {
     return proxy;
   }
 
-  async call(
-    names: Array<PropertyKey>,
-    args: unknown[],
-  ): Promise<unknown> {
+  async call(names: Array<PropertyKey>, args: unknown[]): Promise<unknown> {
     const { promise, resolve } = Promise.withResolvers<Msg>();
 
     const id = this.get_id();
