@@ -32,6 +32,7 @@ export class SharedObjectRef {
   proxy<T extends object>() {
     return new Proxy<T>((() => {}) as T, {
       get: (_, prop) => {
+        if (prop === "then") return undefined;
         return this.get([prop]);
       },
       apply: (_, __, args) => {
@@ -104,7 +105,7 @@ export class SharedObjectRef {
     }
   }
 
-  get(names: Array<PropertyKey>): PromiseLike<unknown> {
+  private get(names: Array<PropertyKey>): PromiseLike<unknown> {
     const { promise, resolve } = Promise.withResolvers<Msg>();
 
     const id = this.get_id();
