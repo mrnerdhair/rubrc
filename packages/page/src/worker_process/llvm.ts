@@ -6,84 +6,81 @@ import {
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import * as Comlink from "comlink";
-import { as_wasi_p1_cmd } from "rubrc-util";
-import type { Ctx } from "../ctx";
+import {
+  type WasiP1Cmd,
+  as_wasi_p1_cmd,
+  setTransferHandlers,
+} from "rubrc-util";
+import thread_spawn_worker_url from "./thread_spawn.ts?worker&url";
 
-const shared: SharedObject[] = [];
+export class LlvmWorker {
+  private readonly wasi: WASIFarmAnimal;
+  private readonly linker: WasiP1Cmd;
+  private readonly memory_reset_view: Uint8Array;
 
-export type LlvmWorker = (data: {
-  wasi_refs: WASIFarmRefUseArrayBufferObject[];
-  ctx: Ctx;
-}) => Promise<void>;
-
-const llvm_worker: LlvmWorker = async ({ wasi_refs, ctx }) => {
-  const waiter = new SharedObjectRef(ctx.waiter_id).proxy<{
-    is_rustc_fetch_end: () => Promise<boolean>;
-  }>();
-
-  while (!(await waiter.is_rustc_fetch_end())) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  protected constructor({
+    wasi,
+    linker,
+    memory_reset_view,
+  }: {
+    wasi: WASIFarmAnimal;
+    linker: WasiP1Cmd;
+    memory_reset_view: Uint8Array;
+  }) {
+    this.wasi = wasi;
+    this.linker = linker;
+    this.memory_reset_view = memory_reset_view;
   }
 
-  console.log("loading llvm");
+  static async init(wasi_refs: WASIFarmRefUseArrayBufferObject[]) {
+    console.log("loading llvm");
 
-  await ready_llvm_wasm(wasi_refs, ctx);
-};
+    const linker_wasm = await get_llvm_wasm();
 
-Comlink.expose(llvm_worker, self);
+    console.log("linker_wasm", linker_wasm);
 
-let linker: WebAssembly.Instance & {
-  exports: { memory: WebAssembly.Memory; _start: () => unknown };
-};
-let wasi: WASIFarmAnimal;
+    const wasi = new WASIFarmAnimal(
+      wasi_refs,
+      ["llvm"], // args
+      [], // env
+      {
+        // debug: true,
+        can_thread_spawn: true,
+        thread_spawn_worker_url,
+        thread_spawn_wasm: linker_wasm,
+      },
+    );
 
-const ready_llvm_wasm = async (
-  wasi_refs: WASIFarmRefUseArrayBufferObject[],
-  ctx: Ctx,
-) => {
-  const linker_wasm = await get_llvm_wasm();
+    const linker = as_wasi_p1_cmd(
+      await WebAssembly.instantiate(linker_wasm, {
+        wasi_snapshot_preview1: strace(wasi.wasiImport, []),
+      }),
+    );
 
-  console.log("linker_wasm", linker_wasm);
+    const memory_reset = linker.exports.memory.buffer;
+    const memory_reset_view = new Uint8Array(memory_reset).slice();
 
-  wasi = new WASIFarmAnimal(
-    wasi_refs,
-    ["llvm"], // args
-    [], // env
-    // {
-    // debug: true,
-    // can_thread_spawn: true,
-    // thread_spawn_worker_url: new URL(thread_spawn_path, import.meta.url)
-    //   .href,
-    // thread_spawn_wasm: linker,
-    // },
-  );
+    console.log("llvm loaded");
 
-  linker = as_wasi_p1_cmd(
-    await WebAssembly.instantiate(linker_wasm, {
-      wasi_snapshot_preview1: strace(wasi.wasiImport, []),
-    }),
-  );
+    return new LlvmWorker({ wasi, linker, memory_reset_view });
+  }
+  async llvm(...args: string[]) {
+    if (args[0] !== "llvm") {
+      this.wasi.args = ["llvm", ...args];
+    } else {
+      this.wasi.args = args;
+    }
+    console.log(`wasi.start: ${this.wasi.args}`);
+    console.log(this.wasi);
+    const memory_view = new Uint8Array(this.linker.exports.memory.buffer);
+    memory_view.set(this.memory_reset_view);
+    this.wasi.start(this.linker);
+    console.log("wasi.start done");
+  }
+}
 
-  const memory_reset = linker.exports.memory.buffer;
-  const memory_reset_view = new Uint8Array(memory_reset).slice();
+export type LlvmWorkerInit = typeof LlvmWorker.init;
 
-  shared.push(
-    new SharedObject((...args: string[]) => {
-      if (args[0] !== "llvm") {
-        wasi.args = ["llvm", ...args];
-      } else {
-        wasi.args = args;
-      }
-      console.log(`wasi.start: ${wasi.args}`);
-      console.log(wasi);
-      const memory_view = new Uint8Array(linker.exports.memory.buffer);
-      memory_view.set(memory_reset_view);
-      wasi.start(linker);
-      console.log("wasi.start done");
-    }, ctx.llvm_id),
-  );
-
-  console.log("llvm loaded");
-};
+setTransferHandlers();
+Comlink.expose(LlvmWorker.init, self);

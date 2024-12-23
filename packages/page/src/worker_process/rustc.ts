@@ -5,57 +5,30 @@ import {
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import * as Comlink from "comlink";
-import type { Ctx } from "../ctx";
-import thread_spawn_path from "./thread_spawn.ts?worker&url";
+import { type Terminal, setTransferHandlers } from "rubrc-util";
+import thread_spawn_worker_url from "./thread_spawn.ts?worker&url";
 
-let terminal: (x: string) => void;
-let compiler: WebAssembly.Module;
-const wasi_refs: WASIFarmRefUseArrayBufferObject[] = [];
-let ctx: Ctx;
-let waiter: {
-  rustc: () => Promise<void>;
-  end_rustc_fetch: () => Promise<void>;
-};
+export class RustcWorker {
+  private readonly terminal: Terminal;
+  private readonly wasi: WASIFarmAnimal;
 
-export type RustcWorker = (data: {
-  ctx?: Ctx;
-  wasi_ref?: WASIFarmRefUseArrayBufferObject;
-  wasi_ref_ui?: WASIFarmRefUseArrayBufferObject;
-}) => Promise<void>;
+  protected constructor({
+    terminal,
+    wasi,
+  }: { terminal: Terminal; wasi: WASIFarmAnimal }) {
+    this.terminal = terminal;
+    this.wasi = wasi;
+  }
 
-const rustc_worker: RustcWorker = async (data) => {
-  if (data.ctx) {
-    ctx = data.ctx;
-    terminal = new SharedObjectRef(ctx.terminal_id).proxy<
-      (x: string) => Promise<void>
-    >();
-    await terminal("loading rustc\r\n");
-    waiter = new SharedObjectRef(ctx.waiter_id).proxy<{
-      rustc: () => Promise<void>;
-      end_rustc_fetch: () => Promise<void>;
-    }>();
-    compiler = await get_rustc_wasm();
+  static async init(
+    terminal: Terminal,
+    wasi_refs: WASIFarmRefUseArrayBufferObject[],
+  ) {
+    terminal.write("loading rustc\r\n");
+    const compiler = await get_rustc_wasm();
 
-    await waiter.end_rustc_fetch();
-  } else if (data.wasi_ref) {
-    const { wasi_ref } = data;
-
-    wasi_refs.push(wasi_ref);
-
-    // wait for the compiler to load
-    while (!compiler) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    await terminal("loaded rustc\r\n");
-
-    while (wasi_refs.length === 1) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    await terminal("loaded wasi\r\n");
+    terminal.write("loaded rustc\r\n");
 
     const wasi = new WASIFarmAnimal(
       wasi_refs,
@@ -64,32 +37,33 @@ const rustc_worker: RustcWorker = async (data) => {
       {
         // debug: true,
         can_thread_spawn: true,
-        thread_spawn_worker_url: new URL(thread_spawn_path, import.meta.url)
-          .href,
+        thread_spawn_worker_url,
         thread_spawn_wasm: compiler,
       },
     );
+
+    terminal.write("loaded wasi\r\n");
 
     await wasi.wait_worker_background_worker();
 
     wasi.get_share_memory().grow(200);
 
-    // rustc_shared
-    new SharedObject((...args: string[]) => {
-      try {
-        wasi.args = ["rustc", ...args];
-        console.log("wasi.start");
-        wasi.block_start_on_thread();
-        console.log("wasi.start done");
-      } catch (e) {
-        terminal(`${e}\r\n`);
-      }
-    }, ctx.rustc_id);
-
-    waiter.rustc();
-  } else if (data.wasi_ref_ui) {
-    wasi_refs.push(data.wasi_ref_ui);
+    return new RustcWorker({ terminal, wasi });
   }
-};
 
-Comlink.expose(rustc_worker, self);
+  async rustc(...args: string[]) {
+    try {
+      this.wasi.args = ["rustc", ...args];
+      console.log("wasi.start");
+      this.wasi.block_start_on_thread();
+      console.log("wasi.start done");
+    } catch (e) {
+      this.terminal.write(`${e}\r\n`);
+    }
+  }
+}
+
+export type RustcWorkerInit = typeof RustcWorker.init;
+
+setTransferHandlers();
+Comlink.expose(RustcWorker.init, self);
