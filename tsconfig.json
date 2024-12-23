@@ -18,7 +18,6 @@
     "paths": {
       "@oligami/browser_wasi_shim-threads": ["./packages/threads/src/*"],
       "@oligami/rustc-browser-wasi_shim": ["./packages/lib/src/*"],
-      "@oligami/shared-object": ["./packages/shared-object/src/*"],
       "rubrc-util": ["./packages/util/src/*"]
     }
   },
@@ -29,9 +28,6 @@
     },
     {
       "path": "./packages/page"
-    },
-    {
-      "path": "./packages/shared-object"
     },
     {
       "path": "./packages/threads"
