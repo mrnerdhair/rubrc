@@ -11,7 +11,8 @@
       "packages/lib/dist",
       "packages/page/dist",
       "packages/shared-object/dist",
-      "packages/threads/dist"
+      "packages/threads/dist",
+      "packages/util/dist"
     ]
   },
   "formatter": {
