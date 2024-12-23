@@ -1,127 +1,89 @@
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
-import type { Ctx } from "./ctx";
+import type { CmdParser, Terminal } from "rubrc-util";
 
-let ctx: Ctx;
-let cmd_parser: (...args: string[]) => Promise<void>;
-let waiter: {
-  is_all_done: () => Promise<boolean>;
-  is_cmd_run_end: () => Promise<boolean>;
-};
-let terminal: ((x: string) => Promise<void>) & {
-  reset_err_buff: () => Promise<void>;
-  get_err_buff: () => Promise<string>;
-  reset_out_buff: () => Promise<void>;
-  get_out_buff: () => Promise<string>;
-};
-let exec_ref: (...string: string[]) => Promise<void>;
+export class CompileAndRun {
+  private readonly cmd_parser: CmdParser;
+  private readonly terminal: Terminal;
 
-export const compile_and_run_setup = (_ctx: Ctx) => {
-  ctx = _ctx;
+  constructor(
+    cmd_parser: (...args: string[]) => Promise<void>,
+    terminal: Terminal,
+  ) {
+    this.cmd_parser = cmd_parser;
+    this.terminal = terminal;
+  }
 
-  waiter = new SharedObjectRef(ctx.waiter_id).proxy();
+  async download_by_url(url: string, name: string) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name; // Specify the file name when downloading
+    document.body.appendChild(a); // Add to DOM
+    a.click(); // Click to start download
+    document.body.removeChild(a); // Delete immediately
+  }
 
-  // shared_downloader
-  new SharedObject((url: string, name: string) => {
-    (async () => {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name; // Specify the file name when downloading
-      document.body.appendChild(a); // Add to DOM
-      a.click(); // Click to start download
-      document.body.removeChild(a); // Delete immediately
-    })();
-  }, ctx.download_by_url_id);
-
-  exec_ref = new SharedObjectRef(ctx.cmd_parser_id).proxy();
-};
-
-let can_setup = false;
-
-export const compile_and_run = async (triple: string) => {
-  if (!can_setup) {
-    if (await waiter.is_all_done()) {
-      terminal = new SharedObjectRef(ctx.terminal_id).proxy();
-
-      cmd_parser = new SharedObjectRef(ctx.cmd_parser_id).proxy();
-      can_setup = true;
+  async compile_and_run(triple: string) {
+    const exec = [
+      "rustc",
+      "/main.rs",
+      "--sysroot",
+      "/sysroot",
+      "--target",
+      triple,
+      "--out-dir",
+      "/tmp",
+      "-Ccodegen-units=1",
+    ];
+    if (triple === "wasm32-wasip1") {
+      exec.push("-Clinker-flavor=wasm-ld");
+      exec.push("-Clinker=wasm-ld");
     } else {
-      terminal = new SharedObjectRef(ctx.terminal_id).proxy();
+      // exec.push("-Zunstable-options");
+      // exec.push("-Clinker-flavor=gnu");
+      exec.push("-Clinker=lld");
 
-      await terminal("this is not done yet\r\n");
-      return;
+      await this.terminal.reset_err_buff();
+    }
+    await this.terminal.write(`${exec.join(" ")}\r\n`);
+    await this.cmd_parser(...exec);
+
+    if (triple === "wasm32-wasip1") {
+      await this.terminal.write("/tmp/main.wasm\r\n");
+      await this.cmd_parser("/tmp/main.wasm");
+    } else if (triple === "x86_64-pc-windows-gnu") {
+      const err_msg = await this.terminal.get_out_buff();
+      console.log("err_msg: ", err_msg);
+
+      const lld_args_and_etc = err_msg
+        .split("\r\n")
+        .find((line) => line.includes("Linking using"));
+      if (!lld_args_and_etc) {
+        throw new Error("cannot get lld arguments");
+      }
+
+      // split by space
+      const lld_args_str = lld_args_and_etc
+        .split(' "')
+        ?.slice(1)
+        .map((arg) => arg.slice(0, -1));
+
+      // first args to lld-link
+      const clang_args = lld_args_str;
+      clang_args[0] = "lld-link";
+
+      // // add -fuse-ld=lld
+      // clang_args.push("-fuse-ld=lld");
+
+      await this.terminal.write(`${clang_args.join(" ")}\r\n`);
+      await this.cmd_parser(...clang_args);
+    } else {
+      await this.terminal.write("download /tmp/main\r\n");
+      await this.cmd_parser("download", "/tmp/main");
     }
   }
 
-  const exec = [
-    "rustc",
-    "/main.rs",
-    "--sysroot",
-    "/sysroot",
-    "--target",
-    triple,
-    "--out-dir",
-    "/tmp",
-    "-Ccodegen-units=1",
-  ];
-  if (triple === "wasm32-wasip1") {
-    exec.push("-Clinker-flavor=wasm-ld");
-    exec.push("-Clinker=wasm-ld");
-  } else {
-    // exec.push("-Zunstable-options");
-    // exec.push("-Clinker-flavor=gnu");
-    exec.push("-Clinker=lld");
-
-    await terminal.reset_err_buff();
+  async download(file: string) {
+    console.log("download");
+    await this.terminal.write(`download ${file}\r\n`);
+    await this.cmd_parser("download", file);
   }
-  await terminal(`${exec.join(" ")}\r\n`);
-  await cmd_parser(...exec);
-  while (!(await waiter.is_cmd_run_end())) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-
-  if (triple === "wasm32-wasip1") {
-    await terminal("/tmp/main.wasm\r\n");
-    await cmd_parser("/tmp/main.wasm");
-    while (!(await waiter.is_cmd_run_end())) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  } else if (triple === "x86_64-pc-windows-gnu") {
-    const err_msg = await terminal.get_out_buff();
-    console.log("err_msg: ", err_msg);
-
-    const lld_args_and_etc = err_msg
-      .split("\r\n")
-      .find((line) => line.includes("Linking using"));
-    if (!lld_args_and_etc) {
-      throw new Error("cannot get lld arguments");
-    }
-
-    // split by space
-    const lld_args_str = lld_args_and_etc
-      .split(' "')
-      ?.slice(1)
-      .map((arg) => arg.slice(0, -1));
-
-    // first args to lld-link
-    const clang_args = lld_args_str;
-    clang_args[0] = "lld-link";
-
-    // // add -fuse-ld=lld
-    // clang_args.push("-fuse-ld=lld");
-
-    await terminal(`${clang_args.join(" ")}\r\n`);
-    await cmd_parser(...clang_args);
-  } else {
-    await terminal("download /tmp/main\r\n");
-    await cmd_parser("download", "/tmp/main");
-    while (!(await waiter.is_cmd_run_end())) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-};
-
-export const download = async (file: string) => {
-  console.log("download");
-  await terminal(`download ${file}\r\n`);
-  exec_ref("download", file);
-};
+}
