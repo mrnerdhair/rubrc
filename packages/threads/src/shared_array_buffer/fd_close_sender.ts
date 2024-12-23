@@ -6,7 +6,6 @@ import {
 
 export type FdCloseSenderUseArrayBufferObject = {
   max_share_arrays_memory?: number;
-  share_arrays_memory?: SharedArrayBuffer;
 } & ToRefSenderUseArrayBufferObject;
 
 // Object to tell other processes,
@@ -45,6 +44,13 @@ export class FdCloseSenderUseArrayBuffer
     }
 
     return array;
+  }
+
+  get_ref(): FdCloseSenderUseArrayBufferObject {
+    return {
+      data_size: this.data_size,
+      share_arrays_memory: this.share_arrays_memory,
+    };
   }
 
   // Initialize the class from object
