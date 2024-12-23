@@ -134,12 +134,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   /// Send this return by postMessage.
   get_ref(): WASIFarmRefUseArrayBufferObject {
     return {
-      allocator: this.allocator,
+      allocator: this.allocator.get_ref(),
       lock_fds: this.lock_fds,
       fds_len_and_num: this.fds_len_and_num,
       fd_func_sig: this.fd_func_sig,
       base_func_util: this.base_func_util,
-      fd_close_receiver: this.fd_close_receiver,
+      fd_close_receiver: this.fd_close_receiver.get_ref(),
       stdin: this.stdin,
       stdout: this.stdout,
       stderr: this.stderr,

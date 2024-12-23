@@ -1,11 +1,12 @@
 import type { wasi } from "@bjorn3/browser_wasi_shim";
 import type { FdCloseSender } from "./sender";
+import type { FdCloseSenderUseArrayBufferObject } from "./shared_array_buffer/fd_close_sender";
 
 export type WASIFarmRefObject = {
   stdin: number | undefined;
   stdout: number | undefined;
   stderr: number | undefined;
-  fd_close_receiver: FdCloseSender;
+  fd_close_receiver: FdCloseSenderUseArrayBufferObject;
   default_fds: Array<number>;
 };
 

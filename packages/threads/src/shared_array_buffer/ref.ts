@@ -11,7 +11,7 @@ import {
 import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
 
 export type WASIFarmRefUseArrayBufferObject = {
-  allocator: AllocatorUseArrayBuffer;
+  allocator: AllocatorUseArrayBufferObject;
   lock_fds: SharedArrayBuffer;
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;

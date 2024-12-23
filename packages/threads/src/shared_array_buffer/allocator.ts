@@ -53,6 +53,12 @@ export class AllocatorUseArrayBuffer {
     return new AllocatorUseArrayBuffer(sl.share_arrays_memory);
   }
 
+  get_ref(): AllocatorUseArrayBufferObject {
+    return {
+      share_arrays_memory: this.share_arrays_memory,
+    };
+  }
+
   // Writes without blocking threads when acquiring locks
   async async_write(
     data: Uint8Array | Uint32Array,
