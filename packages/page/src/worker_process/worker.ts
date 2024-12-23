@@ -1,90 +1,111 @@
 /// <reference lib="webworker" />
 
 import { sysroot } from "@oligami/rustc-browser-wasi_shim";
-import { SharedObject, SharedObjectRef } from "@oligami/shared-object";
 import get_default_sysroot_wasi_farm = sysroot.get_default_sysroot_wasi_farm;
 import load_additional_sysroot = sysroot.load_additional_sysroot;
 import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
-import type { Ctx } from "../ctx";
-import type { LlvmWorker } from "./llvm";
-import run_llvm_worker from "./llvm?worker";
-import type { RustcWorker } from "./rustc";
-import rustc_worker_constructor from "./rustc?worker";
-import type { UtilCmdWorker } from "./util_cmd";
-import util_cmd_worker from "./util_cmd?worker";
+import type { LlvmWorkerInit, LlvmWorker as LlvmWorkerType } from "./llvm";
+import LlvmWorkerCtor from "./llvm?worker";
+import type { RustcWorkerInit, RustcWorker as RustcWorkerType } from "./rustc";
+import RustcWorkerCtor from "./rustc?worker";
+import type {
+  UtilCmdWorkerInit,
+  UtilCmdWorker as UtilCmdWorkerType,
+} from "./util_cmd";
+import UtilCmdWorkerCtor from "./util_cmd?worker";
 
-let terminal: (x: string) => Promise<void>;
-let rustc_worker: RustcWorker;
-let ctx: Ctx;
+import { type Terminal, setTransferHandlers } from "rubrc-util";
+import type { CompileAndRun } from "../compile_and_run";
 
-const wasi_refs: WASIFarmRefUseArrayBufferObject[] = [];
+const rustcWorkerInit = Comlink.wrap<RustcWorkerInit>(new RustcWorkerCtor());
+const utilCmdWorkerInit = Comlink.wrap<UtilCmdWorkerInit>(
+  new UtilCmdWorkerCtor(),
+);
+const llvmWorkerInit = Comlink.wrap<LlvmWorkerInit>(new LlvmWorkerCtor());
 
-export type MainWorker = (data: {
-  wasi_ref?: WASIFarmRefUseArrayBufferObject;
-  ctx?: Ctx;
-}) => Promise<void>;
+export class MainWorker {
+  private readonly terminal: Terminal;
+  private readonly rustc_worker: RustcWorkerType;
+  private readonly util_worker: UtilCmdWorkerType;
+  private readonly llvm_worker: LlvmWorkerType;
 
-const main_worker: MainWorker = async (data) => {
-  if (data.ctx) {
-    rustc_worker = Comlink.wrap<RustcWorker>(new rustc_worker_constructor());
-    ctx = data.ctx;
-    rustc_worker({ ctx });
+  protected constructor({
+    terminal,
+    rustc_worker,
+    util_worker,
+    llvm_worker,
+  }: {
+    terminal: Terminal;
+    rustc_worker: RustcWorkerType;
+    util_worker: UtilCmdWorkerType;
+    llvm_worker: LlvmWorkerType;
+  }) {
+    this.terminal = terminal;
+    this.rustc_worker = rustc_worker;
+    this.util_worker = util_worker;
+    this.llvm_worker = llvm_worker;
+  }
 
-    terminal = new SharedObjectRef(ctx.terminal_id).proxy<
-      (x: string) => Promise<void>
-    >();
-
-    await terminal("loading sysroot\r\n");
+  static async init(
+    terminal: Terminal,
+    terminal_wasi_ref: WASIFarmRefUseArrayBufferObject,
+    compile_and_run: CompileAndRun,
+  ): Promise<MainWorker> {
+    terminal.write("loading sysroot\r\n");
 
     const farm = await get_default_sysroot_wasi_farm();
 
-    await terminal("loaded sysroot\r\n");
+    terminal.write("loaded sysroot\r\n");
 
-    const wasi_ref = farm.get_ref();
+    const farm_wasi_ref = farm.get_ref();
+    const wasi_refs = [farm_wasi_ref, terminal_wasi_ref];
 
-    rustc_worker({ wasi_ref });
+    const [rustc_worker, llvm_worker, util_worker] = await Promise.all([
+      rustcWorkerInit(Comlink.proxy(terminal), wasi_refs),
+      llvmWorkerInit(wasi_refs),
+      utilCmdWorkerInit(
+        Comlink.proxy(terminal),
+        Comlink.proxy(compile_and_run),
+        wasi_refs,
+      ),
+    ]);
 
-    // shared load_additional_sysroot
-    new SharedObject((triple: string) => {
-      (async () => {
-        terminal(`loading sysroot ${triple}\r\n`);
-        await load_additional_sysroot(triple);
-        terminal(`loaded sysroot ${triple}\r\n`);
-      })();
-    }, ctx.load_additional_sysroot_id);
-
-    wasi_refs.push(wasi_ref);
-    if (wasi_refs.length === 2) {
-      setup_util_worker(wasi_refs, ctx);
-    }
-  } else if (data.wasi_ref) {
-    const { wasi_ref } = data;
-
-    rustc_worker({ wasi_ref_ui: wasi_ref });
-    wasi_refs.push(wasi_ref);
-    if (wasi_refs.length === 2) {
-      setup_util_worker(wasi_refs, ctx);
-    }
+    return new MainWorker({ terminal, rustc_worker, util_worker, llvm_worker });
   }
-};
 
-Comlink.expose(main_worker, self);
+  async load_additional_sysroot(triple: string) {
+    this.terminal.write(`loading sysroot ${triple}\r\n`);
+    await load_additional_sysroot(triple);
+    this.terminal.write(`loaded sysroot ${triple}\r\n`);
+  }
 
-const setup_util_worker = (
-  wasi_refs: WASIFarmRefUseArrayBufferObject[],
-  ctx: Ctx,
-) => {
-  const util_worker = Comlink.wrap<UtilCmdWorker>(new util_cmd_worker());
-  const llvm_worker = Comlink.wrap<LlvmWorker>(new run_llvm_worker());
+  async rustc(...args: string[]) {
+    return await this.rustc_worker.rustc(...args);
+  }
 
-  util_worker({
-    wasi_refs,
-    ctx,
-  });
+  async llvm(...args: string[]) {
+    return await this.llvm_worker.llvm(...args);
+  }
 
-  llvm_worker({
-    wasi_refs,
-    ctx,
-  });
-};
+  async ls(...args: string[]) {
+    return await this.util_worker.ls(...args);
+  }
+
+  async download(file: string) {
+    return await this.util_worker.download(file);
+  }
+
+  async tree(...args: string[]) {
+    return await this.util_worker.tree(...args);
+  }
+
+  async exec_file(...args: string[]) {
+    return await this.util_worker.exec_file(...args);
+  }
+}
+
+export type MainWorkerInit = typeof MainWorker.init;
+
+setTransferHandlers();
+Comlink.expose(MainWorker.init, self);
