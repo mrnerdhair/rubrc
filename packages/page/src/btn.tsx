@@ -1,14 +1,12 @@
-import { compile_and_run, download } from "./compile_and_run";
-
 export const RunButton = (props: {
-  triple: string;
+  callback: () => void;
 }) => {
   return (
     <button
       type="button"
       onClick={() => {
         console.log("run button clicked");
-        compile_and_run(props.triple);
+        props.callback();
       }}
       class="text-2xl text-green-700"
     >
@@ -17,13 +15,13 @@ export const RunButton = (props: {
   );
 };
 
-export const DownloadButton = () => {
+export const DownloadButton = (props: { callback: () => void }) => {
   return (
     <button
       type="button"
       onClick={() => {
         console.log("download button clicked");
-        download("/tmp/main.wasm");
+        props.callback();
       }}
       class="text-2xl text-green-700"
     >
