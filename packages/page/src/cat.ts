@@ -1,15 +1,13 @@
 import { wasi } from "@bjorn3/browser_wasi_shim";
 import type { WASIFarmAnimal } from "@oligami/browser_wasi_shim-threads";
 
+// Reads a file from a WASI P1 instance.
 export const get_data = (
   path__: string,
   animal: WASIFarmAnimal,
 ): Uint8Array => {
   // path is absolute
-  let path = path__;
-  if (!path.startsWith("/")) {
-    path = `/${path}`;
-  }
+  const path = `${!path__.startsWith("/") ? "/" : ""}${path__}`;
 
   // first: get opened fd dir name
   let root_fd: number | undefined = undefined;
@@ -44,8 +42,9 @@ export const get_data = (
     }
   }
 
-  if (root_fd === undefined)
+  if (root_fd === undefined) {
     throw new Error("expected root_fd to be set by this point");
+  }
 
   console.log("dir_names", dir_names);
 
