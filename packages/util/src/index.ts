@@ -10,6 +10,12 @@ export {
   assert_wasi_p1_thread,
   is_wasi_p1_thread,
 } from "./wasi_p1_thread";
+export {
+  type WasiP1Reactor,
+  as_wasi_p1_reactor,
+  assert_wasi_p1_reactor,
+  is_wasi_p1_reactor,
+} from "./wasi_p1_reactor";
 
 export { setTransferHandlers } from "./comlink";
 
