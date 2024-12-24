@@ -75,6 +75,7 @@ const App = (props: {
         <div class="p-4 text-white" style={{ width: "60vw" }}>
           <Select
             options={triples}
+            initialValue={triple()}
             class="text-4xl text-green-700"
             onChange={(value) => {
               console.log(value);
