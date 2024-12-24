@@ -1,5 +1,9 @@
 export type WasiP1Cmd = WebAssembly.Instance & {
-  exports: { memory: WebAssembly.Memory; _start: () => unknown };
+  exports: {
+    memory: WebAssembly.Memory;
+    _start: () => unknown;
+    _initialize?: never;
+  };
 };
 
 export function is_wasi_p1_cmd(
@@ -9,7 +13,8 @@ export function is_wasi_p1_cmd(
     "memory" in value.exports &&
     value.exports.memory instanceof WebAssembly.Memory &&
     "_start" in value.exports &&
-    typeof value.exports._start === "function"
+    typeof value.exports._start === "function" &&
+    !("_initialize" in value.exports)
   );
 }
 
