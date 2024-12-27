@@ -1096,7 +1096,7 @@ export class WASIFarmAnimal {
           if (e === wasi.ERRNO_BADF) return e;
           throw e;
         }
-      // biome-ignore lint/suspicious/noExplicitAny: tighten up later
+        // biome-ignore lint/suspicious/noExplicitAny: tighten up later
       }) as any;
     }
 
