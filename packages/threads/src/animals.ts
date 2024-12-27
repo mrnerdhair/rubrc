@@ -789,7 +789,7 @@ export class WASIFarmAnimal {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return [undefined, wasi.ERRNO_BADF];
+          return wasi.ERRNO_BADF;
         }
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
@@ -864,7 +864,7 @@ export class WASIFarmAnimal {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return [undefined, wasi.ERRNO_BADF];
+          return wasi.ERRNO_BADF;
         }
         const [newoffset, ret] = wasi_farm_ref.fd_tell(mapped_fd);
         if (newoffset) {
@@ -1170,7 +1170,9 @@ export class WASIFarmAnimal {
       proc_raise(sig: number) {
         throw new Error(`raised signal ${sig}`);
       },
-      sched_yield() {},
+      sched_yield() {
+        return wasi.ERRNO_SUCCESS;
+      },
       random_get(buf: number, buf_len: number) {
         const buffer8 = new Uint8Array(
           self.inst.exports.memory.buffer,
@@ -1188,6 +1190,7 @@ export class WASIFarmAnimal {
             buffer8[i] = (Math.random() * 256) | 0;
           }
         }
+        return wasi.ERRNO_SUCCESS;
       },
       sock_recv(_fd: number, _ri_data: unknown, _ri_flags: unknown) {
         throw new Error("sockets not supported");
