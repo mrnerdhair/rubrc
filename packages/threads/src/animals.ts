@@ -2,6 +2,7 @@ import { WASIProcExit, strace } from "@bjorn3/browser_wasi_shim";
 import { wasi } from "@bjorn3/browser_wasi_shim";
 import {
   type WasiP1Cmd,
+  type WasiP1Imports,
   type WasiP1Reactor,
   type WasiP1Thread,
   as_wasi_p1_cmd,
@@ -1082,7 +1083,7 @@ export class WASIFarmAnimal {
       sock_accept(_fd: number, _flags: unknown): number {
         throw new Error("sockets not supported");
       },
-    } as const;
+    } as const satisfies WasiP1Imports;
 
     for (const key_ in out) {
       // biome-ignore lint/suspicious/noExplicitAny: tighten up later
