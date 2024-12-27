@@ -117,7 +117,7 @@ export class WASIFarmAnimal {
       throw new Error("what happened?");
     }
 
-    const view = new Uint8Array(this.get_share_memory().buffer);
+    const view = new Uint8Array(this.thread_spawner.get_share_memory().buffer);
     view.fill(0);
 
     await this.thread_spawner.async_start_on_thread(
@@ -142,7 +142,7 @@ export class WASIFarmAnimal {
       throw new Error("what happened?");
     }
 
-    const view = new Uint8Array(this.get_share_memory().buffer);
+    const view = new Uint8Array(this.thread_spawner.get_share_memory().buffer);
     view.fill(0);
 
     this.thread_spawner.block_start_on_thread(this.args, this.env, this.fd_map);
@@ -290,12 +290,13 @@ export class WASIFarmAnimal {
     }
   }
 
-  get_share_memory(): WebAssembly.Memory {
-    if (!this.thread_spawner) {
+  grow_share_memory(delta: number) {
+    const thread_spawner = this.thread_spawner;
+    if (!thread_spawner) {
       throw new Error("thread_spawner is not defined");
     }
 
-    return this.thread_spawner.get_share_memory();
+    return thread_spawner.get_share_memory().grow(delta);
   }
 
   constructor(

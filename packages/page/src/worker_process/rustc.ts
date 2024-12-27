@@ -46,7 +46,7 @@ export class RustcWorker {
 
     await wasi.wait_worker_background_worker();
 
-    wasi.get_share_memory().grow(200);
+    wasi.grow_share_memory(200);
 
     return new RustcWorker({ terminal, wasi });
   }
