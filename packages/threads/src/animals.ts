@@ -53,23 +53,15 @@ export class WASIFarmAnimal {
   fd_map: Array<[number, number] | undefined> = [];
 
   get_fd_and_wasi_ref(fd: number): [number, WASIFarmRef] {
-    this.check_fds();
-    const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
-    if (!mapped_fd_and_wasi_ref_n) {
-      return [undefined, undefined];
-    }
-    const [mapped_fd, wasi_ref_n] = mapped_fd_and_wasi_ref_n;
+    const [mapped_fd, wasi_ref_n] = this.get_fd_and_wasi_ref_n(fd);
     return [mapped_fd, this.wasi_farm_refs[wasi_ref_n]];
   }
 
   get_fd_and_wasi_ref_n(fd: number): [number, number] {
     this.check_fds();
-    const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
-    if (!mapped_fd_and_wasi_ref_n) {
-      return [undefined, undefined];
-    }
-    const [mapped_fd, wasi_ref_n] = mapped_fd_and_wasi_ref_n;
-    return [mapped_fd, wasi_ref_n];
+    const out = this.fd_map[fd];
+    if (!out) throw wasi.ERRNO_BADF;
+    return out;
   }
 
   /// Start a WASI command
@@ -413,7 +405,7 @@ export class WASIFarmAnimal {
   }
 
   private static makeWasiImport(self: WASIFarmAnimal) {
-    return {
+    const out = {
       args_sizes_get(argc: number, argv_buf_size: number): number {
         const buffer = new DataView(self.inst.exports.memory.buffer);
         buffer.setUint32(argc, self.args.length, true);
@@ -515,39 +507,24 @@ export class WASIFarmAnimal {
         _advice: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_advise(mapped_fd);
       },
       fd_allocate(fd: number, offset: bigint, len: bigint): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_allocate(mapped_fd, offset, len);
       },
       fd_close(fd: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const ret = wasi_farm_ref.fd_close(mapped_fd);
         self.check_fds();
         return ret;
       },
       fd_datasync(fd: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_datasync(mapped_fd);
       },
       fd_fdstat_get(fd: number, fdstat_ptr: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const [fdstat, ret] = wasi_farm_ref.fd_fdstat_get(mapped_fd);
         if (fdstat) {
           fdstat.write_bytes(
@@ -559,9 +536,6 @@ export class WASIFarmAnimal {
       },
       fd_fdstat_set_flags(fd: number, flags: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_fdstat_set_flags(mapped_fd, flags);
       },
       fd_fdstat_set_rights(
@@ -570,9 +544,6 @@ export class WASIFarmAnimal {
         fs_rights_inheriting: bigint,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_fdstat_set_rights(
           mapped_fd,
           fs_rights_base,
@@ -581,9 +552,6 @@ export class WASIFarmAnimal {
       },
       fd_filestat_get(fd: number, filestat_ptr: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const [filestat, ret] = wasi_farm_ref.fd_filestat_get(mapped_fd);
         if (!filestat) return ret;
         filestat.write_bytes(
@@ -594,9 +562,6 @@ export class WASIFarmAnimal {
       },
       fd_filestat_set_size(fd: number, size: bigint): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_filestat_set_size(mapped_fd, size);
       },
       fd_filestat_set_times(
@@ -606,9 +571,6 @@ export class WASIFarmAnimal {
         fst_flags: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_filestat_set_times(
           mapped_fd,
           atim,
@@ -624,9 +586,6 @@ export class WASIFarmAnimal {
         nread_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovs_view = new Uint32Array(
@@ -664,9 +623,6 @@ export class WASIFarmAnimal {
       },
       fd_prestat_get(fd: number, prestat_ptr: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const [prestat, ret] = wasi_farm_ref.fd_prestat_get(mapped_fd);
         if (prestat) {
           const [tag, name_len] = prestat;
@@ -682,9 +638,6 @@ export class WASIFarmAnimal {
         path_len: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return [undefined, wasi.ERRNO_BADF];
-        }
         const [path, ret] = wasi_farm_ref.fd_prestat_dir_name(
           mapped_fd,
           path_len,
@@ -703,9 +656,6 @@ export class WASIFarmAnimal {
         nwritten_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovecs = wasi.Ciovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
@@ -733,9 +683,6 @@ export class WASIFarmAnimal {
         nread_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const iovs_view = new Uint32Array(
@@ -798,14 +745,15 @@ export class WASIFarmAnimal {
         return ret;
       },
       fd_renumber(fd: number, to: number): number {
-        const [mapped_to, wasi_farm_ref_to] = self.get_fd_and_wasi_ref(to);
-
-        if (mapped_to !== undefined && wasi_farm_ref_to !== undefined) {
+        try {
+          const [mapped_to, wasi_farm_ref_to] = self.get_fd_and_wasi_ref(to);
           const ret = wasi_farm_ref_to.fd_close(mapped_to);
           self.check_fds();
           if (ret !== wasi.ERRNO_SUCCESS) {
             return ret;
           }
+        } catch (e) {
+          if (e !== wasi.ERRNO_BADF) throw e;
         }
 
         if (self.fd_map[to]) {
@@ -824,9 +772,6 @@ export class WASIFarmAnimal {
         newoffset_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return [undefined, wasi.ERRNO_BADF];
-        }
         const [newoffset, ret] = wasi_farm_ref.fd_seek(
           mapped_fd,
           offset,
@@ -842,9 +787,6 @@ export class WASIFarmAnimal {
       },
       fd_sync(fd: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         return wasi_farm_ref.fd_sync(mapped_fd);
       },
       fd_tell(fd: number, newoffset_ptr: number): number {
@@ -866,9 +808,6 @@ export class WASIFarmAnimal {
         nwritten_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
 
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
@@ -896,9 +835,6 @@ export class WASIFarmAnimal {
         path_len: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_create_directory(mapped_fd, path);
@@ -911,9 +847,6 @@ export class WASIFarmAnimal {
         filestat_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return [undefined, wasi.ERRNO_BADF];
-        }
         const buffer = new DataView(self.inst.exports.memory.buffer);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
@@ -937,9 +870,6 @@ export class WASIFarmAnimal {
         fst_flags: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return [undefined, wasi.ERRNO_BADF];
-        }
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_filestat_set_times(
@@ -963,14 +893,6 @@ export class WASIFarmAnimal {
         const [mapped_old_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(old_fd);
         const [mapped_new_fd, wasi_farm_ref_new] =
           self.get_fd_and_wasi_ref(new_fd);
-        if (
-          mapped_old_fd === undefined ||
-          wasi_farm_ref === undefined ||
-          mapped_new_fd === undefined ||
-          wasi_farm_ref_new === undefined
-        ) {
-          return wasi.ERRNO_BADF;
-        }
         // TODO! Make it work with different wasi_farm_ref
         if (wasi_farm_ref !== wasi_farm_ref_new) {
           return wasi.ERRNO_BADF;
@@ -1004,9 +926,6 @@ export class WASIFarmAnimal {
         opened_fd_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref_n] = self.get_fd_and_wasi_ref_n(fd);
-        if (mapped_fd === undefined || wasi_farm_ref_n === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const wasi_farm_ref = self.wasi_farm_refs[wasi_farm_ref_n];
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
@@ -1041,9 +960,6 @@ export class WASIFarmAnimal {
         buf_used_ptr: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return [undefined, wasi.ERRNO_BADF];
-        }
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         const [buf, ret] = wasi_farm_ref.path_readlink(
@@ -1064,9 +980,6 @@ export class WASIFarmAnimal {
         path_len: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_remove_directory(mapped_fd, path);
@@ -1085,14 +998,6 @@ export class WASIFarmAnimal {
         const [mapped_old_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(old_fd);
         const [mapped_new_fd, wasi_farm_ref_new] =
           self.get_fd_and_wasi_ref(new_fd);
-        if (
-          mapped_old_fd === undefined ||
-          wasi_farm_ref === undefined ||
-          mapped_new_fd === undefined ||
-          wasi_farm_ref_new === undefined
-        ) {
-          return wasi.ERRNO_BADF;
-        }
         // TODO! Make it work with different wasi_farm_ref
         if (wasi_farm_ref !== wasi_farm_ref_new) {
           return wasi.ERRNO_BADF;
@@ -1121,9 +1026,6 @@ export class WASIFarmAnimal {
         new_path_len: number,
       ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const old_path = buffer8.slice(
           old_path_ptr,
@@ -1137,9 +1039,6 @@ export class WASIFarmAnimal {
       },
       path_unlink_file(fd: number, path_ptr: number, path_len: number): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
-        if (mapped_fd === undefined || wasi_farm_ref === undefined) {
-          return wasi.ERRNO_BADF;
-        }
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_unlink_file(mapped_fd, path);
@@ -1192,6 +1091,24 @@ export class WASIFarmAnimal {
         throw new Error("sockets not supported");
       },
     } as const;
+
+    for (const key_ in out) {
+      // biome-ignore lint/suspicious/noExplicitAny: tighten up later
+      const key: keyof typeof out = key_ as any;
+      // biome-ignore lint/suspicious/noExplicitAny: tighten up later
+      const prev = out[key] as any;
+      (out as Writable<typeof out>)[key] = ((...args: unknown[]) => {
+        try {
+          return prev(...args);
+        } catch (e) {
+          if (e === wasi.ERRNO_BADF) return e;
+          throw e;
+        }
+        // biome-ignore lint/suspicious/noExplicitAny: tighten up later
+      }) as any;
+    }
+
+    return out;
   }
 
   private static makeWasiThreadImport(self: WASIFarmAnimal) {
