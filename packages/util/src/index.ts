@@ -30,3 +30,5 @@ export type Terminal = {
 };
 
 export type CmdParser = (...args: string[]) => Promise<void>;
+
+export type { WasiP1Imports } from "./wasi_p1_defs_simple";
