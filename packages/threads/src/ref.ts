@@ -75,7 +75,7 @@ export abstract class WASIFarmRef {
   abstract fd_datasync(fd: number | undefined): number;
   abstract fd_fdstat_get(
     fd: number | undefined,
-  ): [wasi.Fdstat | undefined, number];
+  ): [wasi.Fdstat, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_fdstat_set_flags(fd: number | undefined, flags: number): number;
   abstract fd_fdstat_set_rights(
     fd: number | undefined,
@@ -84,7 +84,7 @@ export abstract class WASIFarmRef {
   ): number;
   abstract fd_filestat_get(
     fd: number | undefined,
-  ): [wasi.Filestat | undefined, number];
+  ): [wasi.Filestat, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_filestat_set_size(fd: number | undefined, size: bigint): number;
   abstract fd_filestat_set_times(
     fd: number | undefined,
@@ -96,40 +96,42 @@ export abstract class WASIFarmRef {
     fd: number | undefined,
     iovs: Uint32Array,
     offset: bigint,
-  ): [[number, Uint8Array] | undefined, number];
+  ): [[number, Uint8Array], typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_prestat_get(
     fd: number | undefined,
-  ): [[number, number] | undefined, number];
+  ): [[number, number], typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_prestat_dir_name(
     fd: number | undefined,
     path_len: number,
-  ): [Uint8Array | undefined, number];
+  ): [Uint8Array, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_pwrite(
     fd: number | undefined,
     iovs: Uint8Array,
     offset: bigint,
-  ): [number | undefined, number];
+  ): [number, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_read(
     fd: number | undefined,
     iovs: Uint32Array,
-  ): [[number, Uint8Array] | undefined, number];
+  ): [[number, Uint8Array], typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_readdir(
     fd: number | undefined,
     limit_buf_len: number,
     cookie: bigint,
-  ): [[Uint8Array, number] | undefined, number];
+  ): [[Uint8Array, number], typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   // abstract fd_renumber(fd: number | undefined, to: number): number;
   abstract fd_seek(
     fd: number | undefined,
     offset: bigint,
     whence: number,
-  ): [bigint | undefined, number];
+  ): [bigint, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_sync(fd: number | undefined): number;
-  abstract fd_tell(fd: number | undefined): [bigint | undefined, number];
+  abstract fd_tell(
+    fd: number | undefined,
+  ): [bigint, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract fd_write(
     fd: number | undefined,
     iovs: Uint8Array,
-  ): [number | undefined, number];
+  ): [number, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract path_create_directory(
     fd: number | undefined,
     path: Uint8Array,
@@ -138,7 +140,7 @@ export abstract class WASIFarmRef {
     fd: number | undefined,
     flags: number,
     path: Uint8Array,
-  ): [wasi.Filestat | undefined, number];
+  ): [wasi.Filestat, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract path_filestat_set_times(
     fd: number | undefined,
     flags: number,
@@ -162,12 +164,12 @@ export abstract class WASIFarmRef {
     fs_rights_base: bigint,
     fs_rights_inheriting: bigint,
     fs_flags: number,
-  ): [number | undefined, number];
+  ): [number, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract path_readlink(
     fd: number | undefined,
     path: Uint8Array,
     buf_len: number,
-  ): [Uint8Array | undefined, number];
+  ): [Uint8Array, typeof wasi.ERRNO_SUCCESS] | [undefined, number];
   abstract path_remove_directory(
     fd: number | undefined,
     path: Uint8Array,
