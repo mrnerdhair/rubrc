@@ -805,7 +805,6 @@ export class WASIFarmAnimal {
         }
 
         self.fd_map[to] = self.fd_map[fd];
-
         self.fd_map[fd] = undefined;
 
         return wasi.ERRNO_SUCCESS;
@@ -944,7 +943,6 @@ export class WASIFarmAnimal {
           fst_flags,
         );
       },
-      // TODO! Make it work with different wasi_farm_ref
       path_link(
         old_fd: number,
         old_flags: number,
@@ -965,6 +963,7 @@ export class WASIFarmAnimal {
         ) {
           return wasi.ERRNO_BADF;
         }
+        // TODO! Make it work with different wasi_farm_ref
         if (wasi_farm_ref !== wasi_farm_ref_new) {
           return wasi.ERRNO_BADF;
         }
@@ -1064,7 +1063,6 @@ export class WASIFarmAnimal {
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_remove_directory(mapped_fd, path);
       },
-      // TODO! Make it work with different wasi_farm_ref
       path_rename(
         old_fd: number,
         old_path_ptr: number,
@@ -1087,6 +1085,7 @@ export class WASIFarmAnimal {
         ) {
           return wasi.ERRNO_BADF;
         }
+        // TODO! Make it work with different wasi_farm_ref
         if (wasi_farm_ref !== wasi_farm_ref_new) {
           return wasi.ERRNO_BADF;
         }
