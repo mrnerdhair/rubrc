@@ -577,13 +577,12 @@ export class WASIFarmAnimal {
           return wasi.ERRNO_BADF;
         }
         const [filestat, ret] = wasi_farm_ref.fd_filestat_get(mapped_fd);
-        if (filestat) {
-          filestat.write_bytes(
-            new DataView(self.inst.exports.memory.buffer),
-            filestat_ptr,
-          );
-        }
-        return ret;
+        if (!filestat) return ret;
+        filestat.write_bytes(
+          new DataView(self.inst.exports.memory.buffer),
+          filestat_ptr,
+        );
+        return wasi.ERRNO_SUCCESS;
       },
       fd_filestat_set_size(fd: number, size: bigint) {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
