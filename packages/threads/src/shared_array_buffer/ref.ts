@@ -603,7 +603,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     const buf_len = Atomics.load(func_sig_view_u32, 2);
     this.release_fd(fd);
 
-    if (error === wasi.ERRNO_BADF) {
+    if (error !== wasi.ERRNO_SUCCESS) {
       this.allocator.free(buf_ptr, buf_len);
       return [undefined, error];
     }
