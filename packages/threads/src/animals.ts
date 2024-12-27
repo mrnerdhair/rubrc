@@ -51,9 +51,7 @@ export class WASIFarmAnimal {
   // [fd, wasi_ref_n]
   fd_map: Array<[number, number] | undefined> = [];
 
-  get_fd_and_wasi_ref(
-    fd: number,
-  ): [number, WASIFarmRef] | [undefined, undefined] {
+  get_fd_and_wasi_ref(fd: number): [number, WASIFarmRef] {
     const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
     if (!mapped_fd_and_wasi_ref_n) {
       return [undefined, undefined];
@@ -62,7 +60,7 @@ export class WASIFarmAnimal {
     return [mapped_fd, this.wasi_farm_refs[wasi_ref_n]];
   }
 
-  get_fd_and_wasi_ref_n(fd: number): [number, number] | [undefined, undefined] {
+  get_fd_and_wasi_ref_n(fd: number): [number, number] {
     const mapped_fd_and_wasi_ref_n = this.fd_map[fd];
     if (!mapped_fd_and_wasi_ref_n) {
       return [undefined, undefined];
@@ -500,7 +498,12 @@ export class WASIFarmAnimal {
         }
         return 0;
       },
-      fd_advise(fd: number, _offset: bigint, _len: bigint, _advice: number) {
+      fd_advise(
+        fd: number,
+        _offset: bigint,
+        _len: bigint,
+        _advice: number,
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -508,7 +511,7 @@ export class WASIFarmAnimal {
         }
         return wasi_farm_ref.fd_advise(mapped_fd);
       },
-      fd_allocate(fd: number, offset: bigint, len: bigint) {
+      fd_allocate(fd: number, offset: bigint, len: bigint): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -516,7 +519,7 @@ export class WASIFarmAnimal {
         }
         return wasi_farm_ref.fd_allocate(mapped_fd, offset, len);
       },
-      fd_close(fd: number) {
+      fd_close(fd: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -526,7 +529,7 @@ export class WASIFarmAnimal {
         self.check_fds();
         return ret;
       },
-      fd_datasync(fd: number) {
+      fd_datasync(fd: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -534,7 +537,7 @@ export class WASIFarmAnimal {
         }
         return wasi_farm_ref.fd_datasync(mapped_fd);
       },
-      fd_fdstat_get(fd: number, fdstat_ptr: number) {
+      fd_fdstat_get(fd: number, fdstat_ptr: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -549,7 +552,7 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      fd_fdstat_set_flags(fd: number, flags: number) {
+      fd_fdstat_set_flags(fd: number, flags: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -561,7 +564,7 @@ export class WASIFarmAnimal {
         fd: number,
         fs_rights_base: bigint,
         fs_rights_inheriting: bigint,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -573,7 +576,7 @@ export class WASIFarmAnimal {
           fs_rights_inheriting,
         );
       },
-      fd_filestat_get(fd: number, filestat_ptr: number) {
+      fd_filestat_get(fd: number, filestat_ptr: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -588,7 +591,7 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      fd_filestat_set_size(fd: number, size: bigint) {
+      fd_filestat_set_size(fd: number, size: bigint): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -601,7 +604,7 @@ export class WASIFarmAnimal {
         atim: bigint,
         mtim: bigint,
         fst_flags: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -620,7 +623,7 @@ export class WASIFarmAnimal {
         iovs_len: number,
         offset: bigint,
         nread_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -661,7 +664,7 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      fd_prestat_get(fd: number, prestat_ptr: number) {
+      fd_prestat_get(fd: number, prestat_ptr: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -676,8 +679,11 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      fd_prestat_dir_name(fd: number, path_ptr: number, path_len: number) {
-        self.check_fds();
+      fd_prestat_dir_name(
+        fd: number,
+        path_ptr: number,
+        path_len: number,
+      ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return [undefined, wasi.ERRNO_BADF];
@@ -698,7 +704,7 @@ export class WASIFarmAnimal {
         iovs_len: number,
         offset: bigint,
         nwritten_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -729,7 +735,7 @@ export class WASIFarmAnimal {
         iovs_ptr: number,
         iovs_len: number,
         nread_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -777,7 +783,7 @@ export class WASIFarmAnimal {
         buf_len: number,
         cookie: bigint,
         buf_used_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -797,7 +803,7 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      fd_renumber(fd: number, to: number) {
+      fd_renumber(fd: number, to: number): number {
         self.check_fds();
 
         const [mapped_to, wasi_farm_ref_to] = self.get_fd_and_wasi_ref(to);
@@ -825,7 +831,7 @@ export class WASIFarmAnimal {
         offset: bigint,
         whence: number,
         newoffset_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -844,7 +850,7 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      fd_sync(fd: number) {
+      fd_sync(fd: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -852,7 +858,7 @@ export class WASIFarmAnimal {
         }
         return wasi_farm_ref.fd_sync(mapped_fd);
       },
-      fd_tell(fd: number, newoffset_ptr: number) {
+      fd_tell(fd: number, newoffset_ptr: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -870,7 +876,7 @@ export class WASIFarmAnimal {
         iovs_ptr: number,
         iovs_len: number,
         nwritten_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -897,8 +903,11 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      path_create_directory(fd: number, path_ptr: number, path_len: number) {
-        self.check_fds();
+      path_create_directory(
+        fd: number,
+        path_ptr: number,
+        path_len: number,
+      ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
@@ -913,7 +922,7 @@ export class WASIFarmAnimal {
         path_ptr: number,
         path_len: number,
         filestat_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -940,7 +949,7 @@ export class WASIFarmAnimal {
         atim: bigint,
         mtim: bigint,
         fst_flags: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -966,7 +975,7 @@ export class WASIFarmAnimal {
         new_fd: number,
         new_path_ptr: number,
         new_path_len: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_old_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(old_fd);
         const [mapped_new_fd, wasi_farm_ref_new] =
@@ -1009,7 +1018,7 @@ export class WASIFarmAnimal {
         fs_rights_inheriting: bigint,
         fs_flags: number,
         opened_fd_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref_n] = self.get_fd_and_wasi_ref_n(fd);
         if (mapped_fd === undefined || wasi_farm_ref_n === undefined) {
@@ -1047,7 +1056,7 @@ export class WASIFarmAnimal {
         buf_ptr: number,
         buf_len: number,
         buf_used_ptr: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -1067,8 +1076,11 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      path_remove_directory(fd: number, path_ptr: number, path_len: number) {
-        self.check_fds();
+      path_remove_directory(
+        fd: number,
+        path_ptr: number,
+        path_len: number,
+      ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
           return wasi.ERRNO_BADF;
@@ -1085,7 +1097,7 @@ export class WASIFarmAnimal {
         new_fd: number,
         new_path_ptr: number,
         new_path_len: number,
-      ) {
+      ): number {
         if (old_fd === new_fd) {
           return wasi.ERRNO_SUCCESS;
         }
@@ -1126,7 +1138,7 @@ export class WASIFarmAnimal {
         fd: number,
         new_path_ptr: number,
         new_path_len: number,
-      ) {
+      ): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -1143,7 +1155,7 @@ export class WASIFarmAnimal {
         );
         return wasi_farm_ref.path_symlink(old_path, mapped_fd, new_path);
       },
-      path_unlink_file(fd: number, path_ptr: number, path_len: number) {
+      path_unlink_file(fd: number, path_ptr: number, path_len: number): number {
         self.check_fds();
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         if (mapped_fd === undefined || wasi_farm_ref === undefined) {
@@ -1153,19 +1165,23 @@ export class WASIFarmAnimal {
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_unlink_file(mapped_fd, path);
       },
-      poll_oneoff(_in_: unknown, _out: unknown, _nsubscriptions: unknown) {
+      poll_oneoff(
+        _in_: unknown,
+        _out: unknown,
+        _nsubscriptions: unknown,
+      ): number {
         throw new Error("async io not supported");
       },
-      proc_exit(exit_code: number) {
+      proc_exit(exit_code: number): never {
         throw new WASIProcExit(exit_code);
       },
-      proc_raise(sig: number) {
+      proc_raise(sig: number): number {
         throw new Error(`raised signal ${sig}`);
       },
-      sched_yield() {
+      sched_yield(): number {
         return wasi.ERRNO_SUCCESS;
       },
-      random_get(buf: number, buf_len: number) {
+      random_get(buf: number, buf_len: number): number {
         const buffer8 = new Uint8Array(
           self.inst.exports.memory.buffer,
         ).subarray(buf, buf + buf_len);
@@ -1184,16 +1200,16 @@ export class WASIFarmAnimal {
         }
         return wasi.ERRNO_SUCCESS;
       },
-      sock_recv(_fd: number, _ri_data: unknown, _ri_flags: unknown) {
+      sock_recv(_fd: number, _ri_data: unknown, _ri_flags: unknown): number {
         throw new Error("sockets not supported");
       },
-      sock_send(_fd: number, _si_data: unknown, _si_flags: unknown) {
+      sock_send(_fd: number, _si_data: unknown, _si_flags: unknown): number {
         throw new Error("sockets not supported");
       },
-      sock_shutdown(_fd: number, _how: unknown) {
+      sock_shutdown(_fd: number, _how: unknown): number {
         throw new Error("sockets not supported");
       },
-      sock_accept(_fd: number, _flags: unknown) {
+      sock_accept(_fd: number, _flags: unknown): number {
         throw new Error("sockets not supported");
       },
     } as const;
