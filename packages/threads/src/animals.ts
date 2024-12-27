@@ -786,8 +786,6 @@ export class WASIFarmAnimal {
         return ret;
       },
       fd_renumber(fd: number, to: number) {
-        self.check_fds();
-
         const [mapped_to, wasi_farm_ref_to] = self.get_fd_and_wasi_ref(to);
 
         if (mapped_to !== undefined && wasi_farm_ref_to !== undefined) {
