@@ -14,8 +14,6 @@
 
 //  (import "wasi" "thread-spawn" (func $fimport$27 (param i32) (result i32)))
 
-import { as_wasi_p1_cmd, as_wasi_p1_thread } from "rubrc-util";
-
 import { WASIFarmAnimal } from "../animals";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import type { WorkerBackgroundRefObject } from "./worker_background/index";
@@ -328,15 +326,7 @@ export const thread_spawn_on_worker = async (msg: {
         thread_spawner,
       );
 
-      const inst = as_wasi_p1_cmd(
-        await WebAssembly.instantiate(thread_spawn_wasm, {
-          env: {
-            memory: wasi.get_share_memory(),
-          },
-          wasi: wasi.wasiThreadImport,
-          wasi_snapshot_preview1: wasi.wasiImport,
-        }),
-      );
+      const inst = await wasi.instantiate_cmd(thread_spawn_wasm);
 
       try {
         wasi.start(inst);
@@ -373,15 +363,7 @@ export const thread_spawn_on_worker = async (msg: {
       thread_spawner,
     );
 
-    const inst = as_wasi_p1_thread(
-      await WebAssembly.instantiate(thread_spawn_wasm, {
-        env: {
-          memory: wasi.get_share_memory(),
-        },
-        wasi: wasi.wasiThreadImport,
-        wasi_snapshot_preview1: wasi.wasiImport,
-      }),
-    );
+    const inst = await wasi.instantiate_thread(thread_spawn_wasm);
 
     globalThis.postMessage({
       msg: "ready",
