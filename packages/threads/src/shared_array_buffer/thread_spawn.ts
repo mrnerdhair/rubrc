@@ -111,16 +111,9 @@ export class ThreadSpawner {
     }
   }
 
-  // This cannot blocking.
+  // This cannot block.
   async wait_worker_background_worker(): Promise<void> {
-    if (this.worker_background_worker_promise) {
-      const promise = this.worker_background_worker_promise;
-
-      await promise;
-
-      return;
-    }
-    return;
+    await this.worker_background_worker_promise;
   }
 
   check_worker_background_worker(): void {
