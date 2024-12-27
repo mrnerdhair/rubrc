@@ -1,17 +1,12 @@
 /// <reference lib="webworker" />
 
-import { strace } from "@bjorn3/browser_wasi_shim";
 import {
   WASIFarmAnimal,
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import * as Comlink from "comlink";
-import {
-  type WasiP1Cmd,
-  as_wasi_p1_cmd,
-  setTransferHandlers,
-} from "rubrc-util";
+import { type WasiP1Cmd, setTransferHandlers } from "rubrc-util";
 import thread_spawn_worker_url from "./thread_spawn.ts?worker&url";
 
 export class LlvmWorker {
@@ -52,12 +47,7 @@ export class LlvmWorker {
       },
     );
 
-    const linker = as_wasi_p1_cmd(
-      await WebAssembly.instantiate(linker_wasm, {
-        wasi_snapshot_preview1: strace(wasi.wasiImport, []),
-      }),
-    );
-
+    const linker = await wasi.instantiate_cmd(linker_wasm, true);
     const memory_reset = linker.exports.memory.buffer;
     const memory_reset_view = new Uint8Array(memory_reset).slice();
 

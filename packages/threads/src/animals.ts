@@ -1,5 +1,11 @@
-import { WASIProcExit } from "@bjorn3/browser_wasi_shim";
+import { WASIProcExit, strace } from "@bjorn3/browser_wasi_shim";
 import { wasi } from "@bjorn3/browser_wasi_shim";
+import {
+  type WasiP1Cmd,
+  type WasiP1Thread,
+  as_wasi_p1_cmd,
+  as_wasi_p1_thread,
+} from "rubrc-util";
 import type { WASIFarmRef } from "./ref";
 import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer/index";
 import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/index";
@@ -391,6 +397,39 @@ export class WASIFarmAnimal {
         return thread_id;
       },
     };
+  }
+
+  async instantiate_cmd(
+    wasm: WebAssembly.Module,
+    use_strace?: boolean,
+  ): Promise<WasiP1Cmd> {
+    return as_wasi_p1_cmd(await this.instantiate(wasm, use_strace));
+  }
+
+  async instantiate_thread(
+    wasm: WebAssembly.Module,
+    use_strace?: boolean,
+  ): Promise<WasiP1Thread> {
+    return as_wasi_p1_thread(await this.instantiate(wasm, use_strace));
+  }
+
+  async instantiate(wasm: WebAssembly.Module, use_strace?: boolean) {
+    return await WebAssembly.instantiate(wasm, {
+      ...(this.thread_spawner
+        ? {
+            env: {
+              memory: this.thread_spawner?.get_share_memory(),
+            },
+
+            wasi: use_strace
+              ? strace(this.wasiThreadImport, [])
+              : this.wasiThreadImport,
+          }
+        : {}),
+      wasi_snapshot_preview1: use_strace
+        ? strace(this.wasiImport, [])
+        : this.wasiImport,
+    });
   }
 
   private static makeWasiImport(self: WASIFarmAnimal) {

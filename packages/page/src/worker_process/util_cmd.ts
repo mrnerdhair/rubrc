@@ -5,12 +5,7 @@ import {
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
-import {
-  type Terminal,
-  type WasiP1Cmd,
-  as_wasi_p1_cmd,
-  setTransferHandlers,
-} from "rubrc-util";
+import { type Terminal, type WasiP1Cmd, setTransferHandlers } from "rubrc-util";
 import { get_data } from "../cat";
 import type { CompileAndRun } from "../compile_and_run";
 import lsr from "../wasm/lsr.wasm?url";
@@ -78,11 +73,7 @@ export class UtilCmdWorker {
       [], // env
     );
 
-    const ls_inst = as_wasi_p1_cmd(
-      await WebAssembly.instantiate(ls_wasm, {
-        wasi_snapshot_preview1: ls_wasi.wasiImport,
-      }),
-    );
+    const ls_inst = await ls_wasi.instantiate_cmd(ls_wasm);
 
     const ls_memory_reset = ls_inst.exports.memory.buffer;
     const ls_memory_reset_view = new Uint8Array(ls_memory_reset).slice();
@@ -97,11 +88,7 @@ export class UtilCmdWorker {
       [], // env
     );
 
-    const tree_inst = as_wasi_p1_cmd(
-      await WebAssembly.instantiate(tree_wasm, {
-        wasi_snapshot_preview1: tree_wasi.wasiImport,
-      }),
-    );
+    const tree_inst = await tree_wasi.instantiate_cmd(tree_wasm);
 
     console.log("tree_inst", tree_inst);
 
@@ -153,11 +140,7 @@ export class UtilCmdWorker {
     try {
       const file = get_data(exec_file, this.animal);
       const compiled_wasm = await WebAssembly.compile(file);
-      const inst = as_wasi_p1_cmd(
-        await WebAssembly.instantiate(compiled_wasm, {
-          wasi_snapshot_preview1: this.animal.wasiImport,
-        }),
-      );
+      const inst = await this.animal.instantiate_cmd(compiled_wasm);
       this.animal.args = [exec_file, ...exec_args];
       this.animal.start(inst);
     } catch (e) {
