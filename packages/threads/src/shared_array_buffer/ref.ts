@@ -360,7 +360,9 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return error;
   }
 
-  fd_fdstat_get(fd: number): [wasi.Fdstat | undefined, number] {
+  fd_fdstat_get(
+    fd: number,
+  ): [wasi.Fdstat, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -455,7 +457,9 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return error;
   }
 
-  fd_filestat_get(fd: number): [wasi.Filestat | undefined, number] {
+  fd_filestat_get(
+    fd: number,
+  ): [wasi.Filestat, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -567,7 +571,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fd: number,
     iovs: Uint32Array,
     offset: bigint,
-  ): [[number, Uint8Array] | undefined, number] {
+  ): [[number, Uint8Array], typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -615,7 +619,9 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return [[nread, buf], error];
   }
 
-  fd_prestat_get(fd: number): [[number, number] | undefined, number] {
+  fd_prestat_get(
+    fd: number,
+  ): [[number, number], typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -647,7 +653,9 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   fd_prestat_dir_name(
     fd: number,
     path_len: number,
-  ): [Uint8Array | undefined, number] {
+  ):
+    | [Uint8Array, typeof wasi.ERRNO_SUCCESS | typeof wasi.ERRNO_NAMETOOLONG]
+    | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -685,7 +693,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fd: number,
     write_data: Uint8Array,
     offset: bigint,
-  ): [number | undefined, number] {
+  ): [number, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -712,7 +720,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
     const error = this.get_error(fd);
 
-    if (error === wasi.ERRNO_BADF) {
+    if (error !== wasi.ERRNO_SUCCESS) {
       this.release_fd(fd);
       return [undefined, error];
     }
@@ -727,7 +735,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   fd_read(
     fd: number,
     iovs: Uint32Array,
-  ): [[number, Uint8Array] | undefined, number] {
+  ): [[number, Uint8Array], typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -755,7 +763,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     const buf_len = Atomics.load(func_sig_view_u32, 2);
     this.release_fd(fd);
 
-    if (error === wasi.ERRNO_BADF) {
+    if (error !== wasi.ERRNO_SUCCESS) {
       this.allocator.free(buf_ptr, buf_len);
       return [undefined, error];
     }
@@ -779,7 +787,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fd: number,
     limit_buf_len: number,
     cookie: bigint,
-  ): [[Uint8Array, number] | undefined, number] {
+  ): [[Uint8Array, number], typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -806,7 +814,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     const buf_used = Atomics.load(func_sig_view_u32, 2);
     this.release_fd(fd);
 
-    if (error === wasi.ERRNO_BADF) {
+    if (error !== wasi.ERRNO_SUCCESS) {
       this.allocator.free(buf_ptr, buf_len);
       return [undefined, error];
     }
@@ -848,7 +856,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fd: number,
     offset: bigint,
     whence: number,
-  ): [bigint | undefined, number] {
+  ): [bigint, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -871,7 +879,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
     const error = this.get_error(fd);
 
-    if (error === wasi.ERRNO_BADF) {
+    if (error !== wasi.ERRNO_SUCCESS) {
       this.release_fd(fd);
       return [undefined, error];
     }
@@ -904,7 +912,9 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return error;
   }
 
-  fd_tell(fd: number): [bigint | undefined, number] {
+  fd_tell(
+    fd: number,
+  ): [bigint, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -924,7 +934,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
     const error = this.get_error(fd);
 
-    if (error === wasi.ERRNO_BADF) {
+    if (error !== wasi.ERRNO_SUCCESS) {
       this.release_fd(fd);
       return [undefined, error];
     }
@@ -936,7 +946,10 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return [offset, error];
   }
 
-  fd_write(fd: number, write_data: Uint8Array): [number | undefined, number] {
+  fd_write(
+    fd: number,
+    write_data: Uint8Array,
+  ): [number, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -957,7 +970,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     }
 
     const error = this.get_error(fd);
-    if (error === wasi.ERRNO_BADF) {
+    if (error !== wasi.ERRNO_SUCCESS) {
       this.release_fd(fd);
       return [undefined, error];
     }
@@ -1000,7 +1013,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fd: number,
     flags: number,
     path: Uint8Array,
-  ): [wasi.Filestat | undefined, number] {
+  ): [wasi.Filestat, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -1147,7 +1160,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fs_rights_base: bigint,
     fs_rights_inheriting: bigint,
     fs_flags: number,
-  ): [number | undefined, number] {
+  ): [number, typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
@@ -1194,7 +1207,9 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fd: number,
     path: Uint8Array,
     buf_len: number,
-  ): [Uint8Array | undefined, number] {
+  ):
+    | [Uint8Array, typeof wasi.ERRNO_SUCCESS | typeof wasi.ERRNO_NAMETOOLONG]
+    | [undefined, number] {
     this.lock_fd(fd);
 
     const bytes_offset = fd * fd_func_sig_bytes;
