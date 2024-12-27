@@ -624,7 +624,11 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      fd_prestat_dir_name(fd: number, path_ptr: number, path_len: number): number {
+      fd_prestat_dir_name(
+        fd: number,
+        path_ptr: number,
+        path_len: number,
+      ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         const [path, ret] = wasi_farm_ref.fd_prestat_dir_name(
           mapped_fd,
@@ -817,7 +821,11 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      path_create_directory(fd: number, path_ptr: number, path_len: number): number {
+      path_create_directory(
+        fd: number,
+        path_ptr: number,
+        path_len: number,
+      ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
@@ -958,7 +966,11 @@ export class WASIFarmAnimal {
         }
         return ret;
       },
-      path_remove_directory(fd: number, path_ptr: number, path_len: number): number {
+      path_remove_directory(
+        fd: number,
+        path_ptr: number,
+        path_len: number,
+      ): number {
         const [mapped_fd, wasi_farm_ref] = self.get_fd_and_wasi_ref(fd);
         const buffer8 = new Uint8Array(self.inst.exports.memory.buffer);
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
@@ -1023,7 +1035,11 @@ export class WASIFarmAnimal {
         const path = buffer8.slice(path_ptr, path_ptr + path_len);
         return wasi_farm_ref.path_unlink_file(mapped_fd, path);
       },
-      poll_oneoff(_in_: unknown, _out: unknown, _nsubscriptions: unknown): number {
+      poll_oneoff(
+        _in_: unknown,
+        _out: unknown,
+        _nsubscriptions: unknown,
+      ): number {
         throw new Error("async io not supported");
       },
       proc_exit(exit_code: number): never {
