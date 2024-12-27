@@ -30,10 +30,7 @@ export class WASIFarmAnimal {
   }
 
   wasiImport: ReturnType<typeof WASIFarmAnimal.makeWasiImport>;
-
-  wasiThreadImport: {
-    "thread-spawn": (start_arg: number) => number;
-  };
+  wasiThreadImport: ReturnType<typeof WASIFarmAnimal.makeWasiThreadImport>;
 
   private can_thread_spawn?: boolean;
 
@@ -371,24 +368,7 @@ export class WASIFarmAnimal {
     this.args = args;
     this.env = env;
     this.wasiImport = WASIFarmAnimal.makeWasiImport(this);
-
-    this.wasiThreadImport = {
-      "thread-spawn": (start_arg: number) => {
-        this.check_fds();
-        if (!this.can_thread_spawn || !this.thread_spawner) {
-          throw new Error("thread_spawn is not allowed");
-        }
-
-        const thread_id = this.thread_spawner.thread_spawn(
-          start_arg,
-          this.args,
-          this.env,
-          this.fd_map,
-        );
-
-        return thread_id;
-      },
-    };
+    this.wasiThreadImport = WASIFarmAnimal.makeWasiThreadImport(this);
   }
 
   async instantiate_cmd(
@@ -1212,6 +1192,25 @@ export class WASIFarmAnimal {
       },
       sock_accept(_fd: number, _flags: unknown) {
         throw new Error("sockets not supported");
+      },
+    } as const;
+  }
+
+  private static makeWasiThreadImport(self: WASIFarmAnimal) {
+    return {
+      "thread-spawn": (start_arg: number) => {
+        if (!self.can_thread_spawn || !self.thread_spawner) {
+          throw new Error("thread_spawn is not allowed");
+        }
+
+        const thread_id = self.thread_spawner.thread_spawn(
+          start_arg,
+          self.args,
+          self.env,
+          self.fd_map,
+        );
+
+        return thread_id;
       },
     } as const;
   }
