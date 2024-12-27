@@ -2,6 +2,7 @@ import { WASIProcExit, strace } from "@bjorn3/browser_wasi_shim";
 import { wasi } from "@bjorn3/browser_wasi_shim";
 import {
   type WasiP1Cmd,
+  type WasiP1Reactor,
   type WasiP1Thread,
   as_wasi_p1_cmd,
   as_wasi_p1_thread,
@@ -74,10 +75,8 @@ export class WASIFarmAnimal {
   }
 
   /// Start a WASI command
-  start(instance: {
-    // FIXME v0.3: close opened Fds after execution
-    exports: { memory: WebAssembly.Memory; _start: () => unknown };
-  }) {
+  // FIXME v0.3: close opened Fds after execution
+  start(instance: WasiP1Cmd) {
     this._inst = instance;
 
     try {
@@ -159,12 +158,7 @@ export class WASIFarmAnimal {
   }
 
   wasi_thread_start(
-    instance: {
-      exports: {
-        memory: WebAssembly.Memory;
-        wasi_thread_start: (thread_id: number, start_arg: number) => void;
-      };
-    },
+    instance: WasiP1Thread,
     thread_id: number,
     start_arg: number,
   ) {
@@ -181,9 +175,7 @@ export class WASIFarmAnimal {
   }
 
   /// Initialize a WASI reactor
-  initialize(instance: {
-    exports: { memory: WebAssembly.Memory; _initialize?: () => unknown };
-  }) {
+  initialize(instance: WasiP1Reactor) {
     this._inst = instance;
     if (instance.exports._initialize) {
       instance.exports._initialize();
