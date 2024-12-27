@@ -1133,10 +1133,10 @@ export class WASIFarmAnimal {
       proc_raise(sig: number): number {
         throw new Error(`raised signal ${sig}`);
       },
-      sched_yield() {
+      sched_yield(): number {
         return wasi.ERRNO_SUCCESS;
       },
-      random_get(buf: number, buf_len: number) {
+      random_get(buf: number, buf_len: number): number {
         const buffer8 = new Uint8Array(
           self.inst.exports.memory.buffer,
         ).subarray(buf, buf + buf_len);
