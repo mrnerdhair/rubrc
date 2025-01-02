@@ -6,14 +6,20 @@
 
 import { AllocatorUseArrayBuffer } from "../allocator";
 import * as Serializer from "../serialize_error";
+import type { ThreadSpawnerObject } from "../thread_spawn";
 import type { WorkerBackgroundRefObject } from "./worker_export";
 
 // Note that postMessage, etc.
 // cannot be used in a blocking environment such as during wasm execution.
 // (at least as far as I have tried)
 
-class WorkerBackground<T> {
-  private override_object: T;
+type OverrideObject = {
+  sl_object: ThreadSpawnerObject;
+  thread_spawn_wasm: WebAssembly.Module | undefined;
+};
+
+class WorkerBackground {
+  private override_object: OverrideObject;
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
   private signature_input: SharedArrayBuffer;
@@ -24,7 +30,7 @@ class WorkerBackground<T> {
   private start_worker?: Worker;
 
   protected constructor(
-    override_object: T,
+    override_object: OverrideObject,
     lock?: SharedArrayBuffer,
     allocator?: AllocatorUseArrayBuffer,
     signature_input?: SharedArrayBuffer,
@@ -38,10 +44,10 @@ class WorkerBackground<T> {
     this.listen();
   }
 
-  static async init<T>(
-    override_object: T,
+  static async init(
+    override_object: OverrideObject,
     worker_background_ref_object: WorkerBackgroundRefObject,
-  ): Promise<WorkerBackground<T>> {
+  ): Promise<WorkerBackground> {
     return new WorkerBackground(
       override_object,
       worker_background_ref_object.lock,
@@ -311,7 +317,12 @@ class WorkerBackground<T> {
   }
 }
 
-globalThis.onmessage = async (e: MessageEvent) => {
+export type MessageDataType = {
+  override_object: OverrideObject;
+  worker_background_ref_object: WorkerBackgroundRefObject;
+};
+
+globalThis.onmessage = async (e: MessageEvent<MessageDataType>) => {
   const { override_object, worker_background_ref_object } = e.data;
   await WorkerBackground.init(override_object, worker_background_ref_object);
   postMessage("ready");
