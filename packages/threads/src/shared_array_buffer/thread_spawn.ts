@@ -34,10 +34,8 @@ export type ThreadSpawnerObject = {
 
 export class ThreadSpawner {
   private share_memory: WebAssembly.Memory;
-  private wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
   private worker_url: string;
   private worker_background_ref: WorkerBackgroundRef;
-  private worker_background_ref_object: WorkerBackgroundRefObject;
   // inst_default_buffer_kept: WebAssembly.Memory;
 
   // hold the worker to prevent GC.
@@ -87,12 +85,33 @@ export class ThreadSpawner {
       };
     })();
 
+    const min_initial_size = 1048576 / 65536; // Rust's default stack size is 1MB.
+    const initial_size = MIN_STACK / 65536;
+    if (initial_size < min_initial_size) {
+      throw new Error(
+        `The stack size must be at least ${min_initial_size} bytes.`,
+      );
+    }
+    const max_memory = 1073741824 / 65536; // Rust's default maximum memory size is 1GB.
+
+    // const inst_default_buffer_kept =
+    //   inst_default_buffer_kept ??
+    //   new WebAssembly.Memory({
+    //     initial: 1,
+    //     maximum: max_memory,
+    //     shared: true,
+    //   });
+
+    // WebAssembly.Memory's 1 page is 65536 bytes.
+    share_memory ??= new WebAssembly.Memory({
+      initial: initial_size,
+      maximum: max_memory,
+      shared: true,
+    });
+
     const out = new ThreadSpawner({
       worker_url,
-      wasi_farm_refs_object,
       share_memory,
-      MIN_STACK,
-      worker_background_ref_object: worker_background_ref_object_out,
       // inst_default_buffer_kept,
       worker_background_worker,
       worker_background_ref,
@@ -100,7 +119,13 @@ export class ThreadSpawner {
 
     worker_background_worker?.postMessage({
       override_object: {
-        sl_object: out.get_object(),
+        sl_object: {
+          share_memory,
+          wasi_farm_refs_object,
+          worker_url,
+          worker_background_ref_object: worker_background_ref_object_out,
+          // inst_default_buffer_kept,
+        },
         thread_spawn_wasm,
       },
       worker_background_ref_object: worker_background_ref_object_out,
@@ -112,54 +137,22 @@ export class ThreadSpawner {
 
   protected constructor({
     worker_url,
-    wasi_farm_refs_object,
     share_memory,
-    MIN_STACK,
-    worker_background_ref_object,
     // inst_default_buffer_kept,
     worker_background_worker,
     worker_background_ref,
   }: {
     worker_url: string;
-    wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
-    share_memory: WebAssembly.Memory | undefined;
-    MIN_STACK: number;
-    worker_background_ref_object: WorkerBackgroundRefObject;
-    // inst_default_buffer_kept: WebAssembly.Memory | undefined,
+    share_memory: WebAssembly.Memory;
+    // inst_default_buffer_kept: WebAssembly.Memory,
     worker_background_worker: Worker | undefined;
     worker_background_ref: WorkerBackgroundRef;
   }) {
     this.worker_url = worker_url;
-    this.wasi_farm_refs_object = wasi_farm_refs_object;
 
-    const min_initial_size = 1048576 / 65536; // Rust's default stack size is 1MB.
-    const initial_size = MIN_STACK / 65536;
-    if (initial_size < min_initial_size) {
-      throw new Error(
-        `The stack size must be at least ${min_initial_size} bytes.`,
-      );
-    }
-    const max_memory = 1073741824 / 65536; // Rust's default maximum memory size is 1GB.
-
-    // this.inst_default_buffer_kept =
-    //   inst_default_buffer_kept ||
-    //   new WebAssembly.Memory({
-    //     initial: 1,
-    //     maximum: max_memory,
-    //     shared: true,
-    //   });
-
-    this.share_memory =
-      share_memory ||
-      // WebAssembly.Memory's 1 page is 65536 bytes.
-      new WebAssembly.Memory({
-        initial: initial_size,
-        maximum: max_memory,
-        shared: true,
-      });
-
+    this.share_memory = share_memory;
+    // this.inst_default_buffer_kept = inst_default_buffer_kept;
     this.worker_background_worker = worker_background_worker;
-    this.worker_background_ref_object = worker_background_ref_object;
     this.worker_background_ref = worker_background_ref;
   }
 
@@ -240,16 +233,6 @@ export class ThreadSpawner {
 
   get_share_memory(): WebAssembly.Memory {
     return this.share_memory;
-  }
-
-  get_object(): ThreadSpawnerObject {
-    return {
-      share_memory: this.share_memory,
-      wasi_farm_refs_object: this.wasi_farm_refs_object,
-      worker_url: this.worker_url,
-      worker_background_ref_object: this.worker_background_ref_object,
-      // inst_default_buffer_kept: this.inst_default_buffer_kept,
-    };
   }
 
   done_notify(code: number): void {
