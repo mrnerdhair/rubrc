@@ -1,3 +1,5 @@
+import { Locker } from "./locker";
+
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
 };
@@ -24,14 +26,7 @@ export class AllocatorUseArrayBuffer {
   // the memory should not actually be used until it is needed.
   share_arrays_memory: SharedArrayBuffer;
 
-  // When adding data, use Atomics.wait to wait until the first 4 bytes become 0.
-  // After that, use Atomics.compareExchange to set the first 4 bytes to 1.
-  // Then, use Atomics.add to increment the next 4 bytes by 1.
-  // If the return value is 0, proceed to *1.
-  // If the return value is 1, use Atomics.wait to wait until the first 4 bytes become 0.
-  // *1: Increment the second by 1 using Atomics.add. If the return value is 0, reset it.
-  // Add the data. Extend if there is not enough space.
-  // To release, just decrement by 1 using Atomics.sub.
+  protected locker: Locker;
 
   // Since postMessage makes the class an object,
   // it must be able to receive and assign a SharedArrayBuffer.
@@ -45,6 +40,7 @@ export class AllocatorUseArrayBuffer {
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);
     Atomics.store(view, 2, 12);
+    this.locker = new Locker(this.share_arrays_memory, 0);
   }
 
   // Since postMessage converts classes to objects,
@@ -69,25 +65,9 @@ export class AllocatorUseArrayBuffer {
     // Pass I32Array ret_ptr
     ret_ptr: number,
   ): Promise<[number, number]> {
-    const view = new Int32Array(this.share_arrays_memory);
-    while (true) {
-      const lock = await Atomics.waitAsync(view, 0, 1).value;
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-
-      const ret = this.write_inner(data, memory, ret_ptr);
-
-      // release lock
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-
-      return ret;
-    }
+    return await this.locker.lock(() =>
+      this.write_inner(data, memory, ret_ptr),
+    );
   }
 
   // Blocking threads for writing when acquiring locks
@@ -97,25 +77,9 @@ export class AllocatorUseArrayBuffer {
     // ptr, len
     ret_ptr: number,
   ): [number, number] {
-    while (true) {
-      const view = new Int32Array(this.share_arrays_memory);
-      const lock = Atomics.wait(view, 0, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out lock");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-
-      const ret = this.write_inner(data, memory, ret_ptr);
-
-      // release lock
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-
-      return ret;
-    }
+    return this.locker.lock_blocking(() =>
+      this.write_inner(data, memory, ret_ptr),
+    );
   }
 
   // Function to write after acquiring a lock
