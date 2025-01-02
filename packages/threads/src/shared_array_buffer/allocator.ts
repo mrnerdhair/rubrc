@@ -49,7 +49,9 @@ export class AllocatorUseArrayBuffer {
 
   // Since postMessage converts classes to objects,
   // it must be able to convert objects to classes.
-  static init_self(sl: AllocatorUseArrayBufferObject): AllocatorUseArrayBuffer {
+  static async init(
+    sl: AllocatorUseArrayBufferObject,
+  ): Promise<AllocatorUseArrayBuffer> {
     return new AllocatorUseArrayBuffer(sl.share_arrays_memory);
   }
 

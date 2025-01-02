@@ -45,7 +45,9 @@ class WorkerBackground<T> {
     return new WorkerBackground(
       override_object,
       worker_background_ref_object.lock,
-      AllocatorUseArrayBuffer.init_self(worker_background_ref_object.allocator),
+      await AllocatorUseArrayBuffer.init(
+        worker_background_ref_object.allocator,
+      ),
       worker_background_ref_object.signature_input,
     );
   }

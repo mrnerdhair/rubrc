@@ -160,7 +160,7 @@ export class WorkerBackgroundRef {
     sl: WorkerBackgroundRefObject,
   ): Promise<WorkerBackgroundRef> {
     return new WorkerBackgroundRef(
-      AllocatorUseArrayBuffer.init_self(sl.allocator),
+      await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.lock,
       sl.signature_input,
     );
