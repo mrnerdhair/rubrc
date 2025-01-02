@@ -57,26 +57,86 @@ export class ThreadSpawner {
     // 16MB for the time being.
     // https://users.rust-lang.org/t/what-is-the-size-limit-of-threads-stack-in-rust/11867/3
     MIN_STACK ??= 16777216;
-    return new ThreadSpawner(
+    const {
+      worker_background_worker,
+      worker_background_worker_promise,
+      worker_background_ref_object_out,
+      worker_background_ref,
+    } = await (async () => {
+      if (worker_background_ref_object === undefined) {
+        const worker_background_worker = new Worker();
+        const { promise, resolve } = Promise.withResolvers<void>();
+        const worker_background_worker_promise = promise;
+        worker_background_worker.onmessage = () => resolve();
+        const worker_background_ref_object_out =
+          WorkerBackgroundRefObjectConstructor();
+        return {
+          worker_background_worker,
+          worker_background_worker_promise,
+          worker_background_ref_object_out,
+          worker_background_ref: WorkerBackgroundRef.init_self(
+            worker_background_ref_object_out,
+          ),
+        };
+      }
+      return {
+        worker_background_ref_object_out: worker_background_ref_object,
+        worker_background_ref: WorkerBackgroundRef.init_self(
+          worker_background_ref_object,
+        ),
+      };
+    })();
+
+    const out = new ThreadSpawner({
       worker_url,
       wasi_farm_refs_object,
       share_memory,
       MIN_STACK,
-      worker_background_ref_object,
-      thread_spawn_wasm,
+      worker_background_ref_object: worker_background_ref_object_out,
       // inst_default_buffer_kept,
-    );
+      worker_background_worker,
+      worker_background_worker_promise,
+      worker_background_ref,
+    });
+
+    if (worker_background_worker) {
+      worker_background_worker_promise.then(() => {
+        out.worker_background_worker_promise = undefined;
+      });
+
+      worker_background_worker.postMessage({
+        override_object: {
+          sl_object: out.get_object(),
+          thread_spawn_wasm,
+        },
+        worker_background_ref_object: worker_background_ref_object_out,
+      });
+    }
+
+    return out;
   }
 
-  protected constructor(
-    worker_url: string,
-    wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>,
-    share_memory: WebAssembly.Memory | undefined,
-    MIN_STACK: number,
-    worker_background_ref_object: WorkerBackgroundRefObject | undefined,
-    thread_spawn_wasm: WebAssembly.Module | undefined,
+  protected constructor({
+    worker_url,
+    wasi_farm_refs_object,
+    share_memory,
+    MIN_STACK,
+    worker_background_ref_object,
+    // inst_default_buffer_kept,
+    worker_background_worker,
+    worker_background_worker_promise,
+    worker_background_ref,
+  }: {
+    worker_url: string;
+    wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
+    share_memory: WebAssembly.Memory | undefined;
+    MIN_STACK: number;
+    worker_background_ref_object: WorkerBackgroundRefObject;
     // inst_default_buffer_kept: WebAssembly.Memory | undefined,
-  ) {
+    worker_background_worker: Worker | undefined;
+    worker_background_worker_promise: Promise<void> | undefined;
+    worker_background_ref: WorkerBackgroundRef;
+  }) {
     this.worker_url = worker_url;
     this.wasi_farm_refs_object = wasi_farm_refs_object;
 
@@ -106,32 +166,10 @@ export class ThreadSpawner {
         shared: true,
       });
 
-    if (worker_background_ref_object === undefined) {
-      this.worker_background_worker = new Worker();
-      const { promise, resolve } = Promise.withResolvers<void>();
-      this.worker_background_worker_promise = promise;
-      this.worker_background_worker.onmessage = () => {
-        this.worker_background_worker_promise = undefined;
-        resolve();
-      };
-      this.worker_background_ref_object =
-        WorkerBackgroundRefObjectConstructor();
-      this.worker_background_ref = WorkerBackgroundRef.init_self(
-        this.worker_background_ref_object,
-      );
-      this.worker_background_worker.postMessage({
-        override_object: {
-          sl_object: this.get_object(),
-          thread_spawn_wasm,
-        },
-        worker_background_ref_object: this.worker_background_ref_object,
-      });
-    } else {
-      this.worker_background_ref_object = worker_background_ref_object;
-      this.worker_background_ref = WorkerBackgroundRef.init_self(
-        this.worker_background_ref_object,
-      );
-    }
+    this.worker_background_worker = worker_background_worker;
+    this.worker_background_worker_promise = worker_background_worker_promise;
+    this.worker_background_ref_object = worker_background_ref_object;
+    this.worker_background_ref = worker_background_ref;
   }
 
   // This cannot block.
