@@ -280,6 +280,498 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     Atomics.store(lock_view, 1, 0);
     Atomics.store(func_sig_view_i32, errno_offset, -1);
 
+    const handlers: Partial<
+      Record<keyof typeof FuncNames, () => Promise<number>>
+    > = {
+      // fd_advise: (fd: u32) => errno;
+      fd_advise: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        return this.fd_advise(fd);
+      },
+      // fd_allocate: (fd: u32, offset: u64, len: u64) => errno;
+      fd_allocate: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const offset = Atomics.load(func_sig_view_u64, 1);
+        const len = Atomics.load(func_sig_view_u64, 2);
+
+        return this.fd_allocate(fd, offset, len);
+      },
+      // fd_close: (fd: u32) => errno;
+      fd_close: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        return await this.fd_close(fd);
+      },
+      // fd_datasync: (fd: u32) => errno;
+      fd_datasync: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        return this.fd_datasync(fd);
+      },
+      // fd_fdstat_get: (fd: u32) => [wasi.Fdstat(u32 * 6)], errno];
+      fd_fdstat_get: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        const [fdstat, ret] = this.fd_fdstat_get(fd);
+        if (fdstat) {
+          Atomics.store(func_sig_view_u8, 0, fdstat.fs_filetype);
+          Atomics.store(func_sig_view_u16, 2, fdstat.fs_flags);
+          Atomics.store(func_sig_view_u64, 1, fdstat.fs_rights_base);
+          Atomics.store(func_sig_view_u64, 2, fdstat.fs_rights_inherited);
+        }
+        return ret;
+      },
+      // fd_fdstat_set_flags: (fd: u32, flags: u16) => errno;
+      fd_fdstat_set_flags: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const flags = Atomics.load(func_sig_view_u16, 4);
+
+        return this.fd_fdstat_set_flags(fd, flags);
+      },
+      // fd_fdstat_set_rights: (fd: u32, fs_rights_base: u64, fs_rights_inheriting: u64) => errno;
+      fd_fdstat_set_rights: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fs_rights_base = Atomics.load(func_sig_view_u64, 1);
+        const fs_rights_inheriting = Atomics.load(func_sig_view_u64, 2);
+
+        return this.fd_fdstat_set_rights(
+          fd,
+          fs_rights_base,
+          fs_rights_inheriting,
+        );
+      },
+      // fd_filestat_get: (fd: u32) => [wasi.Filestat(u32 * 16)], errno];
+      fd_filestat_get: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        const [filestat, ret] = this.fd_filestat_get(fd);
+        if (filestat) {
+          Atomics.store(func_sig_view_u64, 0, filestat.dev);
+          Atomics.store(func_sig_view_u64, 1, filestat.ino);
+          Atomics.store(func_sig_view_u8, 16, filestat.filetype);
+          Atomics.store(func_sig_view_u64, 3, filestat.nlink);
+          Atomics.store(func_sig_view_u64, 4, filestat.size);
+          Atomics.store(func_sig_view_u64, 5, filestat.atim);
+          Atomics.store(func_sig_view_u64, 6, filestat.mtim);
+          Atomics.store(func_sig_view_u64, 7, filestat.ctim);
+        }
+        return ret;
+      },
+      // fd_filestat_set_size: (fd: u32, size: u64) => errno;
+      fd_filestat_set_size: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const size = Atomics.load(func_sig_view_u64, 1);
+
+        return this.fd_filestat_set_size(fd, size);
+      },
+      // fd_filestat_set_times: (fd: u32, atim: u64, mtim: u64, fst_flags: u16) => errno;
+      fd_filestat_set_times: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const atim = Atomics.load(func_sig_view_u64, 1);
+        const mtim = Atomics.load(func_sig_view_u64, 2);
+        const fst_flags = Atomics.load(func_sig_view_u16, 12);
+
+        return this.fd_filestat_set_times(fd, atim, mtim, fst_flags);
+      },
+      // fd_pread: (fd: u32, iovs_ptr: pointer, iovs_len: u32, offset: u64) => [u32, data_ptr, errno];
+      fd_pread: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const iovs_ptr = Atomics.load(func_sig_view_u32, 2);
+        const iovs_ptr_len = Atomics.load(func_sig_view_u32, 3);
+        const offset = Atomics.load(func_sig_view_u64, 2);
+        const data = new Uint32Array(
+          this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
+        );
+        this.allocator.free(iovs_ptr, iovs_ptr_len);
+
+        const iovecs = new Array<wasi.Iovec>();
+        for (let i = 0; i < iovs_ptr_len; i += 8) {
+          const iovec = new wasi.Iovec();
+          iovec.buf = data[i * 2];
+          iovec.buf_len = data[i * 2 + 1];
+          iovecs.push(iovec);
+        }
+
+        const [nread_and_buffer, error] = this.fd_pread(fd, iovecs, offset);
+        if (nread_and_buffer !== undefined) {
+          const [nread, buffer8] = nread_and_buffer;
+          Atomics.store(func_sig_view_u32, 0, nread);
+          await this.allocator.async_write(
+            buffer8,
+            this.fd_func_sig,
+            fd * fd_func_sig_u32_size + 1,
+          );
+        }
+        return error;
+      },
+      // fd_prestat_get: (fd: u32) => [wasi.Prestat(u32 * 2)], errno];
+      fd_prestat_get: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        const [prestat, ret] = this.fd_prestat_get(fd);
+        if (prestat) {
+          Atomics.store(func_sig_view_u32, 0, prestat.tag);
+          Atomics.store(func_sig_view_u32, 1, prestat.inner.pr_name.byteLength);
+        }
+        return ret;
+      },
+      // fd_prestat_dir_name: (fd: u32, path_len: u32) => [path_ptr: pointer, path_len: u32, errno];
+      fd_prestat_dir_name: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const path_len = Atomics.load(func_sig_view_u32, 2);
+
+        const [prestat_dir_name, ret] = this.fd_prestat_dir_name(fd, path_len);
+        if (
+          prestat_dir_name &&
+          (ret === wasi.ERRNO_SUCCESS || ret === wasi.ERRNO_NAMETOOLONG)
+        ) {
+          await this.allocator.async_write(
+            prestat_dir_name,
+            this.fd_func_sig,
+            fd * fd_func_sig_u32_size,
+          );
+        }
+        return ret;
+      },
+      // fd_pwrite: (fd: u32, write_data: pointer, write_data_len: u32, offset: u64) => [u32, errno];
+      fd_pwrite: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const write_data_ptr = Atomics.load(func_sig_view_u32, 2);
+        const write_data_len = Atomics.load(func_sig_view_u32, 3);
+        const offset = Atomics.load(func_sig_view_u64, 2);
+
+        const data = new Uint8Array(
+          this.allocator.get_memory(write_data_ptr, write_data_len),
+        );
+        this.allocator.free(write_data_ptr, write_data_len);
+
+        const [nwritten, error] = this.fd_pwrite(fd, data, offset);
+        if (nwritten !== undefined) {
+          Atomics.store(func_sig_view_u32, 0, nwritten);
+        }
+        return error;
+      },
+      // fd_read: (fd: u32, iovs_ptr: pointer, iovs_len: u32) => [u32, data_ptr, errno];
+      fd_read: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const iovs_ptr = Atomics.load(func_sig_view_u32, 2);
+        const iovs_ptr_len = Atomics.load(func_sig_view_u32, 3);
+        const iovs = new Uint32Array(
+          this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
+        );
+        this.allocator.free(iovs_ptr, iovs_ptr_len);
+
+        const iovecs = new Array<wasi.Iovec>();
+        for (let i = 0; i < iovs_ptr_len; i += 8) {
+          const iovec = new wasi.Iovec();
+          iovec.buf = iovs[i * 2];
+          iovec.buf_len = iovs[i * 2 + 1];
+          iovecs.push(iovec);
+        }
+
+        const [nread_and_buffer, error] = this.fd_read(fd, iovecs);
+
+        if (nread_and_buffer !== undefined) {
+          const [nread, buffer8] = nread_and_buffer;
+          Atomics.store(func_sig_view_u32, 0, nread);
+          await this.allocator.async_write(
+            buffer8,
+            this.fd_func_sig,
+            fd * fd_func_sig_u32_size + 1,
+          );
+        }
+        return error;
+      },
+      // fd_readdir: (fd: u32, buf_len: u32, cookie: u64) => [buf_ptr: pointer, buf_len: u32, buf_used: u32, errno];
+      fd_readdir: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const buf_len = Atomics.load(func_sig_view_u32, 2);
+        const cookie = Atomics.load(func_sig_view_u64, 2);
+
+        const [array_and_buf_used, error] = this.fd_readdir(
+          fd,
+          buf_len,
+          cookie,
+        );
+        if (array_and_buf_used) {
+          const [array, buf_used] = array_and_buf_used;
+          await this.allocator.async_write(
+            array,
+            this.fd_func_sig,
+            fd * fd_func_sig_u32_size,
+          );
+          Atomics.store(func_sig_view_u32, 2, buf_used);
+        }
+        return error;
+      },
+      // fd_seek: (fd: u32, offset: i64, whence: u8) => [u64, errno];
+      fd_seek: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const offset = Atomics.load(func_sig_view_u64, 1);
+        const whence = Atomics.load(func_sig_view_u8, 16);
+
+        const [new_offset, error] = this.fd_seek(fd, offset, whence);
+        if (new_offset !== undefined) {
+          Atomics.store(func_sig_view_u64, 0, new_offset);
+        }
+        return error;
+      },
+      // fd_sync: (fd: u32) => errno;
+      fd_sync: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        return this.fd_sync(fd);
+      },
+      // fd_tell: (fd: u32) => [u64, errno];
+      fd_tell: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+
+        const [offset, error] = this.fd_tell(fd);
+        if (offset !== undefined) {
+          Atomics.store(func_sig_view_u64, 0, offset);
+        }
+        return error;
+      },
+      // fd_write: (fd: u32, write_data: pointer, write_data_len: u32) => [u32, errno];
+      fd_write: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const write_data_ptr = Atomics.load(func_sig_view_u32, 2);
+        const write_data_len = Atomics.load(func_sig_view_u32, 3);
+
+        const data = new Uint8Array(
+          this.allocator.get_memory(write_data_ptr, write_data_len),
+        );
+        this.allocator.free(write_data_ptr, write_data_len);
+
+        const [nwritten, error] = await this.fd_write(fd, data);
+        if (nwritten !== undefined) {
+          Atomics.store(func_sig_view_u32, 0, nwritten);
+        }
+        return error;
+      },
+      // path_create_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
+      path_create_directory: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const path_ptr = Atomics.load(func_sig_view_u32, 2);
+        const path_len = Atomics.load(func_sig_view_u32, 3);
+
+        const path = new Uint8Array(
+          this.allocator.get_memory(path_ptr, path_len),
+        );
+        const path_str = new TextDecoder().decode(path);
+        this.allocator.free(path_ptr, path_len);
+
+        return this.path_create_directory(fd, path_str);
+      },
+      // path_filestat_get: (fd: u32, flags: u32, path_ptr: pointer, path_len: u32) => [wasi.Filestat(u32 * 16), errno];
+      path_filestat_get: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const flags = Atomics.load(func_sig_view_u32, 2);
+        const path_ptr = Atomics.load(func_sig_view_u32, 3);
+        const path_len = Atomics.load(func_sig_view_u32, 4);
+
+        const path = new Uint8Array(
+          this.allocator.get_memory(path_ptr, path_len),
+        );
+        const path_str = new TextDecoder().decode(path);
+        this.allocator.free(path_ptr, path_len);
+
+        const [filestat, ret] = this.path_filestat_get(fd, flags, path_str);
+        if (filestat) {
+          Atomics.store(func_sig_view_u64, 0, filestat.dev);
+          Atomics.store(func_sig_view_u64, 1, filestat.ino);
+          Atomics.store(func_sig_view_u8, 16, filestat.filetype);
+          Atomics.store(func_sig_view_u64, 3, filestat.nlink);
+          Atomics.store(func_sig_view_u64, 4, filestat.size);
+          Atomics.store(func_sig_view_u64, 5, filestat.atim);
+          Atomics.store(func_sig_view_u64, 6, filestat.mtim);
+          Atomics.store(func_sig_view_u64, 7, filestat.ctim);
+        }
+        return ret;
+      },
+      // path_filestat_set_times: (fd: u32, flags: u32, path_ptr: pointer, path_len: u32, atim: u64, mtim: u64, fst_flags: u16) => errno;
+      path_filestat_set_times: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const flags = Atomics.load(func_sig_view_u32, 2);
+        const path_ptr = Atomics.load(func_sig_view_u32, 3);
+        const path_len = Atomics.load(func_sig_view_u32, 4);
+        const atim = Atomics.load(func_sig_view_u64, 3);
+        const mtim = Atomics.load(func_sig_view_u64, 4);
+        const fst_flags = Atomics.load(func_sig_view_u16, 12);
+
+        const path = new Uint8Array(
+          this.allocator.get_memory(path_ptr, path_len),
+        );
+        const path_str = new TextDecoder().decode(path);
+        this.allocator.free(path_ptr, path_len);
+
+        return this.path_filestat_set_times(
+          fd,
+          flags,
+          path_str,
+          atim,
+          mtim,
+          fst_flags,
+        );
+      },
+      // path_link: (old_fd: u32, old_flags: u32, old_path_ptr: pointer, old_path_len: u32, new_fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
+      path_link: async () => {
+        const old_fd = Atomics.load(func_sig_view_u32, 1);
+        const old_flags = Atomics.load(func_sig_view_u32, 2);
+        const old_path_ptr = Atomics.load(func_sig_view_u32, 3);
+        const old_path_len = Atomics.load(func_sig_view_u32, 4);
+        const new_fd = Atomics.load(func_sig_view_u32, 5);
+        const new_path_ptr = Atomics.load(func_sig_view_u32, 6);
+        const new_path_len = Atomics.load(func_sig_view_u32, 7);
+
+        const old_path = new Uint8Array(
+          this.allocator.get_memory(old_path_ptr, old_path_len),
+        );
+        const old_path_str = new TextDecoder().decode(old_path);
+        this.allocator.free(old_path_ptr, old_path_len);
+        const new_path = new Uint8Array(
+          this.allocator.get_memory(new_path_ptr, new_path_len),
+        );
+        const new_path_str = new TextDecoder().decode(new_path);
+        this.allocator.free(new_path_ptr, new_path_len);
+
+        return this.path_link(
+          old_fd,
+          old_flags,
+          old_path_str,
+          new_fd,
+          new_path_str,
+        );
+      },
+      // path_open: (fd: u32, dirflags: u32, path_ptr: pointer, path_len: u32, oflags: u32, fs_rights_base: u64, fs_rights_inheriting: u64, fdflags: u16) => [u32, errno];
+      path_open: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const dirflags = Atomics.load(func_sig_view_u32, 2);
+        const path_ptr = Atomics.load(func_sig_view_u32, 3);
+        const path_len = Atomics.load(func_sig_view_u32, 4);
+        const oflags = Atomics.load(func_sig_view_u32, 5);
+        const fs_rights_base = Atomics.load(func_sig_view_u64, 3);
+        const fs_rights_inheriting = Atomics.load(func_sig_view_u64, 4);
+        const fd_flags = Atomics.load(func_sig_view_u16, 20);
+
+        const path = new Uint8Array(
+          this.allocator.get_memory(path_ptr, path_len),
+        );
+        const path_str = new TextDecoder().decode(path);
+        this.allocator.free(path_ptr, path_len);
+
+        const [opened_fd, error] = await this.path_open(
+          fd,
+          dirflags,
+          path_str,
+          oflags,
+          fs_rights_base,
+          fs_rights_inheriting,
+          fd_flags,
+        );
+        if (opened_fd !== undefined) {
+          Atomics.store(func_sig_view_u32, 0, opened_fd);
+        }
+        return error;
+      },
+      // path_readlink: (fd: u32, path_ptr: pointer, path_len: u32, buf_len: u32) => [buf_len: u32, data_ptr: pointer, data_len: u32, errno];
+      path_readlink: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const path_ptr = Atomics.load(func_sig_view_u32, 2);
+        const path_len = Atomics.load(func_sig_view_u32, 3);
+        const buf_len = Atomics.load(func_sig_view_u32, 4);
+
+        const path = new Uint8Array(
+          this.allocator.get_memory(path_ptr, path_len),
+        );
+        const path_str = new TextDecoder().decode(path);
+        this.allocator.free(path_ptr, path_len);
+
+        const [buf, error] = this.path_readlink(fd, path_str, buf_len);
+        if (buf) {
+          await this.allocator.async_write(
+            buf,
+            this.fd_func_sig,
+            fd * fd_func_sig_u32_size + 1,
+          );
+          Atomics.store(func_sig_view_u32, 0, buf.byteLength);
+        }
+        return error;
+      },
+      // path_remove_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
+      path_remove_directory: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const path_ptr = Atomics.load(func_sig_view_u32, 2);
+        const path_len = Atomics.load(func_sig_view_u32, 3);
+
+        const path = new Uint8Array(
+          this.allocator.get_memory(path_ptr, path_len),
+        );
+        const path_str = new TextDecoder().decode(path);
+        this.allocator.free(path_ptr, path_len);
+
+        return this.path_remove_directory(fd, path_str);
+      },
+      // path_rename: (old_fd: u32, old_path_ptr: pointer, old_path_len: u32, new_fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
+      path_rename: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const old_path_ptr = Atomics.load(func_sig_view_u32, 2);
+        const old_path_len = Atomics.load(func_sig_view_u32, 3);
+        const new_fd = Atomics.load(func_sig_view_u32, 4);
+        const new_path_ptr = Atomics.load(func_sig_view_u32, 5);
+        const new_path_len = Atomics.load(func_sig_view_u32, 6);
+
+        const old_path = new Uint8Array(
+          this.allocator.get_memory(old_path_ptr, old_path_len),
+        );
+        const old_path_str = new TextDecoder().decode(old_path);
+        this.allocator.free(old_path_ptr, old_path_len);
+        const new_path = new Uint8Array(
+          this.allocator.get_memory(new_path_ptr, new_path_len),
+        );
+        const new_path_str = new TextDecoder().decode(new_path);
+        this.allocator.free(new_path_ptr, new_path_len);
+
+        return this.path_rename(fd, old_path_str, new_fd, new_path_str);
+      },
+      // path_symlink: (old_path_ptr: pointer, old_path_len: u32, fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
+      path_symlink: async () => {
+        const old_path_ptr = Atomics.load(func_sig_view_u32, 1);
+        const old_path_len = Atomics.load(func_sig_view_u32, 2);
+        const fd = Atomics.load(func_sig_view_u32, 3);
+        const new_path_ptr = Atomics.load(func_sig_view_u32, 4);
+        const new_path_len = Atomics.load(func_sig_view_u32, 5);
+
+        const old_path = new Uint8Array(
+          this.allocator.get_memory(old_path_ptr, old_path_len),
+        );
+        const old_path_str = new TextDecoder().decode(old_path);
+        this.allocator.free(old_path_ptr, old_path_len);
+        const new_path = new Uint8Array(
+          this.allocator.get_memory(new_path_ptr, new_path_len),
+        );
+        const new_path_str = new TextDecoder().decode(new_path);
+        this.allocator.free(new_path_ptr, new_path_len);
+
+        return this.path_symlink(old_path_str, fd, new_path_str);
+      },
+      // path_unlink_file: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
+      path_unlink_file: async () => {
+        const fd = Atomics.load(func_sig_view_u32, 1);
+        const path_ptr = Atomics.load(func_sig_view_u32, 2);
+        const path_len = Atomics.load(func_sig_view_u32, 3);
+
+        const path = new Uint8Array(
+          this.allocator.get_memory(path_ptr, path_len),
+        );
+        const path_str = new TextDecoder().decode(path);
+        this.allocator.free(path_ptr, path_len);
+
+        return this.path_unlink_file(fd, path_str);
+      },
+    };
+
     while (true) {
       try {
         const lock = await Atomics.waitAsync(lock_view, 1, 0).value;
@@ -293,505 +785,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         }
 
         const func_number = Atomics.load(func_sig_view_u32, 0);
-
-        const handlers: Partial<
-          Record<keyof typeof FuncNames, () => Promise<number>>
-        > = {
-          // fd_advise: (fd: u32) => errno;
-          fd_advise: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            return this.fd_advise(fd);
-          },
-          // fd_allocate: (fd: u32, offset: u64, len: u64) => errno;
-          fd_allocate: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const offset = Atomics.load(func_sig_view_u64, 1);
-            const len = Atomics.load(func_sig_view_u64, 2);
-
-            return this.fd_allocate(fd, offset, len);
-          },
-          // fd_close: (fd: u32) => errno;
-          fd_close: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            return await this.fd_close(fd);
-          },
-          // fd_datasync: (fd: u32) => errno;
-          fd_datasync: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            return this.fd_datasync(fd);
-          },
-          // fd_fdstat_get: (fd: u32) => [wasi.Fdstat(u32 * 6)], errno];
-          fd_fdstat_get: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            const [fdstat, ret] = this.fd_fdstat_get(fd);
-            if (fdstat) {
-              Atomics.store(func_sig_view_u8, 0, fdstat.fs_filetype);
-              Atomics.store(func_sig_view_u16, 2, fdstat.fs_flags);
-              Atomics.store(func_sig_view_u64, 1, fdstat.fs_rights_base);
-              Atomics.store(func_sig_view_u64, 2, fdstat.fs_rights_inherited);
-            }
-            return ret;
-          },
-          // fd_fdstat_set_flags: (fd: u32, flags: u16) => errno;
-          fd_fdstat_set_flags: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const flags = Atomics.load(func_sig_view_u16, 4);
-
-            return this.fd_fdstat_set_flags(fd, flags);
-          },
-          // fd_fdstat_set_rights: (fd: u32, fs_rights_base: u64, fs_rights_inheriting: u64) => errno;
-          fd_fdstat_set_rights: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const fs_rights_base = Atomics.load(func_sig_view_u64, 1);
-            const fs_rights_inheriting = Atomics.load(func_sig_view_u64, 2);
-
-            return this.fd_fdstat_set_rights(
-              fd,
-              fs_rights_base,
-              fs_rights_inheriting,
-            );
-          },
-          // fd_filestat_get: (fd: u32) => [wasi.Filestat(u32 * 16)], errno];
-          fd_filestat_get: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            const [filestat, ret] = this.fd_filestat_get(fd);
-            if (filestat) {
-              Atomics.store(func_sig_view_u64, 0, filestat.dev);
-              Atomics.store(func_sig_view_u64, 1, filestat.ino);
-              Atomics.store(func_sig_view_u8, 16, filestat.filetype);
-              Atomics.store(func_sig_view_u64, 3, filestat.nlink);
-              Atomics.store(func_sig_view_u64, 4, filestat.size);
-              Atomics.store(func_sig_view_u64, 5, filestat.atim);
-              Atomics.store(func_sig_view_u64, 6, filestat.mtim);
-              Atomics.store(func_sig_view_u64, 7, filestat.ctim);
-            }
-            return ret;
-          },
-          // fd_filestat_set_size: (fd: u32, size: u64) => errno;
-          fd_filestat_set_size: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const size = Atomics.load(func_sig_view_u64, 1);
-
-            return this.fd_filestat_set_size(fd, size);
-          },
-          // fd_filestat_set_times: (fd: u32, atim: u64, mtim: u64, fst_flags: u16) => errno;
-          fd_filestat_set_times: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const atim = Atomics.load(func_sig_view_u64, 1);
-            const mtim = Atomics.load(func_sig_view_u64, 2);
-            const fst_flags = Atomics.load(func_sig_view_u16, 12);
-
-            return this.fd_filestat_set_times(fd, atim, mtim, fst_flags);
-          },
-          // fd_pread: (fd: u32, iovs_ptr: pointer, iovs_len: u32, offset: u64) => [u32, data_ptr, errno];
-          fd_pread: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const iovs_ptr = Atomics.load(func_sig_view_u32, 2);
-            const iovs_ptr_len = Atomics.load(func_sig_view_u32, 3);
-            const offset = Atomics.load(func_sig_view_u64, 2);
-            const data = new Uint32Array(
-              this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
-            );
-            this.allocator.free(iovs_ptr, iovs_ptr_len);
-
-            const iovecs = new Array<wasi.Iovec>();
-            for (let i = 0; i < iovs_ptr_len; i += 8) {
-              const iovec = new wasi.Iovec();
-              iovec.buf = data[i * 2];
-              iovec.buf_len = data[i * 2 + 1];
-              iovecs.push(iovec);
-            }
-
-            const [nread_and_buffer, error] = this.fd_pread(fd, iovecs, offset);
-            if (nread_and_buffer !== undefined) {
-              const [nread, buffer8] = nread_and_buffer;
-              Atomics.store(func_sig_view_u32, 0, nread);
-              await this.allocator.async_write(
-                buffer8,
-                this.fd_func_sig,
-                fd * fd_func_sig_u32_size + 1,
-              );
-            }
-            return error;
-          },
-          // fd_prestat_get: (fd: u32) => [wasi.Prestat(u32 * 2)], errno];
-          fd_prestat_get: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            const [prestat, ret] = this.fd_prestat_get(fd);
-            if (prestat) {
-              Atomics.store(func_sig_view_u32, 0, prestat.tag);
-              Atomics.store(
-                func_sig_view_u32,
-                1,
-                prestat.inner.pr_name.byteLength,
-              );
-            }
-            return ret;
-          },
-          // fd_prestat_dir_name: (fd: u32, path_len: u32) => [path_ptr: pointer, path_len: u32, errno];
-          fd_prestat_dir_name: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const path_len = Atomics.load(func_sig_view_u32, 2);
-
-            const [prestat_dir_name, ret] = this.fd_prestat_dir_name(
-              fd,
-              path_len,
-            );
-            if (
-              prestat_dir_name &&
-              (ret === wasi.ERRNO_SUCCESS || ret === wasi.ERRNO_NAMETOOLONG)
-            ) {
-              await this.allocator.async_write(
-                prestat_dir_name,
-                this.fd_func_sig,
-                fd * fd_func_sig_u32_size,
-              );
-            }
-            return ret;
-          },
-          // fd_pwrite: (fd: u32, write_data: pointer, write_data_len: u32, offset: u64) => [u32, errno];
-          fd_pwrite: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const write_data_ptr = Atomics.load(func_sig_view_u32, 2);
-            const write_data_len = Atomics.load(func_sig_view_u32, 3);
-            const offset = Atomics.load(func_sig_view_u64, 2);
-
-            const data = new Uint8Array(
-              this.allocator.get_memory(write_data_ptr, write_data_len),
-            );
-            this.allocator.free(write_data_ptr, write_data_len);
-
-            const [nwritten, error] = this.fd_pwrite(fd, data, offset);
-            if (nwritten !== undefined) {
-              Atomics.store(func_sig_view_u32, 0, nwritten);
-            }
-            return error;
-          },
-          // fd_read: (fd: u32, iovs_ptr: pointer, iovs_len: u32) => [u32, data_ptr, errno];
-          fd_read: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const iovs_ptr = Atomics.load(func_sig_view_u32, 2);
-            const iovs_ptr_len = Atomics.load(func_sig_view_u32, 3);
-            const iovs = new Uint32Array(
-              this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
-            );
-            this.allocator.free(iovs_ptr, iovs_ptr_len);
-
-            const iovecs = new Array<wasi.Iovec>();
-            for (let i = 0; i < iovs_ptr_len; i += 8) {
-              const iovec = new wasi.Iovec();
-              iovec.buf = iovs[i * 2];
-              iovec.buf_len = iovs[i * 2 + 1];
-              iovecs.push(iovec);
-            }
-
-            const [nread_and_buffer, error] = this.fd_read(fd, iovecs);
-
-            if (nread_and_buffer !== undefined) {
-              const [nread, buffer8] = nread_and_buffer;
-              Atomics.store(func_sig_view_u32, 0, nread);
-              await this.allocator.async_write(
-                buffer8,
-                this.fd_func_sig,
-                fd * fd_func_sig_u32_size + 1,
-              );
-            }
-            return error;
-          },
-          // fd_readdir: (fd: u32, buf_len: u32, cookie: u64) => [buf_ptr: pointer, buf_len: u32, buf_used: u32, errno];
-          fd_readdir: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const buf_len = Atomics.load(func_sig_view_u32, 2);
-            const cookie = Atomics.load(func_sig_view_u64, 2);
-
-            const [array_and_buf_used, error] = this.fd_readdir(
-              fd,
-              buf_len,
-              cookie,
-            );
-            if (array_and_buf_used) {
-              const [array, buf_used] = array_and_buf_used;
-              await this.allocator.async_write(
-                array,
-                this.fd_func_sig,
-                fd * fd_func_sig_u32_size,
-              );
-              Atomics.store(func_sig_view_u32, 2, buf_used);
-            }
-            return error;
-          },
-          // fd_seek: (fd: u32, offset: i64, whence: u8) => [u64, errno];
-          fd_seek: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const offset = Atomics.load(func_sig_view_u64, 1);
-            const whence = Atomics.load(func_sig_view_u8, 16);
-
-            const [new_offset, error] = this.fd_seek(fd, offset, whence);
-            if (new_offset !== undefined) {
-              Atomics.store(func_sig_view_u64, 0, new_offset);
-            }
-            return error;
-          },
-          // fd_sync: (fd: u32) => errno;
-          fd_sync: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            return this.fd_sync(fd);
-          },
-          // fd_tell: (fd: u32) => [u64, errno];
-          fd_tell: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-
-            const [offset, error] = this.fd_tell(fd);
-            if (offset !== undefined) {
-              Atomics.store(func_sig_view_u64, 0, offset);
-            }
-            return error;
-          },
-          // fd_write: (fd: u32, write_data: pointer, write_data_len: u32) => [u32, errno];
-          fd_write: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const write_data_ptr = Atomics.load(func_sig_view_u32, 2);
-            const write_data_len = Atomics.load(func_sig_view_u32, 3);
-
-            const data = new Uint8Array(
-              this.allocator.get_memory(write_data_ptr, write_data_len),
-            );
-            this.allocator.free(write_data_ptr, write_data_len);
-
-            const [nwritten, error] = await this.fd_write(fd, data);
-            if (nwritten !== undefined) {
-              Atomics.store(func_sig_view_u32, 0, nwritten);
-            }
-            return error;
-          },
-          // path_create_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
-          path_create_directory: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const path_ptr = Atomics.load(func_sig_view_u32, 2);
-            const path_len = Atomics.load(func_sig_view_u32, 3);
-
-            const path = new Uint8Array(
-              this.allocator.get_memory(path_ptr, path_len),
-            );
-            const path_str = new TextDecoder().decode(path);
-            this.allocator.free(path_ptr, path_len);
-
-            return this.path_create_directory(fd, path_str);
-          },
-          // path_filestat_get: (fd: u32, flags: u32, path_ptr: pointer, path_len: u32) => [wasi.Filestat(u32 * 16), errno];
-          path_filestat_get: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const flags = Atomics.load(func_sig_view_u32, 2);
-            const path_ptr = Atomics.load(func_sig_view_u32, 3);
-            const path_len = Atomics.load(func_sig_view_u32, 4);
-
-            const path = new Uint8Array(
-              this.allocator.get_memory(path_ptr, path_len),
-            );
-            const path_str = new TextDecoder().decode(path);
-            this.allocator.free(path_ptr, path_len);
-
-            const [filestat, ret] = this.path_filestat_get(fd, flags, path_str);
-            if (filestat) {
-              Atomics.store(func_sig_view_u64, 0, filestat.dev);
-              Atomics.store(func_sig_view_u64, 1, filestat.ino);
-              Atomics.store(func_sig_view_u8, 16, filestat.filetype);
-              Atomics.store(func_sig_view_u64, 3, filestat.nlink);
-              Atomics.store(func_sig_view_u64, 4, filestat.size);
-              Atomics.store(func_sig_view_u64, 5, filestat.atim);
-              Atomics.store(func_sig_view_u64, 6, filestat.mtim);
-              Atomics.store(func_sig_view_u64, 7, filestat.ctim);
-            }
-            return ret;
-          },
-          // path_filestat_set_times: (fd: u32, flags: u32, path_ptr: pointer, path_len: u32, atim: u64, mtim: u64, fst_flags: u16) => errno;
-          path_filestat_set_times: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const flags = Atomics.load(func_sig_view_u32, 2);
-            const path_ptr = Atomics.load(func_sig_view_u32, 3);
-            const path_len = Atomics.load(func_sig_view_u32, 4);
-            const atim = Atomics.load(func_sig_view_u64, 3);
-            const mtim = Atomics.load(func_sig_view_u64, 4);
-            const fst_flags = Atomics.load(func_sig_view_u16, 12);
-
-            const path = new Uint8Array(
-              this.allocator.get_memory(path_ptr, path_len),
-            );
-            const path_str = new TextDecoder().decode(path);
-            this.allocator.free(path_ptr, path_len);
-
-            return this.path_filestat_set_times(
-              fd,
-              flags,
-              path_str,
-              atim,
-              mtim,
-              fst_flags,
-            );
-          },
-          // path_link: (old_fd: u32, old_flags: u32, old_path_ptr: pointer, old_path_len: u32, new_fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
-          path_link: async () => {
-            const old_fd = Atomics.load(func_sig_view_u32, 1);
-            const old_flags = Atomics.load(func_sig_view_u32, 2);
-            const old_path_ptr = Atomics.load(func_sig_view_u32, 3);
-            const old_path_len = Atomics.load(func_sig_view_u32, 4);
-            const new_fd = Atomics.load(func_sig_view_u32, 5);
-            const new_path_ptr = Atomics.load(func_sig_view_u32, 6);
-            const new_path_len = Atomics.load(func_sig_view_u32, 7);
-
-            const old_path = new Uint8Array(
-              this.allocator.get_memory(old_path_ptr, old_path_len),
-            );
-            const old_path_str = new TextDecoder().decode(old_path);
-            this.allocator.free(old_path_ptr, old_path_len);
-            const new_path = new Uint8Array(
-              this.allocator.get_memory(new_path_ptr, new_path_len),
-            );
-            const new_path_str = new TextDecoder().decode(new_path);
-            this.allocator.free(new_path_ptr, new_path_len);
-
-            return this.path_link(
-              old_fd,
-              old_flags,
-              old_path_str,
-              new_fd,
-              new_path_str,
-            );
-          },
-          // path_open: (fd: u32, dirflags: u32, path_ptr: pointer, path_len: u32, oflags: u32, fs_rights_base: u64, fs_rights_inheriting: u64, fdflags: u16) => [u32, errno];
-          path_open: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const dirflags = Atomics.load(func_sig_view_u32, 2);
-            const path_ptr = Atomics.load(func_sig_view_u32, 3);
-            const path_len = Atomics.load(func_sig_view_u32, 4);
-            const oflags = Atomics.load(func_sig_view_u32, 5);
-            const fs_rights_base = Atomics.load(func_sig_view_u64, 3);
-            const fs_rights_inheriting = Atomics.load(func_sig_view_u64, 4);
-            const fd_flags = Atomics.load(func_sig_view_u16, 20);
-
-            const path = new Uint8Array(
-              this.allocator.get_memory(path_ptr, path_len),
-            );
-            const path_str = new TextDecoder().decode(path);
-            this.allocator.free(path_ptr, path_len);
-
-            const [opened_fd, error] = await this.path_open(
-              fd,
-              dirflags,
-              path_str,
-              oflags,
-              fs_rights_base,
-              fs_rights_inheriting,
-              fd_flags,
-            );
-            if (opened_fd !== undefined) {
-              Atomics.store(func_sig_view_u32, 0, opened_fd);
-            }
-            return error;
-          },
-          // path_readlink: (fd: u32, path_ptr: pointer, path_len: u32, buf_len: u32) => [buf_len: u32, data_ptr: pointer, data_len: u32, errno];
-          path_readlink: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const path_ptr = Atomics.load(func_sig_view_u32, 2);
-            const path_len = Atomics.load(func_sig_view_u32, 3);
-            const buf_len = Atomics.load(func_sig_view_u32, 4);
-
-            const path = new Uint8Array(
-              this.allocator.get_memory(path_ptr, path_len),
-            );
-            const path_str = new TextDecoder().decode(path);
-            this.allocator.free(path_ptr, path_len);
-
-            const [buf, error] = this.path_readlink(fd, path_str, buf_len);
-            if (buf) {
-              await this.allocator.async_write(
-                buf,
-                this.fd_func_sig,
-                fd * fd_func_sig_u32_size + 1,
-              );
-              Atomics.store(func_sig_view_u32, 0, buf.byteLength);
-            }
-            return error;
-          },
-          // path_remove_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
-          path_remove_directory: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const path_ptr = Atomics.load(func_sig_view_u32, 2);
-            const path_len = Atomics.load(func_sig_view_u32, 3);
-
-            const path = new Uint8Array(
-              this.allocator.get_memory(path_ptr, path_len),
-            );
-            const path_str = new TextDecoder().decode(path);
-            this.allocator.free(path_ptr, path_len);
-
-            return this.path_remove_directory(fd, path_str);
-          },
-          // path_rename: (old_fd: u32, old_path_ptr: pointer, old_path_len: u32, new_fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
-          path_rename: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const old_path_ptr = Atomics.load(func_sig_view_u32, 2);
-            const old_path_len = Atomics.load(func_sig_view_u32, 3);
-            const new_fd = Atomics.load(func_sig_view_u32, 4);
-            const new_path_ptr = Atomics.load(func_sig_view_u32, 5);
-            const new_path_len = Atomics.load(func_sig_view_u32, 6);
-
-            const old_path = new Uint8Array(
-              this.allocator.get_memory(old_path_ptr, old_path_len),
-            );
-            const old_path_str = new TextDecoder().decode(old_path);
-            this.allocator.free(old_path_ptr, old_path_len);
-            const new_path = new Uint8Array(
-              this.allocator.get_memory(new_path_ptr, new_path_len),
-            );
-            const new_path_str = new TextDecoder().decode(new_path);
-            this.allocator.free(new_path_ptr, new_path_len);
-
-            return this.path_rename(fd, old_path_str, new_fd, new_path_str);
-          },
-          // path_symlink: (old_path_ptr: pointer, old_path_len: u32, fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
-          path_symlink: async () => {
-            const old_path_ptr = Atomics.load(func_sig_view_u32, 1);
-            const old_path_len = Atomics.load(func_sig_view_u32, 2);
-            const fd = Atomics.load(func_sig_view_u32, 3);
-            const new_path_ptr = Atomics.load(func_sig_view_u32, 4);
-            const new_path_len = Atomics.load(func_sig_view_u32, 5);
-
-            const old_path = new Uint8Array(
-              this.allocator.get_memory(old_path_ptr, old_path_len),
-            );
-            const old_path_str = new TextDecoder().decode(old_path);
-            this.allocator.free(old_path_ptr, old_path_len);
-            const new_path = new Uint8Array(
-              this.allocator.get_memory(new_path_ptr, new_path_len),
-            );
-            const new_path_str = new TextDecoder().decode(new_path);
-            this.allocator.free(new_path_ptr, new_path_len);
-
-            return this.path_symlink(old_path_str, fd, new_path_str);
-          },
-          // path_unlink_file: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
-          path_unlink_file: async () => {
-            const fd = Atomics.load(func_sig_view_u32, 1);
-            const path_ptr = Atomics.load(func_sig_view_u32, 2);
-            const path_len = Atomics.load(func_sig_view_u32, 3);
-
-            const path = new Uint8Array(
-              this.allocator.get_memory(path_ptr, path_len),
-            );
-            const path_str = new TextDecoder().decode(path);
-            this.allocator.free(path_ptr, path_len);
-
-            return this.path_unlink_file(fd, path_str);
-          },
-        };
 
         const func_name = FuncNames[func_number] as keyof typeof FuncNames;
         const handler =
