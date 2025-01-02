@@ -1,3 +1,5 @@
+import { Locker } from "./locker";
+
 export type ToRefSenderUseArrayBufferObject = {
   data_size: number;
   share_arrays_memory: SharedArrayBuffer;
@@ -34,6 +36,8 @@ export abstract class ToRefSenderUseArrayBuffer {
   // The size of the data
   data_size: number;
 
+  protected locker: Locker;
+
   constructor(
     // data is Uint32Array
     // and data_size is data.length
@@ -51,77 +55,40 @@ export abstract class ToRefSenderUseArrayBuffer {
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);
     Atomics.store(view, 2, 12);
-  }
-
-  private async async_lock(): Promise<void> {
-    const view = new Int32Array(this.share_arrays_memory);
-    while (true) {
-      const lock = await Atomics.waitAsync(view, 0, 1).value;
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-      break;
-    }
-  }
-
-  private block_lock(): void {
-    while (true) {
-      const view = new Int32Array(this.share_arrays_memory);
-      const lock = Atomics.wait(view, 0, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-      break;
-    }
-  }
-
-  private release_lock(): void {
-    const view = new Int32Array(this.share_arrays_memory);
-    Atomics.store(view, 0, 0);
-    Atomics.notify(view, 0, 1);
+    this.locker = new Locker(this.share_arrays_memory, 0);
   }
 
   protected async async_send(
     targets: Array<number>,
     data: Uint32Array,
   ): Promise<void> {
-    await this.async_lock();
+    return await this.locker.lock(async () => {
+      const view = new Int32Array(this.share_arrays_memory);
+      const used_len = Atomics.load(view, 2);
+      const data_len = data.byteLength;
+      if (data_len !== this.data_size) {
+        throw new Error(`invalid data size: ${data_len} !== ${this.data_size}`);
+      }
+      const new_used_len = used_len + data_len + 8 + targets.length * 4;
+      if (new_used_len > this.share_arrays_memory.byteLength) {
+        throw new Error("over memory");
+      }
 
-    const view = new Int32Array(this.share_arrays_memory);
-    const used_len = Atomics.load(view, 2);
-    const data_len = data.byteLength;
-    if (data_len !== this.data_size) {
-      throw new Error(`invalid data size: ${data_len} !== ${this.data_size}`);
-    }
-    const new_used_len = used_len + data_len + 8 + targets.length * 4;
-    if (new_used_len > this.share_arrays_memory.byteLength) {
-      throw new Error("over memory");
-    }
+      Atomics.store(view, 2, new_used_len);
 
-    Atomics.store(view, 2, new_used_len);
+      const header = new Int32Array(this.share_arrays_memory, used_len);
+      header[0] = targets.length;
+      header[1] = targets.length;
+      header.set(targets, 2);
 
-    const header = new Int32Array(this.share_arrays_memory, used_len);
-    header[0] = targets.length;
-    header[1] = targets.length;
-    header.set(targets, 2);
+      const data_view = new Uint32Array(
+        this.share_arrays_memory,
+        used_len + 8 + targets.length * 4,
+      );
+      data_view.set(data);
 
-    const data_view = new Uint32Array(
-      this.share_arrays_memory,
-      used_len + 8 + targets.length * 4,
-    );
-    data_view.set(data);
-
-    Atomics.add(view, 1, 1);
-
-    this.release_lock();
+      Atomics.add(view, 1, 1);
+    });
   }
 
   protected get_data(id: number): Array<Uint32Array> | undefined {
@@ -131,63 +98,63 @@ export abstract class ToRefSenderUseArrayBuffer {
       return undefined;
     }
 
-    this.block_lock();
+    return this.locker.lock_blocking(() => {
+      const data_num = Atomics.load(view, 1);
 
-    const data_num = Atomics.load(view, 1);
+      const return_data: Array<Uint32Array> = [];
 
-    const return_data: Array<Uint32Array> = [];
-
-    let offset = 12;
-    for (let i = 0; i < data_num; i++) {
-      const header = new Int32Array(this.share_arrays_memory, offset);
-      const target_num = header[1];
-      const targets = new Int32Array(
-        this.share_arrays_memory,
-        offset + 8,
-        target_num,
-      );
-      const data_len = this.data_size;
-      if (targets.includes(id)) {
-        const data = new Uint32Array(
+      let offset = 12;
+      for (let i = 0; i < data_num; i++) {
+        const header = new Int32Array(this.share_arrays_memory, offset);
+        const target_num = header[1];
+        const targets = new Int32Array(
           this.share_arrays_memory,
-          offset + 8 + target_num * 4,
-          data_len / 4,
+          offset + 8,
+          target_num,
         );
-
-        // I don't know why, but the above doesn't work, but the following works:
-        // return_data.push(new Uint32Array(data));
-        return_data.push(new Uint32Array([...data]));
-
-        const target_index = targets.indexOf(id);
-        Atomics.store(targets, target_index, -1);
-        const old_left_targets_num = Atomics.sub(header, 0, 1);
-        if (old_left_targets_num === 1) {
-          // rm data
-          Atomics.sub(view, 1, 1);
-          const used_len = Atomics.load(view, 2);
-          const new_used_len = used_len - data_len - 8 - target_num * 4;
-          Atomics.store(view, 2, new_used_len);
-          const next_data_offset = offset + data_len + 8 + target_num * 4;
-          const next_tail = new Int32Array(
+        const data_len = this.data_size;
+        if (targets.includes(id)) {
+          const data = new Uint32Array(
             this.share_arrays_memory,
-            next_data_offset,
+            offset + 8 + target_num * 4,
+            data_len / 4,
           );
-          const now_tail = new Int32Array(this.share_arrays_memory, offset);
-          now_tail.set(next_tail);
+
+          // I don't know why, but the above doesn't work, but the following works:
+          // return_data.push(new Uint32Array(data));
+          return_data.push(new Uint32Array([...data]));
+
+          const target_index = targets.indexOf(id);
+          Atomics.store(targets, target_index, -1);
+          const old_left_targets_num = Atomics.sub(header, 0, 1);
+          if (old_left_targets_num === 1) {
+            // rm data
+            Atomics.sub(view, 1, 1);
+            const used_len = Atomics.load(view, 2);
+            const new_used_len = used_len - data_len - 8 - target_num * 4;
+            Atomics.store(view, 2, new_used_len);
+            const next_data_offset = offset + data_len + 8 + target_num * 4;
+            const next_tail = new Int32Array(
+              this.share_arrays_memory,
+              next_data_offset,
+            );
+            const now_tail = new Int32Array(this.share_arrays_memory, offset);
+            now_tail.set(next_tail);
+          } else {
+            offset += data_len + 8 + target_num * 4;
+          }
         } else {
           offset += data_len + 8 + target_num * 4;
         }
-      } else {
-        offset += data_len + 8 + target_num * 4;
       }
-    }
 
-    if (offset !== Atomics.load(view, 2)) {
-      throw new Error(`invalid offset: ${offset} !== ${Atomics.load(view, 2)}`);
-    }
+      if (offset !== Atomics.load(view, 2)) {
+        throw new Error(
+          `invalid offset: ${offset} !== ${Atomics.load(view, 2)}`,
+        );
+      }
 
-    this.release_lock();
-
-    return return_data;
+      return return_data;
+    });
   }
 }
