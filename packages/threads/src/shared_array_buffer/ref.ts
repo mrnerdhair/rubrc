@@ -34,7 +34,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
   protected constructor(
-    allocator: AllocatorUseArrayBufferObject,
+    allocator: AllocatorUseArrayBuffer,
     lock_fds: SharedArrayBuffer,
     fds_len_and_num: SharedArrayBuffer,
     fd_func_sig: SharedArrayBuffer,
@@ -46,7 +46,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     default_fds: Array<number>,
   ) {
     super(stdin, stdout, stderr, fd_close_receiver, default_fds);
-    this.allocator = AllocatorUseArrayBuffer.init_self(allocator);
+    this.allocator = allocator;
     this.lock_fds = lock_fds;
     this.fd_func_sig = fd_func_sig;
     this.base_func_util = base_func_util;
@@ -60,7 +60,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   static async init(sl: WASIFarmRefUseArrayBufferObject): Promise<WASIFarmRef> {
     return new WASIFarmRefUseArrayBuffer(
-      sl.allocator,
+      await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.lock_fds,
       sl.fds_len_and_num,
       sl.fd_func_sig,
