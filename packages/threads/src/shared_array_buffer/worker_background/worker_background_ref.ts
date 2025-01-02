@@ -156,7 +156,9 @@ export class WorkerBackgroundRef {
     this.release_base_func();
   }
 
-  static init_self(sl: WorkerBackgroundRefObject): WorkerBackgroundRef {
+  static async init(
+    sl: WorkerBackgroundRefObject,
+  ): Promise<WorkerBackgroundRef> {
     return new WorkerBackgroundRef(
       AllocatorUseArrayBuffer.init_self(sl.allocator),
       sl.lock,

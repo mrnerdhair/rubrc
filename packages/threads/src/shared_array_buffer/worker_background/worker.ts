@@ -23,7 +23,7 @@ class WorkerBackground<T> {
 
   private start_worker?: Worker;
 
-  constructor(
+  protected constructor(
     override_object: T,
     lock?: SharedArrayBuffer,
     allocator?: AllocatorUseArrayBuffer,

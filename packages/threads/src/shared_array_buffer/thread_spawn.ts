@@ -74,14 +74,14 @@ export class ThreadSpawner {
           worker_background_worker,
           worker_background_worker_promise,
           worker_background_ref_object_out,
-          worker_background_ref: WorkerBackgroundRef.init_self(
+          worker_background_ref: await WorkerBackgroundRef.init(
             worker_background_ref_object_out,
           ),
         };
       }
       return {
         worker_background_ref_object_out: worker_background_ref_object,
-        worker_background_ref: WorkerBackgroundRef.init_self(
+        worker_background_ref: await WorkerBackgroundRef.init(
           worker_background_ref_object,
         ),
       };
