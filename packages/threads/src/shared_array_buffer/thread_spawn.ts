@@ -14,13 +14,20 @@
 
 //  (import "wasi" "thread-spawn" (func $fimport$27 (param i32) (result i32)))
 
+import * as Comlink from "comlink";
+import { setTransferHandlers } from "rubrc-util";
 import { WASIFarmAnimal } from "../animals";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import type { WorkerBackgroundRefObject } from "./worker_background/index";
 import { WorkerBackgroundRef } from "./worker_background/index";
-import type { MessageDataType } from "./worker_background/worker";
-import Worker from "./worker_background/worker?worker";
+import type {
+  WorkerBackground,
+  WorkerBackgroundInit,
+} from "./worker_background/worker";
+import WorkerBackgroundCtor from "./worker_background/worker?worker";
 import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker_export";
+
+setTransferHandlers();
 
 export type ThreadSpawnerObject = {
   share_memory?: WebAssembly.Memory;
@@ -39,7 +46,7 @@ export class ThreadSpawner {
   // inst_default_buffer_kept: WebAssembly.Memory;
 
   // hold the worker to prevent GC.
-  private worker_background_worker?: Worker;
+  private worker_background_worker?: WorkerBackground;
 
   // https://github.com/rustwasm/wasm-pack/issues/479
 
@@ -55,35 +62,13 @@ export class ThreadSpawner {
     // 16MB for the time being.
     // https://users.rust-lang.org/t/what-is-the-size-limit-of-threads-stack-in-rust/11867/3
     MIN_STACK ??= 16777216;
-    const {
-      worker_background_worker,
-      worker_background_worker_promise,
-      worker_background_ref_object_out,
-      worker_background_ref,
-    } = await (async () => {
-      if (worker_background_ref_object === undefined) {
-        const worker_background_worker = new Worker();
-        const { promise, resolve } = Promise.withResolvers<void>();
-        const worker_background_worker_promise = promise;
-        worker_background_worker.onmessage = () => resolve();
-        const worker_background_ref_object_out =
-          WorkerBackgroundRefObjectConstructor();
-        return {
-          worker_background_worker,
-          worker_background_worker_promise,
-          worker_background_ref_object_out,
-          worker_background_ref: await WorkerBackgroundRef.init(
-            worker_background_ref_object_out,
-          ),
-        };
-      }
-      return {
-        worker_background_ref_object_out: worker_background_ref_object,
-        worker_background_ref: await WorkerBackgroundRef.init(
-          worker_background_ref_object,
-        ),
-      };
-    })();
+    const worker_background_worker_init = worker_background_ref_object
+      ? undefined
+      : Comlink.wrap<WorkerBackgroundInit>(new WorkerBackgroundCtor());
+    worker_background_ref_object ??= WorkerBackgroundRefObjectConstructor();
+    const worker_background_ref = await WorkerBackgroundRef.init(
+      worker_background_ref_object,
+    );
 
     const min_initial_size = 1048576 / 65536; // Rust's default stack size is 1MB.
     const initial_size = MIN_STACK / 65536;
@@ -109,30 +94,25 @@ export class ThreadSpawner {
       shared: true,
     });
 
-    const out = new ThreadSpawner({
+    return new ThreadSpawner({
       worker_url,
       share_memory,
       // inst_default_buffer_kept,
-      worker_background_worker,
+      worker_background_worker: await worker_background_worker_init?.(
+        {
+          sl_object: {
+            share_memory,
+            wasi_farm_refs_object,
+            worker_url,
+            worker_background_ref_object,
+            // inst_default_buffer_kept,
+          },
+          thread_spawn_wasm,
+        },
+        worker_background_ref_object,
+      ),
       worker_background_ref,
     });
-
-    worker_background_worker?.postMessage({
-      override_object: {
-        sl_object: {
-          share_memory,
-          wasi_farm_refs_object,
-          worker_url,
-          worker_background_ref_object: worker_background_ref_object_out,
-          // inst_default_buffer_kept,
-        },
-        thread_spawn_wasm,
-      },
-      worker_background_ref_object: worker_background_ref_object_out,
-    } satisfies MessageDataType);
-    await worker_background_worker_promise;
-
-    return out;
   }
 
   protected constructor({
@@ -145,7 +125,7 @@ export class ThreadSpawner {
     worker_url: string;
     share_memory: WebAssembly.Memory;
     // inst_default_buffer_kept: WebAssembly.Memory,
-    worker_background_worker: Worker | undefined;
+    worker_background_worker: WorkerBackground | undefined;
     worker_background_ref: WorkerBackgroundRef;
   }) {
     this.worker_url = worker_url;

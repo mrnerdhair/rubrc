@@ -1,9 +1,13 @@
+/// <reference lib="webworker" />
+
 // If you create a worker and try to increase the number of threads,
 // you will have to use Atomics.wait because they need to be synchronized.
 // However, this is essentially impossible because Atomics.wait blocks the threads.
 // Therefore, a dedicated worker that creates a subworker (worker in worker) is prepared.
 // The request is made using BroadcastChannel.
 
+import * as Comlink from "comlink";
+import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
@@ -13,12 +17,12 @@ import type { WorkerBackgroundRefObject } from "./worker_export";
 // cannot be used in a blocking environment such as during wasm execution.
 // (at least as far as I have tried)
 
-type OverrideObject = {
+export type OverrideObject = {
   sl_object: ThreadSpawnerObject;
   thread_spawn_wasm: WebAssembly.Module | undefined;
 };
 
-class WorkerBackground {
+export class WorkerBackground {
   private override_object: OverrideObject;
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
@@ -317,13 +321,7 @@ class WorkerBackground {
   }
 }
 
-export type MessageDataType = {
-  override_object: OverrideObject;
-  worker_background_ref_object: WorkerBackgroundRefObject;
-};
+export type WorkerBackgroundInit = typeof WorkerBackground.init;
 
-globalThis.onmessage = async (e: MessageEvent<MessageDataType>) => {
-  const { override_object, worker_background_ref_object } = e.data;
-  await WorkerBackground.init(override_object, worker_background_ref_object);
-  postMessage("ready");
-};
+setTransferHandlers();
+Comlink.expose(WorkerBackground.init, self);
