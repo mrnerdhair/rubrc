@@ -341,14 +341,11 @@ export class WASIFarmAnimal {
           if (options.thread_spawn_wasm === undefined) {
             throw new Error("thread_spawn_wasm is not defined");
           }
-          return new ThreadSpawner(
-            options.thread_spawn_worker_url,
-            wasi_farm_refs,
-            undefined,
-            undefined,
-            undefined,
-            options.thread_spawn_wasm,
-          );
+          return await ThreadSpawner.init({
+            worker_url: options.thread_spawn_worker_url,
+            wasi_farm_refs_object: wasi_farm_refs,
+            thread_spawn_wasm: options.thread_spawn_wasm,
+          });
         })();
 
     return new WASIFarmAnimal({
