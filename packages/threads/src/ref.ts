@@ -13,7 +13,7 @@ export type WASIFarmRefObject = {
 export abstract class WASIFarmRef {
   abstract get_fds_len(): number;
   // please implement this method
-  // abstract init_self(sl: WASIFarmRef): WASIFarmRef;
+  // static async init(sl: WASIFarmRef): Promise<WASIFarmRef>;
 
   protected stdin: number | undefined;
   protected stdout: number | undefined;
