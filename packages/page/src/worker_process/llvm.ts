@@ -37,7 +37,7 @@ export class LlvmWorker {
 
     console.log("linker_wasm", linker_wasm);
 
-    const wasi = new WASIFarmAnimal(
+    const wasi = await WASIFarmAnimal.init(
       wasi_refs,
       ["llvm"], // args
       [], // env

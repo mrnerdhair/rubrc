@@ -67,7 +67,7 @@ export class UtilCmdWorker {
       await (await fetch(lsr)).arrayBuffer(),
     );
 
-    const ls_wasi = new WASIFarmAnimal(
+    const ls_wasi = await WASIFarmAnimal.init(
       wasi_refs,
       [], // args
       [], // env
@@ -82,7 +82,7 @@ export class UtilCmdWorker {
       await (await fetch(tre)).arrayBuffer(),
     );
 
-    const tree_wasi = new WASIFarmAnimal(
+    const tree_wasi = await WASIFarmAnimal.init(
       wasi_refs,
       [], // args
       [], // env
@@ -99,7 +99,7 @@ export class UtilCmdWorker {
 
     console.log("lsr and tre loaded");
 
-    const animal = new WASIFarmAnimal(
+    const animal = await WASIFarmAnimal.init(
       wasi_refs,
       [], // args
       [], // env

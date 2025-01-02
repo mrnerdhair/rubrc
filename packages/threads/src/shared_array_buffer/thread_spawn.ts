@@ -306,7 +306,7 @@ export const thread_spawn_on_worker = async (msg: {
     );
 
     if (msg.this_is_start) {
-      const wasi = new WASIFarmAnimal(
+      const wasi = await WASIFarmAnimal.init(
         sl_object.wasi_farm_refs_object,
         args,
         env,
@@ -342,7 +342,7 @@ export const thread_spawn_on_worker = async (msg: {
 
     console.log(`thread_spawn worker ${thread_id} start`);
 
-    const wasi = new WASIFarmAnimal(
+    const wasi = await WASIFarmAnimal.init(
       sl_object.wasi_farm_refs_object,
       args,
       env,

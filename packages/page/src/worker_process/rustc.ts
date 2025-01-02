@@ -30,7 +30,7 @@ export class RustcWorker {
 
     terminal.write("loaded rustc\r\n");
 
-    const wasi = new WASIFarmAnimal(
+    const wasi = await WASIFarmAnimal.init(
       wasi_refs,
       [], // args
       ["RUST_MIN_STACK=16777216"], // env
