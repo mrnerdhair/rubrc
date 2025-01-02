@@ -320,8 +320,8 @@ export class WASIFarmAnimal {
       throw new Error("Non SharedArrayBuffer is not supported yet");
     }
 
-    const wasi_farm_refs_out = wasi_farm_refs.map((x) =>
-      WASIFarmRefUseArrayBuffer.init_self(x),
+    const wasi_farm_refs_out = await Promise.all(
+      wasi_farm_refs.map(async (x) => await WASIFarmRefUseArrayBuffer.init(x)),
     );
     const id_in_wasi_farm_ref = wasi_farm_refs_out.map((x) => x.set_id());
 

@@ -32,7 +32,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
-  constructor(
+  protected constructor(
     allocator: AllocatorUseArrayBufferObject,
     lock_fds: SharedArrayBuffer,
     fds_len_and_num: SharedArrayBuffer,
@@ -63,7 +63,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return Atomics.load(view, 0);
   }
 
-  static init_self(sl: WASIFarmRefUseArrayBufferObject): WASIFarmRef {
+  static async init(sl: WASIFarmRefUseArrayBufferObject): Promise<WASIFarmRef> {
     return new WASIFarmRefUseArrayBuffer(
       sl.allocator,
       sl.lock_fds,
