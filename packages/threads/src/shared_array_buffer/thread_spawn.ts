@@ -18,6 +18,7 @@ import { WASIFarmAnimal } from "../animals";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import type { WorkerBackgroundRefObject } from "./worker_background/index";
 import { WorkerBackgroundRef } from "./worker_background/index";
+import type { MessageDataType } from "./worker_background/worker";
 import Worker from "./worker_background/worker?worker";
 import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker_export";
 
@@ -103,7 +104,7 @@ export class ThreadSpawner {
         thread_spawn_wasm,
       },
       worker_background_ref_object: worker_background_ref_object_out,
-    });
+    } satisfies MessageDataType);
     await worker_background_worker_promise;
 
     return out;
