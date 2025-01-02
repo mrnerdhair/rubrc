@@ -21,11 +21,13 @@ import { WorkerBackgroundRef } from "./worker_background/index";
 import Worker from "./worker_background/worker?worker";
 import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker_export";
 
-type ThreadSpawnerObject = {
-  share_memory: WebAssembly.Memory;
+export type ThreadSpawnerObject = {
+  share_memory?: WebAssembly.Memory;
   wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
   worker_url: string;
-  worker_background_ref_object: WorkerBackgroundRefObject;
+  MIN_STACK?: number;
+  worker_background_ref_object?: WorkerBackgroundRefObject;
+  thread_spawn_wasm?: WebAssembly.Module;
   // inst_default_buffer_kept: WebAssembly.Memory;
 };
 
@@ -43,16 +45,37 @@ export class ThreadSpawner {
 
   // https://github.com/rustwasm/wasm-pack/issues/479
 
-  constructor(
-    worker_url: string,
-    wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>,
-    share_memory?: WebAssembly.Memory,
+  static async init({
+    worker_url,
+    wasi_farm_refs_object,
+    share_memory,
+    MIN_STACK,
+    worker_background_ref_object,
+    thread_spawn_wasm,
+    // inst_default_buffer_kept,
+  }: ThreadSpawnerObject): Promise<ThreadSpawner> {
     // 16MB for the time being.
     // https://users.rust-lang.org/t/what-is-the-size-limit-of-threads-stack-in-rust/11867/3
-    MIN_STACK = 16777216,
-    worker_background_ref_object?: WorkerBackgroundRefObject,
-    thread_spawn_wasm?: WebAssembly.Module,
-    // inst_default_buffer_kept?: WebAssembly.Memory,
+    MIN_STACK ??= 16777216;
+    return new ThreadSpawner(
+      worker_url,
+      wasi_farm_refs_object,
+      share_memory,
+      MIN_STACK,
+      worker_background_ref_object,
+      thread_spawn_wasm,
+      // inst_default_buffer_kept,
+    );
+  }
+
+  protected constructor(
+    worker_url: string,
+    wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>,
+    share_memory: WebAssembly.Memory | undefined,
+    MIN_STACK: number,
+    worker_background_ref_object: WorkerBackgroundRefObject | undefined,
+    thread_spawn_wasm: WebAssembly.Module | undefined,
+    // inst_default_buffer_kept: WebAssembly.Memory | undefined,
   ) {
     this.worker_url = worker_url;
     this.wasi_farm_refs_object = wasi_farm_refs_object;
@@ -197,35 +220,6 @@ export class ThreadSpawner {
     );
   }
 
-  static init_self(sl: ThreadSpawnerObject): ThreadSpawner {
-    const thread_spawner = new ThreadSpawner(
-      sl.worker_url,
-      sl.wasi_farm_refs_object,
-      sl.share_memory,
-      undefined,
-      sl.worker_background_ref_object,
-      // undefined,
-      // sl.inst_default_buffer_kept,
-    );
-    return thread_spawner;
-  }
-
-  static init_self_with_worker_background_ref(
-    sl: ThreadSpawnerObject,
-    worker_background_ref_object: WorkerBackgroundRefObject,
-  ): ThreadSpawner {
-    const thread_spawner = new ThreadSpawner(
-      sl.worker_url,
-      sl.wasi_farm_refs_object,
-      sl.share_memory,
-      undefined,
-      worker_background_ref_object,
-      // undefined,
-      // sl.inst_default_buffer_kept,
-    );
-    return thread_spawner;
-  }
-
   get_share_memory(): WebAssembly.Memory {
     return this.share_memory;
   }
@@ -300,10 +294,10 @@ export const thread_spawn_on_worker = async (msg: {
       }
     }
 
-    const thread_spawner = ThreadSpawner.init_self_with_worker_background_ref(
-      sl_object,
-      worker_background_ref,
-    );
+    const thread_spawner = await ThreadSpawner.init({
+      ...sl_object,
+      worker_background_ref_object: worker_background_ref,
+    });
 
     if (msg.this_is_start) {
       const wasi = await WASIFarmAnimal.init(
