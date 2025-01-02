@@ -54,7 +54,9 @@ export class FdCloseSenderUseArrayBuffer
   }
 
   // Initialize the class from object
-  static init_self(sl: FdCloseSenderUseArrayBufferObject): FdCloseSender {
+  static async init(
+    sl: FdCloseSenderUseArrayBufferObject,
+  ): Promise<FdCloseSender> {
     const sel = ToRefSenderUseArrayBuffer.init_self_inner(sl);
     return new FdCloseSenderUseArrayBuffer(
       sel.max_share_arrays_memory,
