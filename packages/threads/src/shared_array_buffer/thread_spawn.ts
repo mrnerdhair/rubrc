@@ -312,7 +312,6 @@ export const thread_spawn_on_worker = async (msg: {
         env,
         {
           can_thread_spawn: true,
-          thread_spawn_worker_url: sl_object.worker_url,
           hand_override_fd_map: fd_map,
         },
         override_fd_map,
@@ -349,7 +348,6 @@ export const thread_spawn_on_worker = async (msg: {
       env,
       {
         can_thread_spawn: true,
-        thread_spawn_worker_url: sl_object.worker_url,
         hand_override_fd_map: fd_map,
       },
       override_fd_map,
