@@ -1,5 +1,6 @@
 import { wasi } from "@bjorn3/browser_wasi_shim";
 import { WASIFarmRef, type WASIFarmRefObject } from "../ref";
+import type { FdCloseSender } from "../sender";
 import {
   AllocatorUseArrayBuffer,
   type AllocatorUseArrayBufferObject,
@@ -38,19 +39,13 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     fds_len_and_num: SharedArrayBuffer,
     fd_func_sig: SharedArrayBuffer,
     base_func_util: SharedArrayBuffer,
-    fd_close_receiver: FdCloseSenderUseArrayBufferObject,
+    fd_close_receiver: FdCloseSender,
     stdin: number | undefined,
     stdout: number | undefined,
     stderr: number | undefined,
     default_fds: Array<number>,
   ) {
-    super(
-      stdin,
-      stdout,
-      stderr,
-      FdCloseSenderUseArrayBuffer.init_self(fd_close_receiver),
-      default_fds,
-    );
+    super(stdin, stdout, stderr, fd_close_receiver, default_fds);
     this.allocator = AllocatorUseArrayBuffer.init_self(allocator);
     this.lock_fds = lock_fds;
     this.fd_func_sig = fd_func_sig;
@@ -70,7 +65,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       sl.fds_len_and_num,
       sl.fd_func_sig,
       sl.base_func_util,
-      sl.fd_close_receiver,
+      await FdCloseSenderUseArrayBuffer.init(sl.fd_close_receiver),
       sl.stdin,
       sl.stdout,
       sl.stderr,
