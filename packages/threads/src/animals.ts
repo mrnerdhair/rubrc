@@ -10,8 +10,12 @@ import {
 } from "rubrc-util";
 import type { WASIFarmRef } from "./ref";
 import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer/index";
-import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/index";
+import type { thread_spawn_on_worker, WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/index";
 import { ThreadSpawner } from "./shared_array_buffer/index";
+
+export type ThreadSpawnWorker = {
+  thread_spawn_on_worker(msg: Parameters<typeof thread_spawn_on_worker>[0]): Promise<void>;
+};
 
 export class WASIFarmAnimal {
   args: Array<string>;
@@ -295,7 +299,7 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options: {
       can_thread_spawn: true;
-      thread_spawn_worker_url: string;
+      thread_spawn_worker: ThreadSpawnWorker;
       thread_spawn_wasm: WebAssembly.Module;
       hand_override_fd_map?: Array<[number, number]>;
     },
@@ -307,7 +311,7 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options: {
       can_thread_spawn?: boolean;
-      thread_spawn_worker_url?: string;
+      thread_spawn_worker?: ThreadSpawnWorker;
       thread_spawn_wasm?: WebAssembly.Module;
       hand_override_fd_map?: Array<[number, number]>;
     } = {},

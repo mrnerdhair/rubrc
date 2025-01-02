@@ -7,7 +7,10 @@ import {
 import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
 import * as Comlink from "comlink";
 import { type Terminal, setTransferHandlers } from "rubrc-util";
-import thread_spawn_worker_url from "./thread_spawn.ts?worker&url";
+import ThreadSpawnWorkerCtor from "./thread_spawn.ts?worker";
+import type { ThreadSpawnWorkerInit } from "./thread_spawn";
+
+const threadSpawnWorkerInit = Comlink.wrap<ThreadSpawnWorkerInit>(new ThreadSpawnWorkerCtor());
 
 export class RustcWorker {
   private readonly terminal: Terminal;
@@ -30,6 +33,7 @@ export class RustcWorker {
 
     terminal.write("loaded rustc\r\n");
 
+    const thread_spawn_worker = await threadSpawnWorkerInit();
     const wasi = new WASIFarmAnimal(
       wasi_refs,
       [], // args
@@ -37,7 +41,7 @@ export class RustcWorker {
       {
         // debug: true,
         can_thread_spawn: true,
-        thread_spawn_worker_url,
+        thread_spawn_worker,
         thread_spawn_wasm: compiler,
       },
     );
