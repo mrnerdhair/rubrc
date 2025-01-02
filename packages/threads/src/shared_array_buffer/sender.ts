@@ -53,18 +53,6 @@ export abstract class ToRefSenderUseArrayBuffer {
     Atomics.store(view, 2, 12);
   }
 
-  protected static init_self_inner(sl: ToRefSenderUseArrayBufferObject): {
-    data_size: number;
-    max_share_arrays_memory: number;
-    share_arrays_memory: SharedArrayBuffer;
-  } {
-    return {
-      data_size: sl.data_size,
-      max_share_arrays_memory: sl.share_arrays_memory.byteLength,
-      share_arrays_memory: sl.share_arrays_memory,
-    };
-  }
-
   private async async_lock(): Promise<void> {
     const view = new Int32Array(this.share_arrays_memory);
     while (true) {
