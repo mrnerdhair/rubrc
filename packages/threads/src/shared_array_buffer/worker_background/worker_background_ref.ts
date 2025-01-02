@@ -35,15 +35,9 @@ export class WorkerBackgroundRef {
   private async async_lock_base_func(): Promise<void> {
     const view = new Int32Array(this.lock);
     while (true) {
-      let value: "timed-out" | "not-equal" | "ok";
-      const { value: _value } = Atomics.waitAsync(view, 0, 1);
-      if (_value instanceof Promise) {
-        value = await _value;
-      } else {
-        value = _value;
-      }
-      if (value === "timed-out") {
-        throw new Error("timed-out lock");
+      const lock = await Atomics.waitAsync(view, 0, 1).value;
+      if (lock === "timed-out") {
+        throw new Error("timed-out");
       }
       const old = Atomics.compareExchange(view, 0, 0, 1);
       if (old !== 0) {
@@ -73,15 +67,9 @@ export class WorkerBackgroundRef {
 
   private async async_wait_base_func(): Promise<void> {
     const view = new Int32Array(this.lock);
-    let value: "timed-out" | "not-equal" | "ok";
-    const { value: _value } = Atomics.waitAsync(view, 1, 1);
-    if (_value instanceof Promise) {
-      value = await _value;
-    } else {
-      value = _value;
-    }
-    if (value === "timed-out") {
-      throw new Error("timed-out lock");
+    const lock = await Atomics.waitAsync(view, 1, 1).value;
+    if (lock === "timed-out") {
+      throw new Error("timed-out");
     }
   }
 
@@ -190,19 +178,11 @@ export class WorkerBackgroundRef {
 
     Atomics.store(notify_view, 0, 0);
 
-    let value: "timed-out" | "not-equal" | "ok";
-    const { value: _value } = Atomics.waitAsync(notify_view, 0, 0);
-    if (_value instanceof Promise) {
-      value = await _value;
-    } else {
-      value = _value;
-    }
-
-    if (value === "timed-out") {
+    const lock = await Atomics.waitAsync(notify_view, 0, 0).value;
+    if (lock === "timed-out") {
       throw new Error("timed-out");
     }
-
-    if (value === "not-equal") {
+    if (lock === "not-equal") {
       throw new Error("not-equal");
     }
 
