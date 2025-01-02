@@ -38,10 +38,10 @@ class WorkerBackground<T> {
     this.listen();
   }
 
-  static init_self<T>(
+  static async init<T>(
     override_object: T,
     worker_background_ref_object: WorkerBackgroundRefObject,
-  ): WorkerBackground<T> {
+  ): Promise<WorkerBackground<T>> {
     return new WorkerBackground(
       override_object,
       worker_background_ref_object.lock,
@@ -309,8 +309,8 @@ class WorkerBackground<T> {
   }
 }
 
-globalThis.onmessage = (e: MessageEvent) => {
+globalThis.onmessage = async (e: MessageEvent) => {
   const { override_object, worker_background_ref_object } = e.data;
-  WorkerBackground.init_self(override_object, worker_background_ref_object);
+  await WorkerBackground.init(override_object, worker_background_ref_object);
   postMessage("ready");
 };
