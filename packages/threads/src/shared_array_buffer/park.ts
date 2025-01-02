@@ -795,7 +795,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const errno = await handler();
         Atomics.store(func_sig_view_i32, errno_offset, errno);
 
-        const old_call_lock = Atomics.exchange(lock_view, 1, 0);
+        const old_call_lock = Atomics.compareExchange(lock_view, 1, 1, 0);
         if (old_call_lock !== 1) {
           throw new Error(
             `Call is already set: ${old_call_lock}\nfunc: ${func_name}\nfd: ${fd_n}`,
