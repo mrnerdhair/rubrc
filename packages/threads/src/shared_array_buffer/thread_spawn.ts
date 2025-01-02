@@ -41,7 +41,6 @@ export class ThreadSpawner {
 
   // hold the worker to prevent GC.
   private worker_background_worker?: Worker;
-  private worker_background_worker_promise?: Promise<void>;
 
   // https://github.com/rustwasm/wasm-pack/issues/479
 
@@ -95,23 +94,17 @@ export class ThreadSpawner {
       worker_background_ref_object: worker_background_ref_object_out,
       // inst_default_buffer_kept,
       worker_background_worker,
-      worker_background_worker_promise,
       worker_background_ref,
     });
 
-    if (worker_background_worker) {
-      worker_background_worker_promise.then(() => {
-        out.worker_background_worker_promise = undefined;
-      });
-
-      worker_background_worker.postMessage({
-        override_object: {
-          sl_object: out.get_object(),
-          thread_spawn_wasm,
-        },
-        worker_background_ref_object: worker_background_ref_object_out,
-      });
-    }
+    worker_background_worker?.postMessage({
+      override_object: {
+        sl_object: out.get_object(),
+        thread_spawn_wasm,
+      },
+      worker_background_ref_object: worker_background_ref_object_out,
+    });
+    await worker_background_worker_promise;
 
     return out;
   }
@@ -124,7 +117,6 @@ export class ThreadSpawner {
     worker_background_ref_object,
     // inst_default_buffer_kept,
     worker_background_worker,
-    worker_background_worker_promise,
     worker_background_ref,
   }: {
     worker_url: string;
@@ -134,7 +126,6 @@ export class ThreadSpawner {
     worker_background_ref_object: WorkerBackgroundRefObject;
     // inst_default_buffer_kept: WebAssembly.Memory | undefined,
     worker_background_worker: Worker | undefined;
-    worker_background_worker_promise: Promise<void> | undefined;
     worker_background_ref: WorkerBackgroundRef;
   }) {
     this.worker_url = worker_url;
@@ -167,20 +158,8 @@ export class ThreadSpawner {
       });
 
     this.worker_background_worker = worker_background_worker;
-    this.worker_background_worker_promise = worker_background_worker_promise;
     this.worker_background_ref_object = worker_background_ref_object;
     this.worker_background_ref = worker_background_ref;
-  }
-
-  // This cannot block.
-  async wait_worker_background_worker(): Promise<void> {
-    await this.worker_background_worker_promise;
-  }
-
-  check_worker_background_worker(): void {
-    if (this.worker_background_worker_promise) {
-      throw new Error("worker_background_worker is not ready.");
-    }
   }
 
   thread_spawn(

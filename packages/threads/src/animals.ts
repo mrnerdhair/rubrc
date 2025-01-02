@@ -37,14 +37,6 @@ export class WASIFarmAnimal {
 
   private thread_spawner?: ThreadSpawner;
 
-  async wait_worker_background_worker(): Promise<void> {
-    await this.thread_spawner?.wait_worker_background_worker();
-  }
-
-  check_worker_background_worker(): void {
-    this.thread_spawner?.check_worker_background_worker();
-  }
-
   // Each process has a specific fd that it can access.
   // If it does not exist in the map, it cannot be accessed.
   // child process can access parent process's fd.
@@ -106,8 +98,6 @@ export class WASIFarmAnimal {
       throw new Error("thread_spawn is not supported");
     }
 
-    await this.wait_worker_background_worker();
-
     if (this._inst) {
       throw new Error("what happened?");
     }
@@ -130,8 +120,6 @@ export class WASIFarmAnimal {
     if (!this.can_thread_spawn || !this.thread_spawner) {
       throw new Error("thread_spawn is not supported");
     }
-
-    this.check_worker_background_worker();
 
     if (this._inst) {
       throw new Error("what happened?");
