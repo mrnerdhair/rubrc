@@ -1,4 +1,5 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
+import { Caller } from "../caller";
 import { Locker } from "../locker";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
@@ -8,6 +9,7 @@ export class WorkerBackgroundRef {
   private lock: SharedArrayBuffer;
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
+  private caller: Caller;
 
   constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -18,34 +20,7 @@ export class WorkerBackgroundRef {
     this.lock = lock;
     this.signature_input = signature_input;
     this.locker = new Locker(this.lock, 0);
-  }
-
-  private call_base_func(): void {
-    const view = new Int32Array(this.lock);
-    const old = Atomics.exchange(view, 1, 1);
-    Atomics.notify(view, 1, 1);
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-  }
-
-  // wait base_func
-  private block_wait_base_func(): void {
-    this.call_base_func();
-    const view = new Int32Array(this.lock);
-    const lock = Atomics.wait(view, 1, 1);
-    if (lock === "timed-out") {
-      throw new Error("timed-out lock");
-    }
-  }
-
-  private async async_wait_base_func(): Promise<void> {
-    this.call_base_func();
-    const view = new Int32Array(this.lock);
-    const lock = await Atomics.waitAsync(view, 1, 1).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
+    this.caller = new Caller(this.lock, 4);
   }
 
   new_worker(
@@ -62,7 +37,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, this.signature_input, 4);
-      this.block_wait_base_func();
+      this.caller.call_and_wait_blocking();
 
       const id = Atomics.load(view, 0);
       return new WorkerRef(id);
@@ -83,7 +58,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       await this.allocator.async_write(obj_buffer, this.signature_input, 4);
-      await this.async_wait_base_func();
+      await this.caller.call_and_wait();
     });
   }
 
@@ -101,7 +76,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, this.signature_input, 4);
-      this.block_wait_base_func();
+      this.caller.call_and_wait_blocking();
     });
   }
 
