@@ -163,7 +163,7 @@ export class ThreadSpawner {
     args: Array<string>,
     env: Array<string>,
     fd_map: Array<[number, number] | undefined>,
-  ): Promise<void> {
+  ): Promise<number> {
     if (!self.Worker.toString().includes("[native code]")) {
       if (self.Worker.toString().includes("function")) {
         console.warn("SubWorker(new Worker on Worker) is polyfilled maybe.");
@@ -172,7 +172,11 @@ export class ThreadSpawner {
       }
     }
 
-    await this.worker_background_ref.async_start_on_thread(
+    if (this.worker_background_worker === undefined) {
+      throw new Error("worker_background_worker is undefined.");
+    }
+
+    return await this.worker_background_ref.async_start_on_thread(
       this.worker_url,
       { type: "module" },
       {
@@ -189,7 +193,7 @@ export class ThreadSpawner {
     args: Array<string>,
     env: Array<string>,
     fd_map: Array<[number, number] | undefined>,
-  ): void {
+  ): number {
     if (!self.Worker.toString().includes("[native code]")) {
       if (self.Worker.toString().includes("function")) {
         console.warn("SubWorker(new Worker on Worker) is polyfilled maybe.");
@@ -198,7 +202,11 @@ export class ThreadSpawner {
       }
     }
 
-    this.worker_background_ref.block_start_on_thread(
+    if (this.worker_background_worker === undefined) {
+      throw new Error("worker_background_worker is undefined.");
+    }
+
+    return this.worker_background_ref.block_start_on_thread(
       this.worker_url,
       { type: "module" },
       {
@@ -217,22 +225,6 @@ export class ThreadSpawner {
 
   done_notify(code: number): void {
     this.worker_background_ref.done_notify(code);
-  }
-
-  async async_wait_done_or_error(): Promise<number> {
-    if (this.worker_background_worker === undefined) {
-      throw new Error("worker_background_worker is undefined.");
-    }
-
-    return await this.worker_background_ref.async_wait_done_or_error();
-  }
-
-  block_wait_done_or_error(): number {
-    if (this.worker_background_worker === undefined) {
-      throw new Error("worker_background_worker is undefined.");
-    }
-
-    return this.worker_background_ref.block_wait_done_or_error();
   }
 }
 

@@ -105,15 +105,11 @@ export class WASIFarmAnimal {
     const view = new Uint8Array(this.thread_spawner.get_share_memory().buffer);
     view.fill(0);
 
-    await this.thread_spawner.async_start_on_thread(
+    return await this.thread_spawner.async_start_on_thread(
       this.args,
       this.env,
       this.fd_map,
     );
-
-    const code = await this.thread_spawner.async_wait_done_or_error();
-
-    return code;
   }
 
   block_start_on_thread(): number {
@@ -128,11 +124,11 @@ export class WASIFarmAnimal {
     const view = new Uint8Array(this.thread_spawner.get_share_memory().buffer);
     view.fill(0);
 
-    this.thread_spawner.block_start_on_thread(this.args, this.env, this.fd_map);
-
-    const code = this.thread_spawner.block_wait_done_or_error();
-
-    return code;
+    return this.thread_spawner.block_start_on_thread(
+      this.args,
+      this.env,
+      this.fd_map,
+    );
   }
 
   wasi_thread_start(
