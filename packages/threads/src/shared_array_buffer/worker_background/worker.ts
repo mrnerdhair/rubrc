@@ -180,7 +180,7 @@ export class WorkerBackground {
 
                 await this.allocator.async_write(
                   new TextEncoder().encode(JSON.stringify(serialized_error)),
-                  this.lock,
+                  new Int32Array(this.lock),
                   3,
                 );
                 const ptr = Atomics.load(notify_view, 0);
@@ -262,7 +262,7 @@ export class WorkerBackground {
 
                 await this.allocator.async_write(
                   new TextEncoder().encode(JSON.stringify(serialized_error)),
-                  this.lock,
+                  new Int32Array(this.lock),
                   3,
                 );
                 const ptr = Atomics.load(notify_view, 0);
