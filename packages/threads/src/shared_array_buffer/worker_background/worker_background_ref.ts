@@ -1,5 +1,6 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import { Caller } from "../caller";
+import { Listener } from "../listener";
 import { Locker } from "../locker";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
@@ -116,49 +117,30 @@ export class WorkerBackgroundRef {
 
     Atomics.store(notify_view, 0, 0);
 
-    const lock = await Atomics.waitAsync(notify_view, 0, 0).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
-    if (lock === "not-equal") {
-      throw new Error("not-equal");
-    }
+    const listener = new Listener(this.lock, 8, null);
 
-    const code = Atomics.load(notify_view, 0);
-
-    if (code === 2) {
-      const old = Atomics.compareExchange(notify_view, 0, 2, 0);
-
-      const code = Atomics.load(notify_view, 1);
-
-      if (old !== 2) {
-        throw new Error("what happened?");
+    return await listener.listen(async (code?: number) => {
+      switch (code) {
+        // completed, fetch and return errno
+        case 2: {
+          return Atomics.load(notify_view, 1);
+        }
+        // threw, fetch and rethrow error
+        case 1: {
+          const ptr = Atomics.load(notify_view, 1);
+          const size = Atomics.load(notify_view, 2);
+          const error_buffer = this.allocator.get_memory(ptr, size);
+          const error_txt = new TextDecoder().decode(error_buffer);
+          const error_serialized = JSON.parse(error_txt);
+          if (!Serializer.isSerializedError(error_serialized))
+            throw new Error("expected SerializedError");
+          throw Serializer.deserialize(error_serialized);
+        }
+        default: {
+          throw new Error("unknown code");
+        }
       }
-
-      return code;
-    }
-
-    if (code !== 1) {
-      throw new Error("unknown code");
-    }
-
-    // get error
-    const ptr = Atomics.load(notify_view, 1);
-    const size = Atomics.load(notify_view, 2);
-    const error_buffer = this.allocator.get_memory(ptr, size);
-    const error_txt = new TextDecoder().decode(error_buffer);
-    const error_serialized = JSON.parse(error_txt);
-    if (!Serializer.isSerializedError(error_serialized))
-      throw new Error("expected SerializedError");
-    const error = Serializer.deserialize(error_serialized);
-
-    const old = Atomics.compareExchange(notify_view, 0, 1, 0);
-
-    if (old !== 1) {
-      console.error("what happened?");
-    }
-
-    throw error;
+    });
   }
 
   private block_wait_done_or_error(): number {
@@ -166,51 +148,30 @@ export class WorkerBackgroundRef {
 
     Atomics.store(notify_view, 0, 0);
 
-    const value = Atomics.wait(notify_view, 0, 0);
+    const listener = new Listener(this.lock, 8, null);
 
-    if (value === "timed-out") {
-      throw new Error("timed-out");
-    }
-
-    if (value === "not-equal") {
-      throw new Error("not-equal");
-    }
-
-    const code = Atomics.load(notify_view, 0);
-
-    if (code === 2) {
-      const old = Atomics.compareExchange(notify_view, 0, 2, 0);
-
-      const code = Atomics.load(notify_view, 1);
-
-      if (old !== 2) {
-        throw new Error("what happened?");
+    return listener.listen_blocking((code?: number) => {
+      switch (code) {
+        // completed, fetch and return errno
+        case 2: {
+          return Atomics.load(notify_view, 1);
+        }
+        // threw, fetch and rethrow error
+        case 1: {
+          const ptr = Atomics.load(notify_view, 1);
+          const size = Atomics.load(notify_view, 2);
+          const error_buffer = this.allocator.get_memory(ptr, size);
+          const error_txt = new TextDecoder().decode(error_buffer);
+          const error_serialized = JSON.parse(error_txt);
+          if (!Serializer.isSerializedError(error_serialized))
+            throw new Error("expected SerializedError");
+          throw Serializer.deserialize(error_serialized);
+        }
+        default: {
+          throw new Error("unknown code");
+        }
       }
-
-      return code;
-    }
-
-    if (code !== 1) {
-      throw new Error("unknown code");
-    }
-
-    // get error
-    const ptr = Atomics.load(notify_view, 1);
-    const size = Atomics.load(notify_view, 2);
-    const error_buffer = this.allocator.get_memory(ptr, size);
-    const error_txt = new TextDecoder().decode(error_buffer);
-    const error_serialized = JSON.parse(error_txt);
-    if (!Serializer.isSerializedError(error_serialized))
-      throw new Error("expected SerializedError");
-    const error = Serializer.deserialize(error_serialized);
-
-    const old = Atomics.compareExchange(notify_view, 0, 1, 0);
-
-    if (old !== 1) {
-      console.error("what happened?");
-    }
-
-    throw error;
+    });
   }
 }
 
