@@ -68,7 +68,7 @@ export class AllocatorUseArrayBuffer {
     // ptr, len
     // Pass I32Array ret_ptr
     ret_ptr: number,
-  ): Promise<[number, number]> {
+  ): Promise<void> {
     const view = new Int32Array(this.share_arrays_memory);
     while (true) {
       const lock = await Atomics.waitAsync(view, 0, 1).value;
@@ -80,13 +80,13 @@ export class AllocatorUseArrayBuffer {
         continue;
       }
 
-      const ret = this.write_inner(data, memory, ret_ptr);
+      this.write_inner(data, memory, ret_ptr);
 
       // release lock
       Atomics.store(view, 0, 0);
       Atomics.notify(view, 0, 1);
 
-      return ret;
+      return;
     }
   }
 
@@ -96,7 +96,7 @@ export class AllocatorUseArrayBuffer {
     memory: SharedArrayBuffer,
     // ptr, len
     ret_ptr: number,
-  ): [number, number] {
+  ): void {
     while (true) {
       const view = new Int32Array(this.share_arrays_memory);
       const lock = Atomics.wait(view, 0, 1);
@@ -108,13 +108,13 @@ export class AllocatorUseArrayBuffer {
         continue;
       }
 
-      const ret = this.write_inner(data, memory, ret_ptr);
+      this.write_inner(data, memory, ret_ptr);
 
       // release lock
       Atomics.store(view, 0, 0);
       Atomics.notify(view, 0, 1);
 
-      return ret;
+      return;
     }
   }
 
@@ -124,7 +124,7 @@ export class AllocatorUseArrayBuffer {
     memory: SharedArrayBuffer,
     // ptr, len
     ret_ptr: number,
-  ): [number, number] {
+  ): void {
     const view = new Int32Array(this.share_arrays_memory);
     const view8 = new Uint8Array(this.share_arrays_memory);
 
@@ -168,8 +168,6 @@ export class AllocatorUseArrayBuffer {
     const memory_view = new Int32Array(memory);
     Atomics.store(memory_view, ret_ptr, share_arrays_memory_kept);
     Atomics.store(memory_view, ret_ptr + 1, len);
-
-    return [share_arrays_memory_kept, len];
   }
 
   // free allocated memory
