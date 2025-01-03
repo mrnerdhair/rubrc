@@ -2,6 +2,7 @@ import { type Fd, wasi } from "@bjorn3/browser_wasi_shim";
 import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
+import { Listener } from "./listener";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames } from "./util";
 
@@ -212,15 +213,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     Atomics.store(lock_view, 0, 0);
     Atomics.store(lock_view, 1, 0);
 
+    const listener = new Listener(this.base_func_util, 4);
     while (true) {
-      try {
-        const lock = await Atomics.waitAsync(lock_view, 1, 0).value;
-        if (lock === "timed-out") {
-          throw new Error("timed-out");
-        }
-
+      await listener.listen(async () => {
         const func_number = Atomics.load(lock_view, 2);
-
         switch (func_number) {
           // set_fds_map: (fds_ptr: u32, fds_len: u32);
           case 0: {
@@ -241,25 +237,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
             break;
           }
-        }
-
-        const old_call_lock = Atomics.exchange(lock_view, 1, 0);
-        if (old_call_lock !== 1) {
-          throw new Error("Lock is already set");
-        }
-        const num = Atomics.notify(lock_view, 1, 1);
-        if (num !== 1) {
-          if (num === 0) {
-            console.warn("notify failed, waiter is late");
-            continue;
+          default: {
+            console.warn(`unexpected func_number ${func_number}`);
+            break;
           }
-          throw new Error(`notify failed: ${num}`);
         }
-      } catch (e) {
-        Atomics.store(lock_view, 1, 0);
-        Atomics.notify(lock_view, 1, 1);
-        throw e;
-      }
+      });
     }
   }
 
@@ -772,56 +755,29 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
     };
 
-    while (true) {
-      try {
-        const lock = await Atomics.waitAsync(lock_view, 1, 0).value;
-        if (lock === "timed-out") {
-          throw new Error("timed-out");
+    const listener = new Listener(this.lock_fds, fd_n * 12 + 4);
+    do {
+      await listener.listen(async () => {
+        try {
+          const func_number = Atomics.load(func_sig_view_u32, 0);
+          const func_name = FuncNames[func_number] as keyof typeof FuncNames;
+          const handler =
+            handlers[func_name] ??
+            (() => {
+              throw new Error(`Unknown function number: ${func_number}`);
+            });
+          const errno = await handler();
+          Atomics.store(func_sig_view_i32, errno_offset, errno);
+        } catch (e) {
+          // unlock fd 0? why? likely error, intended to unlock the fd instead, which already happens.
+          const lock_view = new Int32Array(this.lock_fds);
+          Atomics.exchange(lock_view, 1, 0);
+          const func_sig_view = new Int32Array(this.fd_func_sig);
+          Atomics.exchange(func_sig_view, 16, -1);
+
+          throw e;
         }
-
-        const func_lock = Atomics.load(lock_view, 1);
-        if (func_lock !== 1) {
-          throw new Error(`func_lock is already set: ${func_lock}`);
-        }
-
-        const func_number = Atomics.load(func_sig_view_u32, 0);
-
-        const func_name = FuncNames[func_number] as keyof typeof FuncNames;
-        const handler =
-          handlers[func_name] ??
-          (() => {
-            throw new Error(`Unknown function number: ${func_number}`);
-          });
-        const errno = await handler();
-        Atomics.store(func_sig_view_i32, errno_offset, errno);
-
-        const old_call_lock = Atomics.compareExchange(lock_view, 1, 1, 0);
-        if (old_call_lock !== 1) {
-          throw new Error(
-            `Call is already set: ${old_call_lock}\nfunc: ${func_name}\nfd: ${fd_n}`,
-          );
-        }
-
-        const n = Atomics.notify(lock_view, 1);
-        if (n !== 1) {
-          if (n === 0) {
-            console.warn("notify number is 0. ref is late?");
-          } else {
-            console.warn(`notify number is not 1: ${n}`);
-          }
-        }
-
-        if (this.fds[fd_n] === undefined) {
-          break;
-        }
-      } catch (e) {
-        const lock_view = new Int32Array(this.lock_fds);
-        Atomics.exchange(lock_view, 1, 0);
-        const func_sig_view = new Int32Array(this.fd_func_sig);
-        Atomics.exchange(func_sig_view, 16, -1);
-
-        throw e;
-      }
-    }
+      });
+    } while (this.fds[fd_n] !== undefined);
   }
 }
