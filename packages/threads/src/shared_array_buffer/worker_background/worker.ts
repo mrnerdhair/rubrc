@@ -183,11 +183,13 @@ export class WorkerBackground {
 
               const serialized_error = Serializer.serialize(error);
 
-              const [ptr, len] = await this.allocator.async_write(
+              await this.allocator.async_write(
                 new TextEncoder().encode(JSON.stringify(serialized_error)),
                 this.lock,
                 3,
               );
+              const ptr = Atomics.load(notify_view, 0);
+              const len = Atomics.load(notify_view, 1);
 
               // notify error = code 1
               const old = Atomics.compareExchange(notify_view, 0, 0, 1);
@@ -271,11 +273,13 @@ export class WorkerBackground {
 
               const serialized_error = Serializer.serialize(error);
 
-              const [ptr, len] = await this.allocator.async_write(
+              await this.allocator.async_write(
                 new TextEncoder().encode(JSON.stringify(serialized_error)),
                 this.lock,
                 3,
               );
+              const ptr = Atomics.load(notify_view, 0);
+              const len = Atomics.load(notify_view, 1);
 
               // notify error = code 1
               const old = Atomics.compareExchange(notify_view, 0, 0, 1);
