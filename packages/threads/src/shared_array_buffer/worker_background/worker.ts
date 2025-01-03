@@ -11,6 +11,11 @@ import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import { Caller } from "../caller";
 import { Listener } from "../listener";
+import {
+  type AtomicTarget,
+  new_atomic_target,
+  reset_atomic_target,
+} from "../locker";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
 import type { WorkerBackgroundRefObject } from "./worker_export";
@@ -28,6 +33,7 @@ export class WorkerBackground {
   private override_object: OverrideObject;
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
+  private locks: Record<"lock" | "call" | "done", AtomicTarget>;
   private signature_input: SharedArrayBuffer;
 
   // worker_id starts from 1
@@ -38,14 +44,22 @@ export class WorkerBackground {
   protected constructor(
     override_object: OverrideObject,
     lock?: SharedArrayBuffer,
+    locks?: Record<"lock" | "call" | "done", AtomicTarget>,
     allocator?: AllocatorUseArrayBuffer,
     signature_input?: SharedArrayBuffer,
   ) {
     this.override_object = override_object;
     this.lock = lock ?? new SharedArrayBuffer(20);
+    this.locks = locks ?? {
+      lock: new_atomic_target(),
+      call: new_atomic_target(),
+      done: new_atomic_target(),
+    };
     this.allocator =
       allocator ??
-      new AllocatorUseArrayBuffer(new SharedArrayBuffer(10 * 1024));
+      new AllocatorUseArrayBuffer({
+        share_arrays_memory: new SharedArrayBuffer(10 * 1024),
+      });
     this.signature_input = signature_input ?? new SharedArrayBuffer(24);
     this.listen();
   }
@@ -57,6 +71,7 @@ export class WorkerBackground {
     return new WorkerBackground(
       override_object,
       worker_background_ref_object.lock,
+      worker_background_ref_object.locks,
       await AllocatorUseArrayBuffer.init(
         worker_background_ref_object.allocator,
       ),
@@ -78,18 +93,18 @@ export class WorkerBackground {
     return {
       allocator: this.allocator.get_object(),
       lock: this.lock,
+      locks: this.locks,
       signature_input: this.signature_input,
     };
   }
 
   async listen(): Promise<void> {
-    const lock_view = new Int32Array(this.lock);
-    Atomics.store(lock_view, 0, 0);
-    Atomics.store(lock_view, 1, 0);
+    reset_atomic_target(this.locks.lock);
+    reset_atomic_target(this.locks.call);
 
     const signature_input_view = new Int32Array(this.signature_input);
 
-    const listener = new Listener(this.lock, 4);
+    const listener = new Listener(this.locks.call);
     while (true) {
       await listener.listen(async () => {
         const gen_worker = () => {
@@ -174,7 +189,7 @@ export class WorkerBackground {
                 const error = e.data.error;
 
                 const notify_view = new Int32Array(this.lock, 8);
-                const caller = new Caller(this.lock, 8, null);
+                const caller = new Caller(this.locks.done, null);
 
                 const serialized_error = Serializer.serialize(error);
 
@@ -256,7 +271,7 @@ export class WorkerBackground {
                 const error = e.data.error;
 
                 const notify_view = new Int32Array(this.lock, 8);
-                const caller = new Caller(this.lock, 8, null);
+                const caller = new Caller(this.locks.done, null);
 
                 const serialized_error = Serializer.serialize(error);
 

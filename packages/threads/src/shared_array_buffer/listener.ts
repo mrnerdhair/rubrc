@@ -1,11 +1,12 @@
+import type { AtomicTarget } from "./locker";
+
 export class Listener {
   protected readonly view: Int32Array;
   protected readonly locked_value: number | undefined;
   protected readonly unlocked_value: number;
 
   constructor(
-    buf: SharedArrayBuffer,
-    byteOffset: number,
+    { buf, byteOffset }: AtomicTarget,
     locked_value: number | null | undefined = 1,
     unlocked_value = 0,
   ) {
