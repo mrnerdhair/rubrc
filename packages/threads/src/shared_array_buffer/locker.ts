@@ -13,8 +13,7 @@ export class Locker {
   protected readonly unlocked_value: number;
 
   constructor(
-    buf: SharedArrayBuffer,
-    byteOffset: number,
+    { buf, byteOffset }: AtomicTarget,
     locked_value = 1,
     unlocked_value = 0,
   ) {
@@ -154,4 +153,20 @@ export class Locker {
       console.warn("spinning with deadlock avoidance");
     }
   }
+}
+
+export type AtomicTarget = {
+  buf: SharedArrayBuffer;
+  byteOffset: number;
+};
+
+export function new_atomic_target(): AtomicTarget {
+  return {
+    buf: new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT),
+    byteOffset: 0,
+  };
+}
+
+export function reset_atomic_target(target: AtomicTarget, value = 0): void {
+  Atomics.store(new Int32Array(target.buf, target.byteOffset, 1), 0, value);
 }

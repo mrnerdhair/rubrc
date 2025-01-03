@@ -1,13 +1,14 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import { Caller } from "../caller";
 import { Listener } from "../listener";
-import { Locker } from "../locker";
+import { type AtomicTarget, Locker, reset_atomic_target } from "../locker";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
 export class WorkerBackgroundRef {
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
+  private locks: Record<"lock" | "call" | "done", AtomicTarget>;
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
   private caller: Caller;
@@ -15,13 +16,15 @@ export class WorkerBackgroundRef {
   constructor(
     allocator: AllocatorUseArrayBuffer,
     lock: SharedArrayBuffer,
+    locks: Record<"lock" | "call" | "done", AtomicTarget>,
     signature_input: SharedArrayBuffer,
   ) {
     this.allocator = allocator;
     this.lock = lock;
+    this.locks = locks;
     this.signature_input = signature_input;
-    this.locker = new Locker(this.lock, 0);
-    this.caller = new Caller(this.lock, 4);
+    this.locker = new Locker(this.locks.lock);
+    this.caller = new Caller(this.locks.call);
   }
 
   new_worker(
@@ -89,6 +92,7 @@ export class WorkerBackgroundRef {
     return new WorkerBackgroundRef(
       await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.lock,
+      sl.locks,
       sl.signature_input,
     );
   }
@@ -98,15 +102,13 @@ export class WorkerBackgroundRef {
 
     Atomics.store(notify_view, 1, code);
 
-    new Caller(this.lock, 8, null).call(2);
+    new Caller(this.locks.done, null).call(2);
   }
 
   private async async_wait_done_or_error(): Promise<number> {
     const notify_view = new Int32Array(this.lock, 8);
-
-    Atomics.store(notify_view, 0, 0);
-
-    const listener = new Listener(this.lock, 8, null);
+    reset_atomic_target(this.locks.done);
+    const listener = new Listener(this.locks.done, null);
 
     return await listener.listen(async (code?: number) => {
       switch (code) {
@@ -134,10 +136,8 @@ export class WorkerBackgroundRef {
 
   private block_wait_done_or_error(): number {
     const notify_view = new Int32Array(this.lock, 8);
-
-    Atomics.store(notify_view, 0, 0);
-
-    const listener = new Listener(this.lock, 8, null);
+    reset_atomic_target(this.locks.done);
+    const listener = new Listener(this.locks.done, null);
 
     return listener.listen_blocking((code?: number) => {
       switch (code) {

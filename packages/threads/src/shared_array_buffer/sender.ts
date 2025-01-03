@@ -1,8 +1,9 @@
-import { Locker } from "./locker";
+import { type AtomicTarget, Locker, new_atomic_target } from "./locker";
 
 export type ToRefSenderUseArrayBufferObject = {
   data_size: number;
   share_arrays_memory: SharedArrayBuffer;
+  share_arrays_memory_lock: AtomicTarget;
 };
 
 // To ref sender abstract class
@@ -32,6 +33,7 @@ export abstract class ToRefSenderUseArrayBuffer {
   // Data
   // data_size bytes: data
   share_arrays_memory: SharedArrayBuffer;
+  share_arrays_memory_lock: AtomicTarget;
 
   // The size of the data
   data_size: number;
@@ -44,6 +46,7 @@ export abstract class ToRefSenderUseArrayBuffer {
     data_size: number,
     max_share_arrays_memory: number = 100 * 1024,
     share_arrays_memory?: SharedArrayBuffer,
+    share_arrays_memory_lock?: AtomicTarget,
   ) {
     this.data_size = data_size;
     if (share_arrays_memory) {
@@ -51,11 +54,13 @@ export abstract class ToRefSenderUseArrayBuffer {
     } else {
       this.share_arrays_memory = new SharedArrayBuffer(max_share_arrays_memory);
     }
+    this.share_arrays_memory_lock =
+      share_arrays_memory_lock ?? new_atomic_target();
     const view = new Int32Array(this.share_arrays_memory);
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);
     Atomics.store(view, 2, 12);
-    this.locker = new Locker(this.share_arrays_memory, 0);
+    this.locker = new Locker(this.share_arrays_memory_lock);
   }
 
   protected async async_send(

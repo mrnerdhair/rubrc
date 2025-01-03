@@ -3,6 +3,11 @@ import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
 import { Listener } from "./listener";
+import {
+  type AtomicTarget,
+  new_atomic_target,
+  reset_atomic_target,
+} from "./locker";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames } from "./util";
 
@@ -70,8 +75,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // path_unlink_file: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
 
   // Lock when you want to use fd
-  // Array<[lock, call_func]>
-  private lock_fds: SharedArrayBuffer;
+  private lock_fds: Array<{
+    lock: AtomicTarget;
+    call: AtomicTarget;
+  }>;
 
   // 1 bytes: fds.length
   // 1 bytes: wasi_farm_ref num(id)
@@ -88,6 +95,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // listen base lock and call etc
   private base_func_util: SharedArrayBuffer;
+  private base_func_util_locks: Record<"lock" | "call", AtomicTarget>;
 
   // tell other processes that the file descriptor has been closed
   private fd_close_receiver: FdCloseSenderUseArrayBuffer;
@@ -113,12 +121,15 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     if (allocator_size === undefined) {
       this.allocator = new AllocatorUseArrayBuffer();
     } else {
-      this.allocator = new AllocatorUseArrayBuffer(
-        new SharedArrayBuffer(allocator_size),
-      );
+      this.allocator = new AllocatorUseArrayBuffer({
+        share_arrays_memory: new SharedArrayBuffer(allocator_size),
+      });
     }
     const max_fds_len = 128;
-    this.lock_fds = new SharedArrayBuffer(4 * max_fds_len * 3);
+    this.lock_fds = new Array(max_fds_len).fill(undefined).map(() => ({
+      lock: new_atomic_target(),
+      call: new_atomic_target(),
+    }));
     this.fd_func_sig = new SharedArrayBuffer(
       fd_func_sig_u32_size * 4 * max_fds_len,
     );
@@ -130,6 +141,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
     this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
     this.base_func_util = new SharedArrayBuffer(24);
+    this.base_func_util_locks = {
+      lock: new_atomic_target(),
+      call: new_atomic_target(),
+    };
   }
 
   /// Send this return by postMessage.
@@ -140,6 +155,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       fds_len_and_num: this.fds_len_and_num,
       fd_func_sig: this.fd_func_sig,
       base_func_util: this.base_func_util,
+      base_func_util_locks: this.base_func_util_locks,
       fd_close_receiver: this.fd_close_receiver.get_ref(),
       stdin: this.stdin,
       stdout: this.stdout,
@@ -210,10 +226,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // so, set fds_map
   async listen_base() {
     const lock_view = new Int32Array(this.base_func_util);
-    Atomics.store(lock_view, 0, 0);
-    Atomics.store(lock_view, 1, 0);
+    reset_atomic_target(this.base_func_util_locks.lock);
+    reset_atomic_target(this.base_func_util_locks.call);
 
-    const listener = new Listener(this.base_func_util, 4);
+    const listener = new Listener(this.base_func_util_locks.call);
     while (true) {
       await listener.listen(async () => {
         const func_number = Atomics.load(lock_view, 2);
@@ -248,7 +264,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // listen fd
   async listen_fd(fd_n: number) {
-    const lock_view = new Int32Array(this.lock_fds, fd_n * 12);
     const bytes_offset = fd_n * fd_func_sig_bytes;
     const func_sig_view_u8 = new Uint8Array(this.fd_func_sig, bytes_offset);
     const func_sig_view_u16 = new Uint16Array(this.fd_func_sig, bytes_offset);
@@ -259,8 +274,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       bytes_offset,
     );
     const errno_offset = fd_func_sig_u32_size - 1;
-    Atomics.store(lock_view, 0, 0);
-    Atomics.store(lock_view, 1, 0);
+    reset_atomic_target(this.lock_fds[fd_n].lock);
+    reset_atomic_target(this.lock_fds[fd_n].call);
     Atomics.store(func_sig_view_i32, errno_offset, -1);
 
     const handlers: Partial<
@@ -755,7 +770,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
     };
 
-    const listener = new Listener(this.lock_fds, fd_n * 12 + 4);
+    const listener = new Listener(this.lock_fds[fd_n].call);
     do {
       await listener.listen(async () => {
         try {
@@ -769,9 +784,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           const errno = await handler();
           Atomics.store(func_sig_view_i32, errno_offset, errno);
         } catch (e) {
-          // unlock fd 0? why? likely error, intended to unlock the fd instead, which already happens.
-          const lock_view = new Int32Array(this.lock_fds);
-          Atomics.exchange(lock_view, 1, 0);
           const func_sig_view = new Int32Array(this.fd_func_sig);
           Atomics.exchange(func_sig_view, 16, -1);
 

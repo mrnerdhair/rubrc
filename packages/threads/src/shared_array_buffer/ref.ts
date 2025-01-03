@@ -10,16 +10,20 @@ import {
   FdCloseSenderUseArrayBuffer,
   type FdCloseSenderUseArrayBufferObject,
 } from "./fd_close_sender";
-import { Locker } from "./locker";
+import { type AtomicTarget, Locker } from "./locker";
 import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
 import { FuncNames } from "./util";
 
 export type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBufferObject;
-  lock_fds: SharedArrayBuffer;
+  lock_fds: Array<{
+    lock: AtomicTarget;
+    call: AtomicTarget;
+  }>;
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;
   base_func_util: SharedArrayBuffer;
+  base_func_util_locks: Record<"lock" | "call", AtomicTarget>;
   fd_close_receiver: FdCloseSenderUseArrayBufferObject;
 } & WASIFarmRefObject;
 
@@ -27,7 +31,10 @@ export type WASIFarmRefUseArrayBufferObject = {
 export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
   allocator: AllocatorUseArrayBuffer;
-  lock_fds: SharedArrayBuffer;
+  readonly lock_fds: Array<{
+    lock: AtomicTarget;
+    call: AtomicTarget;
+  }>;
   // byte 1: fds_len
   // byte 2: all wasi_farm_ref num
   fds_len_and_num: SharedArrayBuffer;
@@ -41,10 +48,14 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
-    lock_fds: SharedArrayBuffer,
+    lock_fds: Array<{
+      lock: AtomicTarget;
+      call: AtomicTarget;
+    }>,
     fds_len_and_num: SharedArrayBuffer,
     fd_func_sig: SharedArrayBuffer,
     base_func_util: SharedArrayBuffer,
+    base_func_util_locks: Record<"lock" | "call", AtomicTarget>,
     fd_close_receiver: FdCloseSender,
     stdin: number | undefined,
     stdout: number | undefined,
@@ -57,8 +68,8 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.fd_func_sig = fd_func_sig;
     this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
-    this.locker = new Locker(this.base_func_util, 0);
-    this.caller = new Caller(this.base_func_util, 4);
+    this.locker = new Locker(base_func_util_locks.lock);
+    this.caller = new Caller(base_func_util_locks.call);
   }
 
   get_fds_len(): number {
@@ -73,6 +84,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       sl.fds_len_and_num,
       sl.fd_func_sig,
       sl.base_func_util,
+      sl.base_func_util_locks,
       await FdCloseSenderUseArrayBuffer.init(sl.fd_close_receiver),
       sl.stdin,
       sl.stdout,
@@ -102,12 +114,12 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   protected lock_fd<T>(fd: number, callback: () => T): T {
-    return new Locker(this.lock_fds, fd * 12).lock_blocking(callback);
+    return new Locker(this.lock_fds[fd].lock).lock_blocking(callback);
   }
 
   protected lock_double_fd<T>(fd1: number, fd2: number, callback: () => T): T {
-    const fd1_locker = new Locker(this.lock_fds, fd1 * 12, 2);
-    const fd2_locker = new Locker(this.lock_fds, fd2 * 12, 2);
+    const fd1_locker = new Locker(this.lock_fds[fd1].lock, 2);
+    const fd2_locker = new Locker(this.lock_fds[fd2].lock, 2);
 
     return Locker.dual_lock_blocking(
       fd1_locker,
@@ -136,7 +148,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private call_fd_func(fd: number): number {
-    const caller = new Caller(this.lock_fds, fd * 12 + 4);
+    const caller = new Caller(this.lock_fds[fd].call);
     caller.call_and_wait_blocking();
     return this.get_error(fd);
   }

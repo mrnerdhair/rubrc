@@ -1,7 +1,8 @@
-import { Locker } from "./locker";
+import { type AtomicTarget, Locker, new_atomic_target } from "./locker";
 
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
+  share_arrays_memory_lock: AtomicTarget;
 };
 
 export class AllocatorUseArrayBuffer {
@@ -25,22 +26,25 @@ export class AllocatorUseArrayBuffer {
   // Even if 100MB is allocated, due to browser virtualization,
   // the memory should not actually be used until it is needed.
   share_arrays_memory: SharedArrayBuffer;
+  readonly share_arrays_memory_lock: AtomicTarget;
 
   protected locker: Locker;
 
   // Since postMessage makes the class an object,
   // it must be able to receive and assign a SharedArrayBuffer.
-  constructor(
-    share_arrays_memory: SharedArrayBuffer = new SharedArrayBuffer(
-      10 * 1024 * 1024,
-    ),
-  ) {
-    this.share_arrays_memory = share_arrays_memory;
+  constructor(opts?: {
+    share_arrays_memory?: SharedArrayBuffer;
+    share_arrays_memory_lock?: AtomicTarget;
+  }) {
+    this.share_arrays_memory =
+      opts?.share_arrays_memory ?? new SharedArrayBuffer(10 * 1024 * 1024);
+    this.share_arrays_memory_lock =
+      opts?.share_arrays_memory_lock ?? new_atomic_target();
     const view = new Int32Array(this.share_arrays_memory);
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);
     Atomics.store(view, 2, 12);
-    this.locker = new Locker(this.share_arrays_memory, 0);
+    this.locker = new Locker(this.share_arrays_memory_lock);
   }
 
   // Since postMessage converts classes to objects,
@@ -48,12 +52,13 @@ export class AllocatorUseArrayBuffer {
   static async init(
     sl: AllocatorUseArrayBufferObject,
   ): Promise<AllocatorUseArrayBuffer> {
-    return new AllocatorUseArrayBuffer(sl.share_arrays_memory);
+    return new AllocatorUseArrayBuffer(sl);
   }
 
   get_ref(): AllocatorUseArrayBufferObject {
     return {
       share_arrays_memory: this.share_arrays_memory,
+      share_arrays_memory_lock: this.share_arrays_memory_lock,
     };
   }
 
@@ -152,6 +157,7 @@ export class AllocatorUseArrayBuffer {
   get_object(): AllocatorUseArrayBufferObject {
     return {
       share_arrays_memory: this.share_arrays_memory,
+      share_arrays_memory_lock: this.share_arrays_memory_lock,
     };
   }
 }
