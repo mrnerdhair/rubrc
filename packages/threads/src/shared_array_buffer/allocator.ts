@@ -64,7 +64,7 @@ export class AllocatorUseArrayBuffer {
   // Writes without blocking threads when acquiring locks
   async async_write(
     data: Uint8Array | Uint32Array,
-    memory: SharedArrayBuffer,
+    memory: Int32Array<SharedArrayBuffer>,
     // ptr, len
     // Pass I32Array ret_ptr
     ret_ptr: number,
@@ -93,7 +93,7 @@ export class AllocatorUseArrayBuffer {
   // Blocking threads for writing when acquiring locks
   block_write(
     data: Uint8Array | Uint32Array,
-    memory: SharedArrayBuffer,
+    memory: Int32Array<SharedArrayBuffer>,
     // ptr, len
     ret_ptr: number,
   ): void {
@@ -119,9 +119,9 @@ export class AllocatorUseArrayBuffer {
   }
 
   // Function to write after acquiring a lock
-  write_inner(
+  private write_inner(
     data: Uint8Array | Uint32Array,
-    memory: SharedArrayBuffer,
+    memory: Int32Array<SharedArrayBuffer>,
     // ptr, len
     ret_ptr: number,
   ): void {
@@ -165,9 +165,8 @@ export class AllocatorUseArrayBuffer {
     view8.set(new Uint8Array(data8), share_arrays_memory_kept);
     Atomics.store(view, 2, new_memory_len);
 
-    const memory_view = new Int32Array(memory);
-    Atomics.store(memory_view, ret_ptr, share_arrays_memory_kept);
-    Atomics.store(memory_view, ret_ptr + 1, len);
+    Atomics.store(memory, ret_ptr, share_arrays_memory_kept);
+    Atomics.store(memory, ret_ptr + 1, len);
   }
 
   // free allocated memory

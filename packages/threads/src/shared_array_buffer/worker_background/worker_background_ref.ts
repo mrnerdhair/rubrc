@@ -89,11 +89,11 @@ export class WorkerBackgroundRef {
     const view = new Int32Array(this.signature_input);
     Atomics.store(view, 0, 1);
     const url_buffer = new TextEncoder().encode(url);
-    this.allocator.block_write(url_buffer, this.signature_input, 1);
+    this.allocator.block_write(url_buffer, view, 1);
     Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
     const obj_json = JSON.stringify(post_obj);
     const obj_buffer = new TextEncoder().encode(obj_json);
-    this.allocator.block_write(obj_buffer, this.signature_input, 4);
+    this.allocator.block_write(obj_buffer, view, 4);
     this.call_base_func();
     this.block_wait_base_func();
 
@@ -113,11 +113,11 @@ export class WorkerBackgroundRef {
     const view = new Int32Array(this.signature_input);
     Atomics.store(view, 0, 2);
     const url_buffer = new TextEncoder().encode(url);
-    await this.allocator.async_write(url_buffer, this.signature_input, 1);
+    await this.allocator.async_write(url_buffer, view, 1);
     Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
     const obj_json = JSON.stringify(post_obj);
     const obj_buffer = new TextEncoder().encode(obj_json);
-    await this.allocator.async_write(obj_buffer, this.signature_input, 4);
+    await this.allocator.async_write(obj_buffer, view, 4);
     this.call_base_func();
     await this.async_wait_base_func();
 
@@ -133,11 +133,11 @@ export class WorkerBackgroundRef {
     const view = new Int32Array(this.signature_input);
     Atomics.store(view, 0, 2);
     const url_buffer = new TextEncoder().encode(url);
-    this.allocator.block_write(url_buffer, this.signature_input, 1);
+    this.allocator.block_write(url_buffer, view, 1);
     Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
     const obj_json = JSON.stringify(post_obj);
     const obj_buffer = new TextEncoder().encode(obj_json);
-    this.allocator.block_write(obj_buffer, this.signature_input, 4);
+    this.allocator.block_write(obj_buffer, view, 4);
     this.call_base_func();
     this.block_wait_base_func();
 
