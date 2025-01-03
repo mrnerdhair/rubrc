@@ -382,7 +382,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           Atomics.store(func_sig_view_u32, 0, nread);
           await this.allocator.async_write(
             buffer8,
-            this.fd_func_sig,
+            new Int32Array(this.fd_func_sig),
             fd * fd_func_sig_u32_size + 1,
           );
         }
@@ -411,7 +411,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         ) {
           await this.allocator.async_write(
             prestat_dir_name,
-            this.fd_func_sig,
+            new Int32Array(this.fd_func_sig),
             fd * fd_func_sig_u32_size,
           );
         }
@@ -460,7 +460,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           Atomics.store(func_sig_view_u32, 0, nread);
           await this.allocator.async_write(
             buffer8,
-            this.fd_func_sig,
+            new Int32Array(this.fd_func_sig),
             fd * fd_func_sig_u32_size + 1,
           );
         }
@@ -481,7 +481,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           const [array, buf_used] = array_and_buf_used;
           await this.allocator.async_write(
             array,
-            this.fd_func_sig,
+            new Int32Array(this.fd_func_sig),
             fd * fd_func_sig_u32_size,
           );
           Atomics.store(func_sig_view_u32, 2, buf_used);
@@ -675,7 +675,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         if (buf) {
           await this.allocator.async_write(
             buf,
-            this.fd_func_sig,
+            new Int32Array(this.fd_func_sig),
             fd * fd_func_sig_u32_size + 1,
           );
           Atomics.store(func_sig_view_u32, 0, buf.byteLength);
