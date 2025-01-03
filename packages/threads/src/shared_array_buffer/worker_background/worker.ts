@@ -9,6 +9,7 @@
 import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
+import { Caller } from "../caller";
 import { Listener } from "../listener";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
@@ -173,6 +174,7 @@ export class WorkerBackground {
                 const error = e.data.error;
 
                 const notify_view = new Int32Array(this.lock, 8);
+                const caller = new Caller(this.lock, 8, null);
 
                 const serialized_error = Serializer.serialize(error);
 
@@ -184,20 +186,11 @@ export class WorkerBackground {
                 const ptr = Atomics.load(notify_view, 0);
                 const len = Atomics.load(notify_view, 1);
 
-                // notify error = code 1
-                const old = Atomics.compareExchange(notify_view, 0, 0, 1);
-
-                if (old !== 0) {
+                try {
+                  caller.call(1);
+                } catch (e) {
                   this.allocator.free(ptr, len);
-                  throw new Error("what happened?");
-                }
-
-                const num = Atomics.notify(notify_view, 0);
-
-                if (num === 0) {
-                  this.allocator.free(ptr, len);
-                  Atomics.store(notify_view, 0, 0);
-                  throw error;
+                  throw e;
                 }
               }
             };
@@ -263,6 +256,7 @@ export class WorkerBackground {
                 const error = e.data.error;
 
                 const notify_view = new Int32Array(this.lock, 8);
+                const caller = new Caller(this.lock, 8, null);
 
                 const serialized_error = Serializer.serialize(error);
 
@@ -274,20 +268,11 @@ export class WorkerBackground {
                 const ptr = Atomics.load(notify_view, 0);
                 const len = Atomics.load(notify_view, 1);
 
-                // notify error = code 1
-                const old = Atomics.compareExchange(notify_view, 0, 0, 1);
-
-                if (old !== 0) {
+                try {
+                  caller.call(1);
+                } catch (e) {
                   this.allocator.free(ptr, len);
-                  throw new Error("what happened?");
-                }
-
-                const num = Atomics.notify(notify_view, 0);
-
-                if (num === 0) {
-                  this.allocator.free(ptr, len);
-                  Atomics.store(notify_view, 0, 0);
-                  throw new Error(error);
+                  throw e;
                 }
               }
             };
