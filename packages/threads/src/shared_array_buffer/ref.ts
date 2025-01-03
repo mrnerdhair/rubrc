@@ -136,7 +136,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.release_base_func();
   }
 
-  private lock_fd(fd: number) {
+  private lock_fd(fd: number): void {
     const view = new Int32Array(this.lock_fds, fd * 12);
     while (true) {
       const now_value = Atomics.load(view, 0);
@@ -153,13 +153,13 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     }
   }
 
-  private release_fd(fd: number) {
+  private release_fd(fd: number): void {
     const view = new Int32Array(this.lock_fds, fd * 12);
     Atomics.store(view, 0, 0);
     Atomics.notify(view, 0, 1);
   }
 
-  private lock_double_fd(fd1: number, fd2: number) {
+  private lock_double_fd(fd1: number, fd2: number): void {
     if (fd1 === fd2) {
       this.lock_fd(fd1);
       return;
@@ -197,7 +197,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     }
   }
 
-  private release_double_fd(fd1: number, fd2: number) {
+  private release_double_fd(fd1: number, fd2: number): void {
     if (fd1 === fd2) {
       this.release_fd(fd1);
       return;
@@ -238,7 +238,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return true;
   }
 
-  private wait_fd_func(fd: number) {
+  private wait_fd_func(fd: number): void {
     const view = new Int32Array(this.lock_fds, fd * 12 + 4);
     const value = Atomics.wait(view, 0, 1);
     if (value === "timed-out") {
