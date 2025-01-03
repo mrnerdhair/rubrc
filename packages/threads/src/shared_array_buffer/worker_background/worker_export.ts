@@ -1,5 +1,5 @@
 import type { AllocatorUseArrayBufferObject } from "../allocator";
-import { type AtomicTarget, new_atomic_target } from "../locker";
+import { type AtomicTarget, new_atomic_target } from "../locking";
 
 export type WorkerBackgroundRefObject = {
   allocator: AllocatorUseArrayBufferObject;

@@ -1,11 +1,4 @@
-// When adding data, use Atomics.wait to wait until the first 4 bytes become 0.
-// After that, use Atomics.compareExchange to set the first 4 bytes to 1.
-// Then, use Atomics.add to increment the next 4 bytes by 1.
-// If the return value is 0, proceed to *1.
-// If the return value is 1, use Atomics.wait to wait until the first 4 bytes become 0.
-// *1: Increment the second by 1 using Atomics.add. If the return value is 0, reset it.
-// Add the data. Extend if there is not enough space.
-// To release, just decrement by 1 using Atomics.sub.
+import type { AtomicTarget } from "./target";
 
 export class Locker {
   protected readonly view: Int32Array;
@@ -160,18 +153,4 @@ export class Locker {
       console.warn("spinning with deadlock avoidance");
     }
   }
-}
-
-export type AtomicTarget = {
-  name: string;
-  buf: SharedArrayBuffer;
-  byteOffset: number;
-};
-
-export function new_atomic_target(): AtomicTarget {
-  return {
-    name: "foo",
-    buf: new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT),
-    byteOffset: 0,
-  };
 }

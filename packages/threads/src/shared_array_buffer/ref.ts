@@ -5,12 +5,11 @@ import {
   AllocatorUseArrayBuffer,
   type AllocatorUseArrayBufferObject,
 } from "./allocator";
-import { Caller } from "./caller";
 import {
   FdCloseSenderUseArrayBuffer,
   type FdCloseSenderUseArrayBufferObject,
 } from "./fd_close_sender";
-import { type AtomicTarget, Locker } from "./locker";
+import { type AtomicTarget, Caller, Locker } from "./locking";
 import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
 import { FuncNames } from "./util";
 

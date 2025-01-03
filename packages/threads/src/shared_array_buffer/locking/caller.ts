@@ -1,4 +1,4 @@
-import type { AtomicTarget } from "./locker";
+import type { AtomicTarget } from "./target";
 
 export class Caller {
   protected readonly view: Int32Array;

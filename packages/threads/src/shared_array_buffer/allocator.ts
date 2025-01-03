@@ -1,4 +1,4 @@
-import { type AtomicTarget, Locker, new_atomic_target } from "./locker";
+import { type AtomicTarget, Locker, new_atomic_target } from "./locking";
 
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
