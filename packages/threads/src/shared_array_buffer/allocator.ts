@@ -64,10 +64,8 @@ export class AllocatorUseArrayBuffer {
     // ptr, len
     // Pass I32Array ret_ptr
     ret_ptr: number,
-  ): Promise<[number, number]> {
-    return await this.locker.lock(() =>
-      this.write_inner(data, memory, ret_ptr),
-    );
+  ): Promise<void> {
+    await this.locker.lock(() => this.write_inner(data, memory, ret_ptr));
   }
 
   // Blocking threads for writing when acquiring locks
@@ -76,10 +74,8 @@ export class AllocatorUseArrayBuffer {
     memory: SharedArrayBuffer,
     // ptr, len
     ret_ptr: number,
-  ): [number, number] {
-    return this.locker.lock_blocking(() =>
-      this.write_inner(data, memory, ret_ptr),
-    );
+  ): void {
+    this.locker.lock_blocking(() => this.write_inner(data, memory, ret_ptr));
   }
 
   // Function to write after acquiring a lock
@@ -88,7 +84,7 @@ export class AllocatorUseArrayBuffer {
     memory: SharedArrayBuffer,
     // ptr, len
     ret_ptr: number,
-  ): [number, number] {
+  ): void {
     const view = new Int32Array(this.share_arrays_memory);
     const view8 = new Uint8Array(this.share_arrays_memory);
 
@@ -132,8 +128,6 @@ export class AllocatorUseArrayBuffer {
     const memory_view = new Int32Array(memory);
     Atomics.store(memory_view, ret_ptr, share_arrays_memory_kept);
     Atomics.store(memory_view, ret_ptr + 1, len);
-
-    return [share_arrays_memory_kept, len];
   }
 
   // free allocated memory
