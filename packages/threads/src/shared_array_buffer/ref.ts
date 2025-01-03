@@ -11,6 +11,7 @@ import {
 } from "./fd_close_sender";
 import { Locker } from "./locker";
 import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
+import { FuncNames } from "./util";
 
 export type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBufferObject;
@@ -207,7 +208,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         fd * fd_func_sig_bytes,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 7);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_advise);
       Atomics.store(func_sig_view_u32, 1, fd);
     });
   }
@@ -221,7 +222,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 8);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_allocate);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u64, 1, offset);
       Atomics.store(func_sig_view_u64, 2, len);
@@ -233,7 +234,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 9);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_close);
       Atomics.store(func_sig_view_u32, 1, fd);
     });
   }
@@ -243,7 +244,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 10);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_datasync);
       Atomics.store(func_sig_view_u32, 1, fd);
     });
   }
@@ -261,7 +262,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 11);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_fdstat_get);
       Atomics.store(func_sig_view_u32, 1, fd);
 
       const error = this.call_fd_func(fd);
@@ -288,7 +289,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const func_sig_view_u16 = new Uint16Array(this.fd_func_sig, bytes_offset);
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 12);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_fdstat_set_flags);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u16, 4, flags);
     });
@@ -307,7 +308,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 13);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_fdstat_set_rights);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u64, 1, fs_rights_base);
       Atomics.store(func_sig_view_u64, 2, fs_rights_inheriting);
@@ -326,7 +327,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 14);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_filestat_get);
       Atomics.store(func_sig_view_u32, 1, fd);
 
       const error = this.call_fd_func(fd);
@@ -364,7 +365,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 15);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_filestat_set_size);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u64, 1, size);
     });
@@ -385,7 +386,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 16);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_filestat_set_times);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u64, 1, st_atim);
       Atomics.store(func_sig_view_u64, 2, st_mtim);
@@ -406,7 +407,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 17);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_pread);
       Atomics.store(func_sig_view_u32, 1, fd);
       this.allocator.block_write(
         iovs,
@@ -447,7 +448,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 18);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_prestat_get);
       Atomics.store(func_sig_view_u32, 1, fd);
 
       const error = this.call_fd_func(fd);
@@ -472,7 +473,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 19);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_prestat_dir_name);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u32, 2, path_len);
 
@@ -508,7 +509,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 20);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_pwrite);
       Atomics.store(func_sig_view_u32, 1, fd);
       this.allocator.block_write(
         write_data,
@@ -536,7 +537,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 21);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_read);
       Atomics.store(func_sig_view_u32, 1, fd);
 
       this.allocator.block_write(
@@ -585,7 +586,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 22);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_readdir);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u32, 2, limit_buf_len);
       Atomics.store(func_sig_view_u64, 2, cookie);
@@ -618,7 +619,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   //     const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
   //     // fd
-  //     Atomics.store(func_sig_view_u32, 0, 23);
+  //     Atomics.store(func_sig_view_u32, 0, FuncNames.fd_renumber);
   //     Atomics.store(func_sig_view_u32, 1, fd);
   //     Atomics.store(func_sig_view_u32, 2, to);
 
@@ -640,7 +641,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 24);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_seek);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u64, 1, offset);
       Atomics.store(func_sig_view_u8, 16, whence);
@@ -662,7 +663,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 25);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_sync);
       Atomics.store(func_sig_view_u32, 1, fd);
     });
   }
@@ -678,7 +679,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 26);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_tell);
       Atomics.store(func_sig_view_u32, 1, fd);
 
       const error = this.call_fd_func(fd);
@@ -699,7 +700,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 27);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.fd_write);
       Atomics.store(func_sig_view_u32, 1, fd);
       this.allocator.block_write(
         write_data,
@@ -722,7 +723,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 28);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_create_directory);
       Atomics.store(func_sig_view_u32, 1, fd);
       this.allocator.block_write(
         path,
@@ -746,7 +747,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 29);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_filestat_get);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u32, 2, flags);
       this.allocator.block_write(
@@ -798,7 +799,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 30);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_filestat_set_times);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u32, 2, flags);
       this.allocator.block_write(
@@ -823,7 +824,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = old_fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 31);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_link);
       Atomics.store(func_sig_view_u32, 1, old_fd);
       Atomics.store(func_sig_view_u32, 2, old_flags);
       this.allocator.block_write(
@@ -858,7 +859,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         bytes_offset,
       );
 
-      Atomics.store(func_sig_view_u32, 0, 32);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_open);
       Atomics.store(func_sig_view_u32, 1, fd);
       Atomics.store(func_sig_view_u32, 2, dirflags);
       this.allocator.block_write(
@@ -893,7 +894,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 33);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_readlink);
       Atomics.store(func_sig_view_u32, 1, fd);
       this.allocator.block_write(
         path,
@@ -927,7 +928,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 34);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_remove_directory);
       Atomics.store(func_sig_view_u32, 1, fd);
       this.allocator.block_write(
         path,
@@ -947,7 +948,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = old_fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 35);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_rename);
       Atomics.store(func_sig_view_u32, 1, old_fd);
       this.allocator.block_write(
         old_path,
@@ -968,7 +969,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 36);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_symlink);
       this.allocator.block_write(
         old_path,
         this.fd_func_sig,
@@ -988,7 +989,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const bytes_offset = fd * fd_func_sig_bytes;
       const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
 
-      Atomics.store(func_sig_view_u32, 0, 37);
+      Atomics.store(func_sig_view_u32, 0, FuncNames.path_unlink_file);
       Atomics.store(func_sig_view_u32, 1, fd);
       this.allocator.block_write(
         path,
