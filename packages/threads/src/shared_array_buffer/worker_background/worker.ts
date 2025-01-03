@@ -147,10 +147,10 @@ export class WorkerBackground {
             }
 
             if (msg === "done") {
+              console.log(`worker ${worker_id} done so terminate`);
+
               this.workers[worker_id]?.terminate();
               this.workers[worker_id] = undefined;
-
-              console.log(`worker ${worker_id} done so terminate`);
             }
 
             if (msg === "error") {
@@ -160,18 +160,18 @@ export class WorkerBackground {
               let n = 0;
               for (const worker of this.workers) {
                 if (worker !== undefined) {
-                  worker.terminate();
                   console.warn(
                     `wasi throw error but child process exists, terminate ${n}`,
                   );
+                  worker.terminate();
                 }
                 n++;
               }
               if (this.start_worker !== undefined) {
-                this.start_worker.terminate();
                 console.warn(
                   "wasi throw error but wasi exists, terminate wasi",
                 );
+                this.start_worker.terminate();
               }
 
               this.workers = [undefined];
@@ -232,34 +232,34 @@ export class WorkerBackground {
               let n = 0;
               for (const worker of this.workers) {
                 if (worker !== undefined) {
-                  worker.terminate();
                   console.warn(`wasi done but worker exists, terminate ${n}`);
+                  worker.terminate();
                 }
                 n++;
               }
 
+              console.log("start worker done so terminate");
+
               this.start_worker?.terminate();
               this.start_worker = undefined;
-
-              console.log("start worker done so terminate");
             }
 
             if (msg === "error") {
               let n = 0;
               for (const worker of this.workers) {
                 if (worker !== undefined) {
-                  worker.terminate();
                   console.warn(
                     `wasi throw error but worker exists, terminate ${n}`,
                   );
+                  worker.terminate();
                 }
                 n++;
               }
               if (this.start_worker !== undefined) {
-                this.start_worker.terminate();
                 console.warn(
                   "wasi throw error but wasi exists, terminate start worker",
                 );
+                this.start_worker.terminate();
               }
 
               this.workers = [undefined];
