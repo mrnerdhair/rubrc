@@ -96,20 +96,9 @@ export class WorkerBackgroundRef {
   done_notify(code: number): void {
     const notify_view = new Int32Array(this.lock, 8);
 
-    // notify done = code 2
-    const old = Atomics.compareExchange(notify_view, 0, 0, 2);
-
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-
     Atomics.store(notify_view, 1, code);
 
-    const num = Atomics.notify(notify_view, 0);
-
-    if (num === 0) {
-      Atomics.store(notify_view, 0, 0);
-    }
+    new Caller(this.lock, 8, null).call(2);
   }
 
   private async async_wait_done_or_error(): Promise<number> {
