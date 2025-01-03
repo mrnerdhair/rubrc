@@ -220,20 +220,20 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     }
     const n = Atomics.notify(view, 0);
     if (n !== 1) {
-      if (n === 0) {
-        const len = this.get_fds_len();
-        if (len <= fd) {
-          const lock = Atomics.exchange(view, 0, 0);
-          if (lock !== 1) {
-            throw new Error("what happened?");
-          }
-          Atomics.notify(view, 0, 1);
-          throw new Error(`what happened?: len ${len} fd ${fd}`);
-        }
-        console.warn("invoke_func_loop is late");
-        return true;
+      if (n !== 0) {
+        throw new Error(`invoke_fd_func notify failed: ${n}`);
       }
-      throw new Error(`invoke_fd_func notify failed: ${n}`);
+      const len = this.get_fds_len();
+      if (len <= fd) {
+        const lock = Atomics.exchange(view, 0, 0);
+        if (lock !== 1) {
+          throw new Error("what happened?");
+        }
+        Atomics.notify(view, 0, 1);
+        throw new Error(`what happened?: len ${len} fd ${fd}`);
+      }
+      console.warn("invoke_func_loop is late");
+      return true;
     }
     return true;
   }
