@@ -109,8 +109,6 @@ export const get_data = (
     let offset = 0n;
 
     while (true) {
-      console.log("offset", offset);
-
       const iovs = new Uint32Array(2);
       // buf_ptr so any value
       iovs[0] = 0;
