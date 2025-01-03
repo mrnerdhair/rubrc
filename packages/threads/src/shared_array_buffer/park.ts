@@ -2,8 +2,8 @@ import { type Fd, wasi } from "@bjorn3/browser_wasi_shim";
 import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
-import { Listener } from "./listener";
-import { type AtomicTarget, Locker, new_atomic_target } from "./locker";
+import { type AtomicTarget, Locker, new_atomic_target } from "./locking";
+import { Listener } from "./locking/listener";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames } from "./util";
 

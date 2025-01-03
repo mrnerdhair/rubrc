@@ -1,5 +1,5 @@
 import type { FdCloseSender } from "../sender";
-import type { AtomicTarget } from "./locker";
+import type { AtomicTarget } from "./locking";
 import {
   ToRefSenderUseArrayBuffer,
   type ToRefSenderUseArrayBufferObject,

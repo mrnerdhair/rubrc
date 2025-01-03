@@ -1,7 +1,5 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
-import { Caller } from "../caller";
-import { Listener } from "../listener";
-import { type AtomicTarget, Locker } from "../locker";
+import { type AtomicTarget, Caller, Listener, Locker } from "../locking";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 

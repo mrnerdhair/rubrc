@@ -9,9 +9,13 @@
 import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
-import { Caller } from "../caller";
-import { Listener } from "../listener";
-import { type AtomicTarget, Locker, new_atomic_target } from "../locker";
+import {
+  type AtomicTarget,
+  Caller,
+  Listener,
+  Locker,
+  new_atomic_target,
+} from "../locking";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
 import type { WorkerBackgroundRefObject } from "./worker_export";
