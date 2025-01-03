@@ -11,11 +11,7 @@ import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import { Caller } from "../caller";
 import { Listener } from "../listener";
-import {
-  type AtomicTarget,
-  new_atomic_target,
-  reset_atomic_target,
-} from "../locker";
+import { type AtomicTarget, Locker, new_atomic_target } from "../locker";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
 import type { WorkerBackgroundRefObject } from "./worker_export";
@@ -99,12 +95,12 @@ export class WorkerBackground {
   }
 
   async listen(): Promise<void> {
-    reset_atomic_target(this.locks.lock);
-    reset_atomic_target(this.locks.call);
+    new Locker(this.locks.lock).reset();
 
     const signature_input_view = new Int32Array(this.signature_input);
 
     const listener = new Listener(this.locks.call);
+    listener.reset();
     while (true) {
       await listener.listen(async () => {
         const gen_worker = () => {

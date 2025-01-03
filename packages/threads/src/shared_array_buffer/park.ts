@@ -3,11 +3,7 @@ import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
 import { Listener } from "./listener";
-import {
-  type AtomicTarget,
-  new_atomic_target,
-  reset_atomic_target,
-} from "./locker";
+import { type AtomicTarget, Locker, new_atomic_target } from "./locker";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames } from "./util";
 
@@ -226,10 +222,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // so, set fds_map
   async listen_base() {
     const lock_view = new Int32Array(this.base_func_util);
-    reset_atomic_target(this.base_func_util_locks.lock);
-    reset_atomic_target(this.base_func_util_locks.call);
+    new Locker(this.base_func_util_locks.lock).reset();
 
     const listener = new Listener(this.base_func_util_locks.call);
+    listener.reset();
     while (true) {
       await listener.listen(async () => {
         const func_number = Atomics.load(lock_view, 2);
@@ -274,8 +270,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       bytes_offset,
     );
     const errno_offset = fd_func_sig_u32_size - 1;
-    reset_atomic_target(this.lock_fds[fd_n].lock);
-    reset_atomic_target(this.lock_fds[fd_n].call);
+    new Locker(this.lock_fds[fd_n].lock).reset();
     Atomics.store(func_sig_view_i32, errno_offset, -1);
 
     const handlers: Partial<
@@ -771,6 +766,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     };
 
     const listener = new Listener(this.lock_fds[fd_n].call);
+    listener.reset();
     do {
       await listener.listen(async () => {
         try {

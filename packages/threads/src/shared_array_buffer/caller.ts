@@ -15,6 +15,13 @@ export class Caller {
     this.unlocked_value = unlocked_value;
   }
 
+  reset(): void {
+    const old = Atomics.exchange(this.view, 0, this.unlocked_value);
+    if (old !== this.unlocked_value) {
+      throw new Error(`reset actually did something: ${old}`);
+    }
+  }
+
   call(code = this.locked_value): void {
     if (code === undefined) throw new Error("must provide a code");
     if (code === this.unlocked_value) {

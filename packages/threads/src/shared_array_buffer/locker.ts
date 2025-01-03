@@ -22,6 +22,13 @@ export class Locker {
     this.unlocked_value = unlocked_value;
   }
 
+  reset(): void {
+    const old = Atomics.exchange(this.view, 0, this.unlocked_value);
+    if (old !== this.unlocked_value) {
+      throw new Error(`reset actually did something: ${old}`);
+    }
+  }
+
   async lock<T>(callback: () => T | PromiseLike<T>): Promise<T> {
     while (true) {
       const [success, out] = await this.try_lock(callback);
@@ -165,8 +172,4 @@ export function new_atomic_target(): AtomicTarget {
     buf: new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT),
     byteOffset: 0,
   };
-}
-
-export function reset_atomic_target(target: AtomicTarget, value = 0): void {
-  Atomics.store(new Int32Array(target.buf, target.byteOffset, 1), 0, value);
 }

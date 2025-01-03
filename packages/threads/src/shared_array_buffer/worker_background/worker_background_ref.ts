@@ -1,7 +1,7 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import { Caller } from "../caller";
 import { Listener } from "../listener";
-import { type AtomicTarget, Locker, reset_atomic_target } from "../locker";
+import { type AtomicTarget, Locker } from "../locker";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
@@ -107,8 +107,8 @@ export class WorkerBackgroundRef {
 
   private async async_wait_done_or_error(): Promise<number> {
     const notify_view = new Int32Array(this.lock, 8);
-    reset_atomic_target(this.locks.done);
     const listener = new Listener(this.locks.done, null);
+    listener.reset();
 
     return await listener.listen(async (code?: number) => {
       switch (code) {
@@ -136,8 +136,8 @@ export class WorkerBackgroundRef {
 
   private block_wait_done_or_error(): number {
     const notify_view = new Int32Array(this.lock, 8);
-    reset_atomic_target(this.locks.done);
     const listener = new Listener(this.locks.done, null);
+    listener.reset();
 
     return listener.listen_blocking((code?: number) => {
       switch (code) {
