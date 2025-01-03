@@ -49,7 +49,7 @@ export class WorkerBackgroundRef {
     options: WorkerOptions | undefined,
     post_obj: unknown,
   ) {
-    return await this.locker.lock(async () => {
+    await this.locker.lock(async () => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, 2);
       const url_buffer = new TextEncoder().encode(url);
@@ -60,6 +60,7 @@ export class WorkerBackgroundRef {
       await this.allocator.async_write(obj_buffer, this.signature_input, 4);
       await this.caller.call_and_wait();
     });
+    return this.async_wait_done_or_error();
   }
 
   block_start_on_thread(
@@ -67,7 +68,7 @@ export class WorkerBackgroundRef {
     options: WorkerOptions | undefined,
     post_obj: unknown,
   ) {
-    return this.locker.lock_blocking(() => {
+    this.locker.lock_blocking(() => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, 2);
       const url_buffer = new TextEncoder().encode(url);
@@ -78,6 +79,7 @@ export class WorkerBackgroundRef {
       this.allocator.block_write(obj_buffer, this.signature_input, 4);
       this.caller.call_and_wait_blocking();
     });
+    return this.block_wait_done_or_error();
   }
 
   static async init(
@@ -109,7 +111,7 @@ export class WorkerBackgroundRef {
     }
   }
 
-  async async_wait_done_or_error(): Promise<number> {
+  private async async_wait_done_or_error(): Promise<number> {
     const notify_view = new Int32Array(this.lock, 8);
 
     Atomics.store(notify_view, 0, 0);
@@ -159,7 +161,7 @@ export class WorkerBackgroundRef {
     throw error;
   }
 
-  block_wait_done_or_error(): number {
+  private block_wait_done_or_error(): number {
     const notify_view = new Int32Array(this.lock, 8);
 
     Atomics.store(notify_view, 0, 0);
