@@ -32,6 +32,8 @@
  */
 
 (() => {
+  if (Atomics.waitAsync) return;
+
   const helperCode = `
   onmessage = function (ev) {
       try {
