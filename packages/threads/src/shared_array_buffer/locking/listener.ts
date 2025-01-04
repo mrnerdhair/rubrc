@@ -1,5 +1,6 @@
 import type { CallerTarget } from "./caller";
 import { type AtomicTarget, new_atomic_target } from "./target";
+import "./polyfill";
 
 export class Listener {
   protected readonly view: Int32Array;

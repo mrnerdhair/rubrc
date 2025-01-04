@@ -1,4 +1,5 @@
 import { type AtomicTarget, new_atomic_target } from "./target";
+import "./polyfill";
 
 export class Locker {
   protected readonly view: Int32Array<SharedArrayBuffer>;
