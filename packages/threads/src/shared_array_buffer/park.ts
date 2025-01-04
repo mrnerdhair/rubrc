@@ -2,7 +2,13 @@ import { type Fd, wasi } from "@bjorn3/browser_wasi_shim";
 import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
-import { type AtomicTarget, Locker, new_atomic_target } from "./locking";
+import {
+  type CallerTarget,
+  Locker,
+  type LockerTarget,
+  new_caller_target,
+  new_locker_target,
+} from "./locking";
 import { Listener } from "./locking/listener";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames } from "./util";
@@ -72,8 +78,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // Lock when you want to use fd
   private lock_fds: Array<{
-    lock: AtomicTarget;
-    call: AtomicTarget;
+    lock: LockerTarget;
+    call: CallerTarget;
   }>;
 
   // 1 bytes: fds.length
@@ -91,7 +97,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // listen base lock and call etc
   private base_func_util: SharedArrayBuffer;
-  private base_func_util_locks: Record<"lock" | "call", AtomicTarget>;
+  private base_func_util_locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+  };
 
   // tell other processes that the file descriptor has been closed
   private fd_close_receiver: FdCloseSenderUseArrayBuffer;
@@ -123,8 +132,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     }
     const max_fds_len = 128;
     this.lock_fds = new Array(max_fds_len).fill(undefined).map(() => ({
-      lock: new_atomic_target(),
-      call: new_atomic_target(),
+      lock: new_locker_target(),
+      call: new_caller_target(),
     }));
     this.fd_func_sig = new SharedArrayBuffer(
       fd_func_sig_u32_size * 4 * max_fds_len,
@@ -138,8 +147,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
     this.base_func_util = new SharedArrayBuffer(24);
     this.base_func_util_locks = {
-      lock: new_atomic_target(),
-      call: new_atomic_target(),
+      lock: new_locker_target(),
+      call: new_caller_target(),
     };
   }
 

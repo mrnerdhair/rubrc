@@ -1,5 +1,5 @@
 import type { FdCloseSender } from "../sender";
-import type { AtomicTarget } from "./locking";
+import type { LockerTarget } from "./locking";
 import {
   ToRefSenderUseArrayBuffer,
   type ToRefSenderUseArrayBufferObject,
@@ -20,7 +20,7 @@ export class FdCloseSenderUseArrayBuffer
   constructor(
     max_share_arrays_memory?: number,
     share_arrays_memory?: SharedArrayBuffer,
-    share_arrays_memory_lock?: AtomicTarget,
+    share_arrays_memory_lock?: LockerTarget,
   ) {
     super(
       4,

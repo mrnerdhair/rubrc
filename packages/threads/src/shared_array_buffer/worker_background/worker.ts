@@ -10,11 +10,15 @@ import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
-  type AtomicTarget,
   Caller,
+  type CallerTarget,
   Listener,
+  type ListenerTarget,
   Locker,
-  new_atomic_target,
+  type LockerTarget,
+  new_caller_target,
+  new_listener_target,
+  new_locker_target,
 } from "../locking";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
@@ -33,7 +37,11 @@ export class WorkerBackground {
   private override_object: OverrideObject;
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
-  private locks: Record<"lock" | "call" | "done", AtomicTarget>;
+  private locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+    done: ListenerTarget;
+  };
   private signature_input: SharedArrayBuffer;
 
   // worker_id starts from 1
@@ -44,16 +52,20 @@ export class WorkerBackground {
   protected constructor(
     override_object: OverrideObject,
     lock?: SharedArrayBuffer,
-    locks?: Record<"lock" | "call" | "done", AtomicTarget>,
+    locks?: {
+      lock: LockerTarget;
+      call: CallerTarget;
+      done: ListenerTarget;
+    },
     allocator?: AllocatorUseArrayBuffer,
     signature_input?: SharedArrayBuffer,
   ) {
     this.override_object = override_object;
     this.lock = lock ?? new SharedArrayBuffer(20);
     this.locks = locks ?? {
-      lock: new_atomic_target(),
-      call: new_atomic_target(),
-      done: new_atomic_target(),
+      lock: new_locker_target(),
+      call: new_caller_target(),
+      done: new_listener_target(),
     };
     this.allocator =
       allocator ??

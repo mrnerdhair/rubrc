@@ -9,20 +9,28 @@ import {
   FdCloseSenderUseArrayBuffer,
   type FdCloseSenderUseArrayBufferObject,
 } from "./fd_close_sender";
-import { type AtomicTarget, Caller, Locker } from "./locking";
+import {
+  Caller,
+  type CallerTarget,
+  Locker,
+  type LockerTarget,
+} from "./locking";
 import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
 import { FuncNames } from "./util";
 
 export type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBufferObject;
   lock_fds: Array<{
-    lock: AtomicTarget;
-    call: AtomicTarget;
+    lock: LockerTarget;
+    call: CallerTarget;
   }>;
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;
   base_func_util: SharedArrayBuffer;
-  base_func_util_locks: Record<"lock" | "call", AtomicTarget>;
+  base_func_util_locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+  };
   fd_close_receiver: FdCloseSenderUseArrayBufferObject;
 } & WASIFarmRefObject;
 
@@ -31,8 +39,8 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
   allocator: AllocatorUseArrayBuffer;
   readonly lock_fds: Array<{
-    lock: AtomicTarget;
-    call: AtomicTarget;
+    lock: LockerTarget;
+    call: CallerTarget;
   }>;
   // byte 1: fds_len
   // byte 2: all wasi_farm_ref num
@@ -48,13 +56,16 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
     lock_fds: Array<{
-      lock: AtomicTarget;
-      call: AtomicTarget;
+      lock: LockerTarget;
+      call: CallerTarget;
     }>,
     fds_len_and_num: SharedArrayBuffer,
     fd_func_sig: SharedArrayBuffer,
     base_func_util: SharedArrayBuffer,
-    base_func_util_locks: Record<"lock" | "call", AtomicTarget>,
+    base_func_util_locks: {
+      lock: LockerTarget;
+      call: CallerTarget;
+    },
     fd_close_receiver: FdCloseSender,
     stdin: number | undefined,
     stdout: number | undefined,

@@ -1,8 +1,8 @@
-import { type AtomicTarget, Locker, new_atomic_target } from "./locking";
+import { Locker, type LockerTarget, new_locker_target } from "./locking";
 
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
-  share_arrays_memory_lock: AtomicTarget;
+  share_arrays_memory_lock: LockerTarget;
 };
 
 export class AllocatorUseArrayBuffer {
@@ -26,7 +26,7 @@ export class AllocatorUseArrayBuffer {
   // Even if 100MB is allocated, due to browser virtualization,
   // the memory should not actually be used until it is needed.
   share_arrays_memory: SharedArrayBuffer;
-  readonly share_arrays_memory_lock: AtomicTarget;
+  readonly share_arrays_memory_lock: LockerTarget;
 
   protected locker: Locker;
 
@@ -34,12 +34,12 @@ export class AllocatorUseArrayBuffer {
   // it must be able to receive and assign a SharedArrayBuffer.
   constructor(opts?: {
     share_arrays_memory?: SharedArrayBuffer;
-    share_arrays_memory_lock?: AtomicTarget;
+    share_arrays_memory_lock?: LockerTarget;
   }) {
     this.share_arrays_memory =
       opts?.share_arrays_memory ?? new SharedArrayBuffer(10 * 1024 * 1024);
     this.share_arrays_memory_lock =
-      opts?.share_arrays_memory_lock ?? new_atomic_target();
+      opts?.share_arrays_memory_lock ?? new_locker_target();
     const view = new Int32Array(this.share_arrays_memory);
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);

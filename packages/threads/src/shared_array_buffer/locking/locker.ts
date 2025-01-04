@@ -1,4 +1,4 @@
-import type { AtomicTarget } from "./target";
+import { type AtomicTarget, new_atomic_target } from "./target";
 
 export class Locker {
   protected readonly view: Int32Array<SharedArrayBuffer>;
@@ -6,7 +6,7 @@ export class Locker {
   protected readonly unlocked_value: number;
 
   constructor(
-    { buf, byteOffset }: AtomicTarget,
+    { buf, byteOffset }: LockerTarget,
     locked_value = 1,
     unlocked_value = 0,
   ) {
@@ -153,4 +153,10 @@ export class Locker {
       console.warn("spinning with deadlock avoidance");
     }
   }
+}
+
+declare const lockerTargetBrand: unique symbol;
+export type LockerTarget = AtomicTarget & { [lockerTargetBrand]: never };
+export function new_locker_target(): LockerTarget {
+  return new_atomic_target() as LockerTarget;
 }

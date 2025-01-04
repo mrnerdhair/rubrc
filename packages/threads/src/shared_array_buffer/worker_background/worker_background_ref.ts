@@ -1,12 +1,23 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
-import { type AtomicTarget, Caller, Listener, Locker } from "../locking";
+import {
+  Caller,
+  type CallerTarget,
+  Listener,
+  type ListenerTarget,
+  Locker,
+  type LockerTarget,
+} from "../locking";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
 export class WorkerBackgroundRef {
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
-  private locks: Record<"lock" | "call" | "done", AtomicTarget>;
+  private locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+    done: ListenerTarget;
+  };
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
   private caller: Caller;
@@ -14,7 +25,11 @@ export class WorkerBackgroundRef {
   constructor(
     allocator: AllocatorUseArrayBuffer,
     lock: SharedArrayBuffer,
-    locks: Record<"lock" | "call" | "done", AtomicTarget>,
+    locks: {
+      lock: LockerTarget;
+      call: CallerTarget;
+      done: ListenerTarget;
+    },
     signature_input: SharedArrayBuffer,
   ) {
     this.allocator = allocator;

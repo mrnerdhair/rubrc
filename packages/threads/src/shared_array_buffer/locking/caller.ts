@@ -1,4 +1,5 @@
-import type { AtomicTarget } from "./target";
+import type { ListenerTarget } from "./listener";
+import { type AtomicTarget, new_atomic_target } from "./target";
 
 export class Caller {
   protected readonly view: Int32Array;
@@ -6,7 +7,7 @@ export class Caller {
   protected readonly unlocked_value: number;
 
   constructor(
-    { buf, byteOffset }: AtomicTarget,
+    { buf, byteOffset }: CallerTarget | ListenerTarget,
     locked_value: number | null = 1,
     unlocked_value = 0,
   ) {
@@ -61,4 +62,10 @@ export class Caller {
       throw new Error("timed-out");
     }
   }
+}
+
+declare const callerTargetBrand: unique symbol;
+export type CallerTarget = AtomicTarget & { [callerTargetBrand]: never };
+export function new_caller_target(): CallerTarget {
+  return new_atomic_target() as CallerTarget;
 }
