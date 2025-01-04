@@ -31,8 +31,8 @@
  * when possible.  The worker communicates with its parent using postMessage.
  */
 
-(function () {
-  let helperCode = `
+(() => {
+  const helperCode = `
   onmessage = function (ev) {
       try {
           switch (ev.data[0]) {
@@ -53,17 +53,18 @@
   }
   `;
 
-  let helpers = [];
+  const helpers = [];
 
   function allocHelper() {
-      if (helpers.length > 0)
-          return helpers.pop();
-      let h = new Worker("data:application/javascript," + encodeURIComponent(helperCode));
-      return h;
+    if (helpers.length > 0) return helpers.pop();
+    const h = new Worker(
+      `data:application/javascript,${encodeURIComponent(helperCode)}`,
+    );
+    return h;
   }
 
   function freeHelper(h) {
-      helpers.push(h);
+    helpers.push(h);
   }
 
   // Atomics.waitAsync always returns a promise.  Throws standard errors
@@ -72,67 +73,71 @@
   // rejected with an error string.
 
   function waitAsync(ia, index_, value_, timeout_) {
-      if (typeof ia != "object" || !(ia instanceof Int32Array) || !(ia.buffer instanceof SharedArrayBuffer))
-          throw new TypeError("Expected shared memory");
+    if (
+      typeof ia !== "object" ||
+      !(ia instanceof Int32Array) ||
+      !(ia.buffer instanceof SharedArrayBuffer)
+    )
+      throw new TypeError("Expected shared memory");
 
-      // These conversions only approximate the desired semantics but are
-      // close enough for the polyfill.
+    // These conversions only approximate the desired semantics but are
+    // close enough for the polyfill.
 
-      let index = index_|0;
-      let value = value_|0;
-      let timeout = timeout_ === undefined ? Infinity : +timeout_;
+    const index = index_ | 0;
+    const value = value_ | 0;
+    const timeout =
+      timeout_ === undefined ? Number.POSITIVE_INFINITY : +timeout_;
 
-      // Range checking for the index.
+    // Range checking for the index.
 
-      ia[index];
+    ia[index];
 
-      // Optimization, avoid the helper thread in this common case.
+    // Optimization, avoid the helper thread in this common case.
 
-      if (Atomics.load(ia, index) != value)
-          return Promise.resolve("not-equal");
+    if (Atomics.load(ia, index) !== value) return Promise.resolve("not-equal");
 
-      // General case, we must wait.
+    // General case, we must wait.
 
-      return new Promise(function (resolve, reject) {
-          let h = allocHelper();
-          h.onmessage = function (ev) {
-              // Free the helper early so that it can be reused if the resolution
-              // needs a helper.
-              freeHelper(h);
-              switch (ev.data[0]) {
-                case 'ok':
-                  resolve(ev.data[1]);
-                  break;
-                case 'error':
-                  // Note, rejection is not in the spec, it is an artifact of the polyfill.
-                  // The helper already printed an error to the console.
-                  reject(ev.data[1]);
-                  break;
-              }
-          }
+    return new Promise((resolve, reject) => {
+      const h = allocHelper();
+      h.onmessage = (ev) => {
+        // Free the helper early so that it can be reused if the resolution
+        // needs a helper.
+        freeHelper(h);
+        switch (ev.data[0]) {
+          case "ok":
+            resolve(ev.data[1]);
+            break;
+          case "error":
+            // Note, rejection is not in the spec, it is an artifact of the polyfill.
+            // The helper already printed an error to the console.
+            reject(ev.data[1]);
+            break;
+        }
+      };
 
-          // It's possible to do better here if the ia is already known to the
-          // helper.  In that case we can communicate the other data through
-          // shared memory and wake the agent.  And it is possible to make ia
-          // known to the helper by waking it with a special value so that it
-          // checks its messages, and then posting the ia to the helper.  Some
-          // caching / decay scheme is useful no doubt, to improve performance
-          // and avoid leaks.
-          //
-          // In the event we wake the helper directly, we can micro-wait here
-          // for a quick result.  We'll need to restructure some code to make
-          // that work out properly, and some synchronization is necessary for
-          // the helper to know that we've picked up the result and no
-          // postMessage is necessary.
+      // It's possible to do better here if the ia is already known to the
+      // helper.  In that case we can communicate the other data through
+      // shared memory and wake the agent.  And it is possible to make ia
+      // known to the helper by waking it with a special value so that it
+      // checks its messages, and then posting the ia to the helper.  Some
+      // caching / decay scheme is useful no doubt, to improve performance
+      // and avoid leaks.
+      //
+      // In the event we wake the helper directly, we can micro-wait here
+      // for a quick result.  We'll need to restructure some code to make
+      // that work out properly, and some synchronization is necessary for
+      // the helper to know that we've picked up the result and no
+      // postMessage is necessary.
 
-          h.postMessage(['wait', ia, index, value, timeout]);
-      })
+      h.postMessage(["wait", ia, index, value, timeout]);
+    });
   }
 
-  Object.defineProperty(Atomics, 'waitAsync', {
-      value: waitAsync,
-      configurable: true,
-      enumerable: false,
-      writable: true,
+  Object.defineProperty(Atomics, "waitAsync", {
+    value: waitAsync,
+    configurable: true,
+    enumerable: false,
+    writable: true,
   });
 })();
