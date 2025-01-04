@@ -156,13 +156,19 @@ export class WASIFarmAnimal {
     }
   }
 
-  private mapping_fds(
+  private static async mapping_fds(
     wasi_farm_refs: Array<WASIFarmRef>,
     override_fd_maps?: Array<number[]>,
-  ) {
-    this.fd_map = [undefined, undefined, undefined];
+  ): Promise<Array<[number, number] | undefined>> {
+    const out_fd_map: Array<[number, number] | undefined> = [
+      undefined,
+      undefined,
+      undefined,
+    ];
 
-    wasi_farm_refs.forEach((wasi_farm_ref, i) => {
+    for (const [wasi_farm_ref, i] of wasi_farm_refs.map(
+      (x, i) => [x, i] as const,
+    )) {
       const override_fd_map =
         (override_fd_maps ? override_fd_maps[i] : wasi_farm_ref.default_fds) ??
         [];
@@ -170,46 +176,52 @@ export class WASIFarmAnimal {
       const this_stdout = wasi_farm_ref.get_stdout();
       const this_stderr = wasi_farm_ref.get_stderr();
       if (this_stdin !== undefined && override_fd_map.includes(this_stdin)) {
-        this.fd_map[0] ??= [this_stdin, i];
+        out_fd_map[0] ??= [this_stdin, i];
       }
       if (this_stdout !== undefined && override_fd_map.includes(this_stdout)) {
-        this.fd_map[1] ??= [this_stdout, i];
+        out_fd_map[1] ??= [this_stdout, i];
       }
       if (this_stderr !== undefined && override_fd_map.includes(this_stderr)) {
-        this.fd_map[2] ??= [this_stderr, i];
+        out_fd_map[2] ??= [this_stderr, i];
       }
       for (const j of override_fd_map) {
         if (j === this_stdin || j === this_stdout || j === this_stderr) {
           continue;
         }
-        this.map_new_fd(j, i);
+        WASIFarmAnimal.map_new_fd(out_fd_map, j, i);
       }
       wasi_farm_ref.set_park_fds_map(override_fd_map);
-    });
+    }
 
-    if (this.fd_map[0] === undefined) {
+    if (out_fd_map[0] === undefined) {
       throw new Error("stdin is not found");
     }
-    if (this.fd_map[1] === undefined) {
+    if (out_fd_map[1] === undefined) {
       throw new Error("stdout is not found");
     }
-    if (this.fd_map[2] === undefined) {
+    if (out_fd_map[2] === undefined) {
       throw new Error("stderr is not found");
     }
+
+    return out_fd_map;
   }
 
-  private map_new_fd(fd: number, wasi_ref_n: number): number {
+  private static map_new_fd(
+    fd_map: Array<[number, number] | undefined>,
+    fd: number,
+    wasi_ref_n: number,
+  ): number {
     // 0, 1, 2 are reserved for stdin, stdout, stderr
-    let n = this.fd_map.indexOf(undefined, 3);
+    let n = fd_map.indexOf(undefined, 3);
     if (n === -1) {
-      n = this.fd_map.push(undefined) - 1;
+      n = fd_map.push(undefined) - 1;
     }
-    this.fd_map[n] = [fd, wasi_ref_n];
+    fd_map[n] = [fd, wasi_ref_n];
     return n;
   }
 
   map_new_fd_and_notify(fd: number, wasi_ref_n: number): number {
-    const n = this.map_new_fd(fd, wasi_ref_n);
+    const n = WASIFarmAnimal.map_new_fd(this.fd_map, fd, wasi_ref_n);
     this.wasi_farm_refs[wasi_ref_n].set_park_fds_map([fd]);
     return n;
   }
@@ -337,7 +349,10 @@ export class WASIFarmAnimal {
       id_in_wasi_farm_ref,
       can_thread_spawn: options.can_thread_spawn ?? false,
       thread_spawner: thread_spawner_out,
-      override_fd_maps,
+      mapping_fds: await WASIFarmAnimal.mapping_fds(
+        wasi_farm_refs_out,
+        override_fd_maps,
+      ),
       hand_override_fd_map: options.hand_override_fd_map,
       args,
       env,
@@ -349,7 +364,7 @@ export class WASIFarmAnimal {
     id_in_wasi_farm_ref,
     can_thread_spawn,
     thread_spawner,
-    override_fd_maps,
+    mapping_fds,
     hand_override_fd_map,
     args,
     env,
@@ -358,7 +373,7 @@ export class WASIFarmAnimal {
     id_in_wasi_farm_ref: number[];
     can_thread_spawn: boolean;
     thread_spawner: ThreadSpawner | undefined;
-    override_fd_maps: Array<number[]> | undefined;
+    mapping_fds: Array<[number, number] | undefined>;
     hand_override_fd_map: Array<[number, number]> | undefined;
     args: Array<string>;
     env: Array<string>;
@@ -367,7 +382,7 @@ export class WASIFarmAnimal {
     this.id_in_wasi_farm_ref = id_in_wasi_farm_ref;
     this.thread_spawner = thread_spawner;
     this.can_thread_spawn = can_thread_spawn;
-    this.mapping_fds(this.wasi_farm_refs, override_fd_maps);
+    this.fd_map = mapping_fds;
     this.fd_map = hand_override_fd_map ?? this.fd_map;
     this.args = args;
     this.env = env;
