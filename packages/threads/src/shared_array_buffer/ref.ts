@@ -119,6 +119,17 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     });
   }
 
+  async set_park_fds_map_async(fds: Array<number>): Promise<void> {
+    await this.locker.lock(async () => {
+      const view = new Int32Array(this.base_func_util);
+      Atomics.store(view, 2, 0);
+      const fds_array = new Uint32Array(fds);
+      await this.allocator.async_write(fds_array, view, 3);
+      Atomics.store(view, 5, this.id);
+      await this.caller.call_and_wait();
+    });
+  }
+
   protected lock_fd<T>(fd: number, callback: () => T): T {
     return new Locker(this.lock_fds[fd].lock).lock_blocking(callback);
   }
