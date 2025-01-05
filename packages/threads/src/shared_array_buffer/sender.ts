@@ -40,7 +40,7 @@ export abstract class ToRefSenderUseArrayBuffer {
 
   protected locker: Locker;
 
-  constructor(
+  protected constructor(
     // data is Uint32Array
     // and data_size is data.length
     data_size: number,
