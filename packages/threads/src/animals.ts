@@ -114,7 +114,7 @@ export class WASIFarmAnimal {
     instance: WasiP1Thread,
     thread_id: number,
     start_arg: number,
-  ) {
+  ): number {
     this._inst = instance;
     try {
       instance.exports.wasi_thread_start(thread_id, start_arg);
