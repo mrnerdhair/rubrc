@@ -40,17 +40,7 @@ export class FdCloseSenderUseArrayBuffer
 
   // Get the closed file descriptor from the target process
   get(id: number): Array<number> | undefined {
-    const data = this.get_data(id);
-    if (data === undefined) {
-      return undefined;
-    }
-
-    const array = [];
-    for (const i of data) {
-      array.push(i[0]);
-    }
-
-    return array;
+    return this.get_data(id)?.map((x) => x[0]);
   }
 
   get_ref(): FdCloseSenderUseArrayBufferObject {
