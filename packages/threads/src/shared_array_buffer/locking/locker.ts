@@ -27,7 +27,8 @@ export class Locker {
     while (true) {
       const [success, out] = await this.try_lock(callback);
       if (success) return out;
-      console.warn("spinning");
+      console.warn("spinning async");
+      await async_yield();
     }
   }
 
@@ -129,7 +130,8 @@ export class Locker {
         return [true, await second.lock(callback)];
       });
       if (success) return out;
-      console.warn("spinning with deadlock avoidance");
+      console.warn("spinning async with deadlock avoidance");
+      await async_yield();
     }
   }
 
@@ -160,4 +162,13 @@ declare const lockerTargetBrand: unique symbol;
 export type LockerTarget = AtomicTarget & { [lockerTargetBrand]: never };
 export function new_locker_target(): LockerTarget {
   return new_atomic_target() as LockerTarget;
+}
+
+// kludgy but cross-platform replacement for setImmediate
+function async_yield(): Promise<void> {
+  const { port1, port2 } = new MessageChannel();
+  const { promise, resolve } = Promise.withResolvers<void>();
+  port2.onmessage = () => resolve();
+  port1.postMessage(undefined);
+  return promise;
 }
