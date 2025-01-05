@@ -14,6 +14,9 @@ import type { CmdParser, Terminal as OtherTerminal } from "rubrc-util";
 import { rust_file } from "./config";
 import XTerm from "./solid_xterm";
 
+// Supress an annoyingly intermittent TS bug that makes this a WorkerNavigator
+declare const navigator: Navigator;
+
 const makeTerminal = (xterm: Promise<Terminal>): OtherTerminal => {
   let err_buff = "";
   let out_buff = "";
