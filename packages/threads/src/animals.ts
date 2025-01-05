@@ -19,8 +19,6 @@ export class WASIFarmAnimal {
 
   wasi_farm_refs: WASIFarmRef[];
 
-  private id_in_wasi_farm_ref: Array<number>;
-
   _inst: { exports: { memory: WebAssembly.Memory } } | undefined;
   get inst(): { exports: { memory: WebAssembly.Memory } } {
     const out = this._inst;
@@ -228,9 +226,9 @@ export class WASIFarmAnimal {
 
   private check_fds() {
     const rm_fds: Array<[number, number]> = [];
-    for (let i = 0; i < this.id_in_wasi_farm_ref.length; i++) {
-      const id = this.id_in_wasi_farm_ref[i];
-      const removed_fds = this.wasi_farm_refs[i].get(id);
+    for (let i = 0; i < this.wasi_farm_refs.length; i++) {
+      const wasi_farm_ref = this.wasi_farm_refs[i];
+      const removed_fds = wasi_farm_ref.fd_close_receiver.get(wasi_farm_ref.id);
       if (removed_fds) {
         for (const fd of removed_fds) {
           rm_fds.push([fd, i]);
@@ -319,7 +317,6 @@ export class WASIFarmAnimal {
     const wasi_farm_refs_out = await Promise.all(
       wasi_farm_refs.map(async (x) => await WASIFarmRefUseArrayBuffer.init(x)),
     );
-    const id_in_wasi_farm_ref = wasi_farm_refs_out.map((x) => x.set_id());
 
     const thread_spawner_out = !options.can_thread_spawn
       ? undefined
@@ -346,7 +343,6 @@ export class WASIFarmAnimal {
 
     return new WASIFarmAnimal({
       wasi_farm_refs: wasi_farm_refs_out,
-      id_in_wasi_farm_ref,
       can_thread_spawn: options.can_thread_spawn ?? false,
       thread_spawner: thread_spawner_out,
       mapping_fds: await WASIFarmAnimal.mapping_fds(
@@ -361,7 +357,6 @@ export class WASIFarmAnimal {
 
   protected constructor({
     wasi_farm_refs,
-    id_in_wasi_farm_ref,
     can_thread_spawn,
     thread_spawner,
     mapping_fds,
@@ -370,7 +365,6 @@ export class WASIFarmAnimal {
     env,
   }: {
     wasi_farm_refs: WASIFarmRef[];
-    id_in_wasi_farm_ref: number[];
     can_thread_spawn: boolean;
     thread_spawner: ThreadSpawner | undefined;
     mapping_fds: Array<[number, number] | undefined>;
@@ -379,7 +373,6 @@ export class WASIFarmAnimal {
     env: Array<string>;
   }) {
     this.wasi_farm_refs = wasi_farm_refs;
-    this.id_in_wasi_farm_ref = id_in_wasi_farm_ref;
     this.thread_spawner = thread_spawner;
     this.can_thread_spawn = can_thread_spawn;
     this.fd_map = mapping_fds;

@@ -19,7 +19,7 @@ export abstract class WASIFarmRef {
   protected stdout: number | undefined;
   protected stderr: number | undefined;
 
-  protected id!: number;
+  abstract readonly id: number;
 
   fd_close_receiver: FdCloseSender;
 
@@ -34,8 +34,6 @@ export abstract class WASIFarmRef {
   }
 
   abstract set_park_fds_map(fds: Array<number>): void;
-
-  abstract set_id(): number;
 
   constructor(
     stdin: number | undefined,
