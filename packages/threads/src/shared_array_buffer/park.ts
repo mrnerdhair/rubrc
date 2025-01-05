@@ -231,10 +231,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // listen all fds and base
   // Must be called before was_ref_id is instantiated
   listen() {
-    this.listen_fds = [];
-    for (let n = 0; n < this.fds.length; n++) {
-      this.listen_fds.push(this.listen_fd(n));
-    }
+    this.listen_fds = this.fds.map((_fd, n) => this.listen_fd(n));
     return this.listen_base();
   }
 
