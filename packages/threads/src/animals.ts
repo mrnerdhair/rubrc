@@ -184,31 +184,26 @@ export class WASIFarmAnimal {
   }
 
   private check_fds() {
-    const rm_fds: Array<[number, number]> = [];
-    for (let i = 0; i < this.wasi_farm_refs.length; i++) {
-      const wasi_farm_ref = this.wasi_farm_refs[i];
-      const removed_fds = wasi_farm_ref.fd_close_receiver.get(wasi_farm_ref.id);
-      if (removed_fds) {
-        for (const fd of removed_fds) {
-          rm_fds.push([fd, i]);
-        }
-      }
-    }
+    const rm_fds = this.wasi_farm_refs.flatMap(
+      (wasi_farm_ref, wasi_farm_ref_n) =>
+        wasi_farm_ref.fd_close_receiver
+          .get(wasi_farm_ref.id)
+          ?.map((fd) => [fd, wasi_farm_ref_n] as const) ?? [],
+    );
+    if (rm_fds.length === 0) return;
 
-    if (rm_fds.length > 0) {
-      for (let i = 0; i < this.fd_map.length; i++) {
-        const fd_and_wasi_ref_n = this.fd_map[i];
-        if (!fd_and_wasi_ref_n) {
-          continue;
-        }
-        const [fd, wasi_ref_n] = fd_and_wasi_ref_n;
-        for (const [rm_fd_fd, rm_fd_wasi_ref_n] of rm_fds) {
-          if (fd === rm_fd_fd && wasi_ref_n === rm_fd_wasi_ref_n) {
-            this.fd_map[i] = undefined;
-            break;
-          }
-        }
-      }
+    const dead_fd_map_slots = this.fd_map
+      .filter((x) => !!x)
+      .map(([fd, wasi_ref_n]) =>
+        rm_fds.findIndex(
+          ([rm_fd_fd, rm_fd_wasi_ref_n]) =>
+            fd === rm_fd_fd && wasi_ref_n === rm_fd_wasi_ref_n,
+        ),
+      )
+      .filter((x) => !!x);
+
+    for (const i of dead_fd_map_slots) {
+      this.fd_map[i] = undefined;
     }
   }
 
