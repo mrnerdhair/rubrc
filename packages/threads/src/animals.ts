@@ -169,7 +169,7 @@ export class WASIFarmAnimal {
         }
         WASIFarmAnimal.map_new_fd(out_fd_map, j, i);
       }
-      wasi_farm_ref.set_park_fds_map(override_fd_map);
+      await wasi_farm_ref.set_park_fds_map_async(override_fd_map);
     }
 
     if (out_fd_map[0] === undefined) {

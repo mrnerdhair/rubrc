@@ -26,6 +26,7 @@ export abstract class WASIFarmRef {
   default_fds: Array<number> = [];
 
   abstract set_park_fds_map(fds: Array<number>): void;
+  abstract set_park_fds_map_async(fds: Array<number>): Promise<void>;
 
   constructor(
     stdin: number | undefined,
