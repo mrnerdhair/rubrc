@@ -15,7 +15,7 @@ export abstract class WASIFarmPark {
   abstract listen(): Promise<void>;
   abstract notify_set_fd(fd: number): void;
   abstract notify_rm_fd(fd: number): void;
-  abstract can_set_new_fd(fd: number): [boolean, Promise<void> | undefined];
+  abstract can_set_new_fd(fd: number): Promise<void>;
 
   protected fds: Array<Fd | undefined>;
   protected stdin: number | undefined;
@@ -66,10 +66,7 @@ export abstract class WASIFarmPark {
           this.fds_map.push([]);
         }
 
-        const [can, promise] = this.can_set_new_fd(ret);
-        if (!can) {
-          await promise;
-        }
+        await this.can_set_new_fd(ret);
 
         // If it's assigned, it's resolved.
         resolve([

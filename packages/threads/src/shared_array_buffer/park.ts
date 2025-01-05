@@ -207,11 +207,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // abstract methods implementation
   // wait to close old listener
-  can_set_new_fd(fd: number): [boolean, Promise<void> | undefined] {
-    if (this.listen_fds[fd] instanceof Promise) {
-      return [false, this.listen_fds[fd]];
-    }
-    return [true, undefined];
+  async can_set_new_fd(fd: number): Promise<void> {
+    await this.listen_fds[fd];
   }
 
   // listen all fds and base
