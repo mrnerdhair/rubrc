@@ -53,7 +53,7 @@ export class RustcWorker {
     try {
       this.wasi.args = ["rustc", ...args];
       console.log("wasi.start");
-      this.wasi.block_start_on_thread();
+      await this.wasi.async_start_on_thread();
       console.log("wasi.start done");
     } catch (e) {
       this.terminal.write(`${e}\r\n`);

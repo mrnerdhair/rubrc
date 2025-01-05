@@ -110,25 +110,6 @@ export class WASIFarmAnimal {
     );
   }
 
-  block_start_on_thread(): number {
-    if (!this.can_thread_spawn || !this.thread_spawner) {
-      throw new Error("thread_spawn is not supported");
-    }
-
-    if (this._inst) {
-      throw new Error("what happened?");
-    }
-
-    const view = new Uint8Array(this.thread_spawner.get_share_memory().buffer);
-    view.fill(0);
-
-    return this.thread_spawner.block_start_on_thread(
-      this.args,
-      this.env,
-      this.fd_map,
-    );
-  }
-
   wasi_thread_start(
     instance: WasiP1Thread,
     thread_id: number,
