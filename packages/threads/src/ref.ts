@@ -25,14 +25,6 @@ export abstract class WASIFarmRef {
 
   default_fds: Array<number> = [];
 
-  async send(targets: Array<number>, fd: number): Promise<void> {
-    await this.fd_close_receiver.send(targets, fd);
-  }
-
-  get(id: number): Array<number> | undefined {
-    return this.fd_close_receiver.get(id);
-  }
-
   abstract set_park_fds_map(fds: Array<number>): void;
 
   constructor(
