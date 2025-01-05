@@ -53,6 +53,8 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   protected locker: Locker;
   protected caller: Caller;
 
+  readonly id: number;
+
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
     lock_fds: Array<{
@@ -80,6 +82,8 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.fds_len_and_num = fds_len_and_num;
     this.locker = new Locker(base_func_util_locks.lock);
     this.caller = new Caller(base_func_util_locks.call);
+    const view = new Int32Array(this.fds_len_and_num);
+    this.id = Atomics.add(view, 1, 1);
   }
 
   get_fds_len(): number {
@@ -101,14 +105,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       sl.stderr,
       sl.default_fds,
     );
-  }
-
-  // allocate a new id on wasi_farm_ref and return it
-  set_id(): number {
-    const view = new Int32Array(this.fds_len_and_num);
-    const id = Atomics.add(view, 1, 1);
-    this.id = id;
-    return id;
   }
 
   // set park_fds_map
