@@ -145,6 +145,7 @@ export class UtilCmdWorker {
       this.animal.start(inst);
     } catch (e) {
       this.terminal.write(`Error: ${e}\r\n`);
+      throw e;
     }
   }
 

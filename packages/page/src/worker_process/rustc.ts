@@ -57,6 +57,7 @@ export class RustcWorker {
       console.log("wasi.start done");
     } catch (e) {
       this.terminal.write(`${e}\r\n`);
+      throw e;
     }
   }
 }
