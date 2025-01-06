@@ -6,6 +6,7 @@ export const get_data = (
   path__: string,
   animal: WASIFarmAnimal,
 ): Uint8Array => {
+  console.log(`catting ${path__}`, animal);
   try {
     // path is absolute
     const path = `${!path__.startsWith("/") ? "/" : ""}${path__}`;
@@ -143,5 +144,7 @@ export const get_data = (
   } catch (e) {
     if (e === wasi.ERRNO_BADF) throw new Error("failed to open file");
     throw e;
+  } finally {
+    console.log(`done catting ${path__}`, animal);
   }
 };
