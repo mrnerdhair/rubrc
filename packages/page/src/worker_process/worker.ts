@@ -80,27 +80,27 @@ export class MainWorker {
     this.terminal.write(`loaded sysroot ${triple}\r\n`);
   }
 
-  async rustc(...args: string[]) {
+  async rustc(...args: string[]): Promise<number> {
     return await this.rustc_worker.rustc(...args);
   }
 
-  async llvm(...args: string[]) {
+  async llvm(...args: string[]): Promise<number> {
     return await this.llvm_worker.llvm(...args);
   }
 
-  async ls(...args: string[]) {
+  async ls(...args: string[]): Promise<number> {
     return await this.util_worker.ls(...args);
   }
 
-  async download(file: string) {
+  async download(file: string): Promise<void> {
     return await this.util_worker.download(file);
   }
 
-  async tree(...args: string[]) {
+  async tree(...args: string[]): Promise<number> {
     return await this.util_worker.tree(...args);
   }
 
-  async exec_file(...args: string[]) {
+  async exec_file(...args: string[]): Promise<number> {
     return await this.util_worker.exec_file(...args);
   }
 }

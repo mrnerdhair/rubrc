@@ -118,23 +118,23 @@ export class UtilCmdWorker {
     });
   }
 
-  async ls(...args: string[]) {
+  async ls(...args: string[]): Promise<number> {
     // If I don't reset memory, I get some kind of error.
     const memory_view = new Uint8Array(this.ls_inst.exports.memory.buffer);
     memory_view.set(this.ls_memory_reset_view);
     this.ls_wasi.args = ["lsr", ...args];
-    this.ls_wasi.start(this.ls_inst);
+    return await this.ls_wasi.start(this.ls_inst);
   }
 
-  async tree(...args: string[]) {
+  async tree(...args: string[]): Promise<number> {
     // If I don't reset memory, I get some kind of error.
     this.tree_wasi.args = ["tre", ...args];
     const memory_view = new Uint8Array(this.tree_inst.exports.memory.buffer);
     memory_view.set(this.tree_memory_reset_view);
-    this.tree_wasi.start(this.tree_inst);
+    return await this.tree_wasi.start(this.tree_inst);
   }
 
-  async exec_file(...args: string[]) {
+  async exec_file(...args: string[]): Promise<number> {
     const exec_file = args[0];
     const exec_args = args.slice(1);
     try {
@@ -142,14 +142,14 @@ export class UtilCmdWorker {
       const compiled_wasm = await WebAssembly.compile(file);
       const inst = await this.animal.instantiate_cmd(compiled_wasm);
       this.animal.args = [exec_file, ...exec_args];
-      this.animal.start(inst);
+      return await this.animal.start(inst);
     } catch (e) {
       this.terminal.write(`Error: ${e}\r\n`);
       throw e;
     }
   }
 
-  async download(file: string) {
+  async download(file: string): Promise<void> {
     try {
       const file_data = get_data(file, this.animal);
       const blob = new Blob([file_data]);

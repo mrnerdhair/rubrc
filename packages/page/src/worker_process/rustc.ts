@@ -49,12 +49,13 @@ export class RustcWorker {
     return new RustcWorker({ terminal, wasi });
   }
 
-  async rustc(...args: string[]) {
+  async rustc(...args: string[]): Promise<number> {
     try {
       this.wasi.args = ["rustc", ...args];
       console.log("wasi.start");
-      await this.wasi.async_start_on_thread();
-      console.log("wasi.start done");
+      const code = await this.wasi.async_start_on_thread();
+      console.log("wasi.start done", code);
+      return code;
     } catch (e) {
       this.terminal.write(`${e}\r\n`);
       throw e;
