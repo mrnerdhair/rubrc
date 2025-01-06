@@ -111,7 +111,7 @@ export class WorkerBackground {
       lock: this.lock,
       locks: this.locks,
       signature_input: this.signature_input,
-    };
+    } as WorkerBackgroundRefObject;
   }
 
   async listen(): Promise<void> {
