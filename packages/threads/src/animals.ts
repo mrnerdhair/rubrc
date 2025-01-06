@@ -130,9 +130,7 @@ export class WASIFarmAnimal {
   /// Initialize a WASI reactor
   initialize(instance: WasiP1Reactor) {
     this._inst = instance;
-    if (instance.exports._initialize) {
-      instance.exports._initialize();
-    }
+    instance.exports._initialize?.();
   }
 
   private static async mapping_fds(
