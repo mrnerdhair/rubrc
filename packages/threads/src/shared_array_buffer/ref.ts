@@ -55,8 +55,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   private readonly fd_func_sig: SharedArrayBuffer;
   private readonly base_func_util: SharedArrayBuffer;
 
-  declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
-
   private readonly locker: Locker;
   private readonly caller: Caller;
 
