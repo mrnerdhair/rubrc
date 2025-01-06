@@ -99,7 +99,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private readonly fd_func_sig: SharedArrayBuffer;
 
   // listen base lock and call etc
-  private readonly base_func_util: SharedArrayBuffer;
+  private readonly base_func_util: Int32Array<SharedArrayBuffer>;
   private readonly base_func_util_locks: {
     lock: LockerTarget;
     call: CallerTarget;
@@ -154,7 +154,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     Atomics.store(view, 1, 0);
 
     this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
-    this.base_func_util = new SharedArrayBuffer(24);
+    this.base_func_util = new Int32Array(new SharedArrayBuffer(24));
+
     const [call, listen] = new_caller_listener_target();
     this.base_func_util_locks = {
       lock: new_locker_target(),
@@ -172,7 +173,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       lock_fds: this.lock_fds,
       fds_len_and_num: this.fds_len_and_num,
       fd_func_sig: this.fd_func_sig,
-      base_func_util: this.base_func_util,
+      base_func_util: this.base_func_util.buffer,
       base_func_util_locks: this.base_func_util_locks,
       fd_close_receiver: this.fd_close_receiver.get_ref(),
       stdin: this.stdin,
@@ -244,21 +245,20 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // it need targets wasi_farm_ref id
   // so, set fds_map
   async listen_base() {
-    const lock_view = new Int32Array(this.base_func_util);
     this.locker.reset();
 
     const listener = this.listener;
     listener.reset();
     while (true) {
       await listener.listen(async () => {
-        const func_number = Atomics.load(lock_view, 2);
+        const func_number = Atomics.load(this.base_func_util, 2);
         switch (func_number) {
           case WASIFarmParkFuncNames.set_fds_map: {
-            const ptr = Atomics.load(lock_view, 3);
-            const len = Atomics.load(lock_view, 4);
+            const ptr = Atomics.load(this.base_func_util, 3);
+            const len = Atomics.load(this.base_func_util, 4);
             const data = new Uint32Array(this.allocator.get_memory(ptr, len));
             this.allocator.free(ptr, len);
-            const wasi_farm_ref_id = Atomics.load(lock_view, 5);
+            const wasi_farm_ref_id = Atomics.load(this.base_func_util, 5);
 
             for (let i = 0; i < len / 4; i++) {
               const fd = data[i];
