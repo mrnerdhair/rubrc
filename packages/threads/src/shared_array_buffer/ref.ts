@@ -42,6 +42,13 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     lock: LockerTarget;
     call: CallerTarget;
   }>;
+  private get_fd_locker(fd_n: number): Locker {
+    return new Locker(this.lock_fds[fd_n].lock);
+  }
+  private get_fd_caller(fd_n: number): Caller {
+    return new Caller(this.lock_fds[fd_n].call);
+  }
+
   // byte 1: fds_len
   // byte 2: all wasi_farm_ref num
   private readonly fds_len_and_num: SharedArrayBuffer;
@@ -131,16 +138,13 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   protected lock_fd<T>(fd: number, callback: () => T): T {
-    return new Locker(this.lock_fds[fd].lock).lock_blocking(callback);
+    return this.get_fd_locker(fd).lock_blocking(callback);
   }
 
   protected lock_double_fd<T>(fd1: number, fd2: number, callback: () => T): T {
-    const fd1_locker = new Locker(this.lock_fds[fd1].lock);
-    const fd2_locker = new Locker(this.lock_fds[fd2].lock);
-
     return Locker.dual_lock_blocking(
-      fd1_locker,
-      fd2_locker,
+      this.get_fd_locker(fd1),
+      this.get_fd_locker(fd2),
       callback,
       fd1 < fd2,
     );
@@ -165,8 +169,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private call_fd_func(fd: number): number {
-    const caller = new Caller(this.lock_fds[fd].call);
-    caller.call_and_wait_blocking();
+    this.get_fd_caller(fd).call_and_wait_blocking();
     return this.get_error(fd);
   }
 
