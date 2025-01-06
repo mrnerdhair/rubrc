@@ -269,16 +269,19 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   private set_fds_map(ptr: number, len: number) {
     const data = new Uint32Array(this.allocator.get_memory(ptr, len));
-    this.allocator.free(ptr, len);
-    const wasi_farm_ref_id = Atomics.load(this.base_func_util, 5);
+    try {
+      const wasi_farm_ref_id = Atomics.load(this.base_func_util, 5);
 
-    for (let i = 0; i < len / 4; i++) {
-      const fd = data[i];
-      if (this.fds_map[fd] === undefined) {
-        this.fds_map[fd] = [];
-        throw new Error("listen_base fd is not defined");
+      for (let i = 0; i < len / 4; i++) {
+        const fd = data[i];
+        if (this.fds_map[fd] === undefined) {
+          this.fds_map[fd] = [];
+          throw new Error("listen_base fd is not defined");
+        }
+        this.fds_map[fd].push(wasi_farm_ref_id);
       }
-      this.fds_map[fd].push(wasi_farm_ref_id);
+    } finally {
+      this.allocator.free(ptr, len);
     }
   }
 
