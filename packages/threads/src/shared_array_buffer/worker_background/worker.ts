@@ -10,6 +10,7 @@ import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
+  type AsyncCallerTarget,
   Caller,
   type CallerTarget,
   Listener,
@@ -40,7 +41,7 @@ export class WorkerBackground {
   private readonly lock: SharedArrayBuffer;
   private readonly locks: {
     lock: LockerTarget;
-    call: CallerTarget;
+    call: AsyncCallerTarget;
     listen: ListenerTarget;
     done_call: CallerTarget;
     done_listen: ListenerTarget;
@@ -61,7 +62,7 @@ export class WorkerBackground {
     lock: SharedArrayBuffer,
     locks: {
       lock: LockerTarget;
-      call: CallerTarget;
+      call: AsyncCallerTarget;
       listen: ListenerTarget;
       done_call: CallerTarget;
       done_listen: ListenerTarget;

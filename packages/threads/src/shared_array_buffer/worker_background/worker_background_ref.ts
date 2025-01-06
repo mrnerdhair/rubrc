@@ -1,5 +1,7 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
+  AsyncCaller,
+  type AsyncCallerTarget,
   Caller,
   type CallerTarget,
   Listener,
@@ -19,14 +21,14 @@ export class WorkerBackgroundRef {
   private readonly lock: SharedArrayBuffer;
   private readonly locks: {
     lock: LockerTarget;
-    call: CallerTarget;
+    call: AsyncCallerTarget;
     done_call: CallerTarget;
     done_listen: ListenerTarget;
   };
   private readonly signature_input: SharedArrayBuffer;
   private readonly next_worker_id: SharedArrayBuffer;
   private readonly locker: Locker;
-  private readonly caller: Caller;
+  private readonly caller: AsyncCaller;
   private readonly done_caller: Caller;
   private readonly done_listener: Listener;
 
@@ -35,7 +37,7 @@ export class WorkerBackgroundRef {
     lock: SharedArrayBuffer,
     locks: {
       lock: LockerTarget;
-      call: CallerTarget;
+      call: AsyncCallerTarget;
       done_call: CallerTarget;
       done_listen: ListenerTarget;
     },
@@ -48,7 +50,7 @@ export class WorkerBackgroundRef {
     this.signature_input = signature_input;
     this.next_worker_id = next_worker_id;
     this.locker = new Locker(this.locks.lock);
-    this.caller = new Caller(this.locks.call);
+    this.caller = new AsyncCaller(this.locks.call);
     this.done_caller = new Caller(this.locks.done_call, null);
     this.done_listener = new Listener(this.locks.done_listen, null);
   }

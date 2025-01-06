@@ -45,15 +45,6 @@ export class Caller {
     }
   }
 
-  async call_and_wait(code = this.locked_value): Promise<void> {
-    if (code === undefined) throw new Error("must provide a code");
-    this.call(code);
-    const lock = await Atomics.waitAsync(this.view, 0, code).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
-  }
-
   call_and_wait_blocking(code = this.locked_value): void {
     if (code === undefined) throw new Error("must provide a code");
     this.call(code);

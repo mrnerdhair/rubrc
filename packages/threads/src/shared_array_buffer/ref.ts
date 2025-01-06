@@ -131,7 +131,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const fds_array = new Uint32Array(fds);
       await this.allocator.async_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);
-      await this.caller.call_and_wait();
+      this.caller.call_and_wait_blocking();
     });
   }
 
