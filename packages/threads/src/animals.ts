@@ -58,27 +58,14 @@ export class WASIFarmAnimal {
   // FIXME v0.3: close opened Fds after execution
   start(instance: WasiP1Cmd) {
     this._inst = instance;
-
     try {
       instance.exports._start();
-
-      if (this.can_thread_spawn) {
-        if (!this.thread_spawner) {
-          throw new Error("thread_spawner is not defined");
-        }
-        this.thread_spawner.done_notify(0);
-      }
-
+      this.thread_spawner?.done_notify(0);
       return 0;
     } catch (e) {
-      if (e instanceof WASIProcExit) {
-        if (this.can_thread_spawn) {
-          this.thread_spawner?.done_notify(e.code);
-        }
-
-        return e.code;
-      }
-      throw e;
+      if (!(e instanceof WASIProcExit)) throw e;
+      this.thread_spawner?.done_notify(e.code);
+      return e.code;
     }
   }
 
@@ -92,7 +79,7 @@ export class WASIFarmAnimal {
   /// function because it cannot be passed to other threads.
   /// If the sharedObject library someday supports synchronization, it could be used to support this.
   async async_start_on_thread(): Promise<number> {
-    if (!this.can_thread_spawn || !this.thread_spawner) {
+    if (!this.thread_spawner) {
       throw new Error("thread_spawn is not supported");
     }
 
