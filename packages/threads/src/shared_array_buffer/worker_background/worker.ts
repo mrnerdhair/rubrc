@@ -236,6 +236,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
+                  console.error(error);
                   doneResolve([WorkerBackgroundReturnCodes.threw]);
                 } catch (e) {
                   this.allocator.free(ptr, len);
@@ -318,6 +319,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
+                  console.error(error);
                   doneResolve([WorkerBackgroundReturnCodes.threw]);
                 } catch (e) {
                   this.allocator.free(ptr, len);
