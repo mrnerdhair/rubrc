@@ -189,36 +189,6 @@ export class ThreadSpawner {
     );
   }
 
-  block_start_on_thread(
-    args: Array<string>,
-    env: Array<string>,
-    fd_map: Array<[number, number] | undefined>,
-  ): number {
-    if (!self.Worker.toString().includes("[native code]")) {
-      if (self.Worker.toString().includes("function")) {
-        console.warn("SubWorker(new Worker on Worker) is polyfilled maybe.");
-      } else {
-        throw new Error("SubWorker(new Worker on Worker) is not supported.");
-      }
-    }
-
-    if (this.worker_background_worker === undefined) {
-      throw new Error("worker_background_worker is undefined.");
-    }
-
-    return this.worker_background_ref.block_start_on_thread(
-      this.worker_url,
-      { type: "module" },
-      {
-        this_is_thread_spawn: true,
-        this_is_start: true,
-        args,
-        env,
-        fd_map,
-      },
-    );
-  }
-
   get_share_memory(): WebAssembly.Memory {
     return this.share_memory;
   }
