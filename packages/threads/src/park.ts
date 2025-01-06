@@ -53,16 +53,9 @@ export abstract class WASIFarmPark {
   private async get_new_fd(): Promise<[() => Promise<void>, number]> {
     const promise = new Promise<[() => Promise<void>, number]>((resolve) => {
       const len = this.get_new_fd_lock.push(async () => {
-        let ret = -1;
-        for (let i = 0; i < this.fds.length; i++) {
-          if (this.fds[i] === undefined) {
-            ret = i;
-            break;
-          }
-        }
+        let ret = this.fds.indexOf(undefined);
         if (ret === -1) {
-          ret = this.fds.length;
-          this.fds.push(undefined);
+          ret = this.fds.push(undefined) - 1;
           this.fds_map.push([]);
         }
 
