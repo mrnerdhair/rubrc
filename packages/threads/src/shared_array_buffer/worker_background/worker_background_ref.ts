@@ -92,25 +92,6 @@ export class WorkerBackgroundRef {
     return await this.async_wait_done_or_error();
   }
 
-  block_start_on_thread(
-    url: string,
-    options: WorkerOptions | undefined,
-    post_obj: unknown,
-  ) {
-    this.locker.lock_blocking(() => {
-      const view = new Int32Array(this.signature_input);
-      Atomics.store(view, 0, 2);
-      const url_buffer = new TextEncoder().encode(url);
-      this.allocator.block_write(url_buffer, view, 1);
-      Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
-      const obj_json = JSON.stringify(post_obj);
-      const obj_buffer = new TextEncoder().encode(obj_json);
-      this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking();
-    });
-    return this.block_wait_done_or_error();
-  }
-
   static async init(
     sl: WorkerBackgroundRefObject,
   ): Promise<WorkerBackgroundRef> {
@@ -145,36 +126,6 @@ export class WorkerBackgroundRef {
         }
         // threw, fetch and rethrow error
         case WorkerBackgroundReturnCodes.threw: {
-          const ptr = Atomics.load(notify_view, 1);
-          const size = Atomics.load(notify_view, 2);
-          const error_buffer = this.allocator.get_memory(ptr, size);
-          const error_txt = new TextDecoder().decode(error_buffer);
-          const error_serialized = JSON.parse(error_txt);
-          if (!Serializer.isSerializedError(error_serialized))
-            throw new Error("expected SerializedError");
-          throw Serializer.deserialize(error_serialized);
-        }
-        default: {
-          throw new Error(`unknown code ${code}`);
-        }
-      }
-    });
-  }
-
-  private block_wait_done_or_error(): number {
-    const notify_view = new Int32Array(this.lock, 8);
-    const listener = this.done_listener;
-    listener.reset();
-
-    return listener.listen_blocking((data_view: DataView) => {
-      const code = data_view.getInt32(0);
-      switch (code) {
-        // completed, fetch and return errno
-        case 2: {
-          return Atomics.load(notify_view, 1);
-        }
-        // threw, fetch and rethrow error
-        case 1: {
           const ptr = Atomics.load(notify_view, 1);
           const size = Atomics.load(notify_view, 2);
           const error_buffer = this.allocator.get_memory(ptr, size);
