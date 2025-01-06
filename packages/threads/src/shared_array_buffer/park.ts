@@ -268,8 +268,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
             break;
           }
           default: {
-            console.warn(`unexpected func_number ${func_number}`);
-            break;
+            throw new Error(`unexpected func_number ${func_number}`);
           }
         }
       });
