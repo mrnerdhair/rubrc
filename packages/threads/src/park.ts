@@ -104,13 +104,13 @@ export abstract class WASIFarmPark {
   }
 
   protected async fd_close(fd: number): Promise<number> {
-    if (this.fds[fd] !== undefined) {
-      const ret = this.fds[fd].fd_close();
-      this.fds[fd] = undefined;
-      await this.notify_rm_fd(fd);
-      return ret;
+    if (this.fds[fd] === undefined) {
+      return wasi.ERRNO_BADF;
     }
-    return wasi.ERRNO_BADF;
+    const ret = this.fds[fd].fd_close();
+    this.fds[fd] = undefined;
+    await this.notify_rm_fd(fd);
+    return ret;
   }
 
   protected fd_datasync(fd: number): number {
