@@ -57,7 +57,7 @@ export class LlvmWorker {
 
     return new LlvmWorker({ wasi, linker, memory_reset_view });
   }
-  async llvm(...args: string[]) {
+  async llvm(...args: string[]): Promise<number> {
     if (args[0] !== "llvm") {
       this.wasi.args = ["llvm", ...args];
     } else {
@@ -67,8 +67,9 @@ export class LlvmWorker {
     console.log(this.wasi);
     const memory_view = new Uint8Array(this.linker.exports.memory.buffer);
     memory_view.set(this.memory_reset_view);
-    this.wasi.start(this.linker);
-    console.log("wasi.start done");
+    const code = await this.wasi.start(this.linker);
+    console.log("wasi.start done", code);
+    return code;
   }
 }
 
