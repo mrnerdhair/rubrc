@@ -55,8 +55,8 @@ export class WorkerBackgroundRef {
 
   new_worker(
     url: string,
-    options?: WorkerOptions,
-    post_obj?: unknown,
+    options: WorkerOptions,
+    post_obj: unknown,
   ): WorkerRef {
     return this.locker.lock_blocking(() => {
       const view = new Int32Array(this.signature_input);
@@ -67,7 +67,7 @@ export class WorkerBackgroundRef {
 
       const url_buffer = new TextEncoder().encode(url);
       this.allocator.block_write(url_buffer, view, 1);
-      Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
+      Atomics.store(view, 3, options.type === "module" ? 1 : 0);
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
@@ -79,7 +79,7 @@ export class WorkerBackgroundRef {
 
   async async_start_on_thread(
     url: string,
-    options: WorkerOptions | undefined,
+    options: WorkerOptions,
     post_obj: unknown,
   ) {
     await this.locker.lock(async () => {
@@ -87,7 +87,7 @@ export class WorkerBackgroundRef {
       Atomics.store(view, 0, WorkerBackgroundFuncNames.create_start);
       const url_buffer = new TextEncoder().encode(url);
       await this.allocator.async_write(url_buffer, view, 1);
-      Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
+      Atomics.store(view, 3, options.type === "module" ? 1 : 0);
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       await this.allocator.async_write(obj_buffer, view, 4);
