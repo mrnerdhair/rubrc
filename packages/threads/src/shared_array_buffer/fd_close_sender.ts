@@ -14,7 +14,7 @@ export type FdCloseSenderUseArrayBufferObject = {
 // that the file descriptor has been closed
 export class FdCloseSenderUseArrayBuffer
   extends ToRefSenderUseArrayBuffer
-  implements FdCloseSender, FdCloseSenderUseArrayBufferObject
+  implements FdCloseSender
 {
   // Should be able to change the size of memory as it accumulates more and more on memory
   constructor(
