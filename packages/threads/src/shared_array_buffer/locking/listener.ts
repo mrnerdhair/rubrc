@@ -60,40 +60,6 @@ export class Listener {
       }
     }
   }
-
-  listen_blocking<T>(callback: (value?: number) => T): T {
-    const lock = Atomics.wait(this.view, 0, this.unlocked_value);
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
-    if (this.locked_value === undefined && lock === "not-equal") {
-      throw new Error("not-equal");
-    }
-
-    const value = Atomics.load(this.view, 0);
-    if (this.locked_value !== undefined && value !== this.locked_value) {
-      throw new Error(`lock is already set: ${value}`);
-    }
-
-    try {
-      return callback(value);
-    } finally {
-      const new_value = Atomics.compareExchange(
-        this.view,
-        0,
-        value,
-        this.unlocked_value,
-      );
-      if (new_value !== value) {
-        console.error(`lock is already set: ${new_value}`);
-      }
-
-      const n = Atomics.notify(this.view, 0, 1);
-      if (n === 0) {
-        console.warn("notify number is 0. ref is late?");
-      }
-    }
-  }
 }
 
 declare const listenerTargetBrand: unique symbol;
