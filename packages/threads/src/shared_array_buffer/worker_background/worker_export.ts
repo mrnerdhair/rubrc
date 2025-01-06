@@ -7,6 +7,7 @@ import {
   new_locker_target,
 } from "../locking";
 
+declare const workerBackgroundRefObjectBrand: unique symbol;
 export type WorkerBackgroundRefObject = {
   allocator: AllocatorUseArrayBufferObject;
   lock: SharedArrayBuffer;
@@ -18,6 +19,7 @@ export type WorkerBackgroundRefObject = {
     done_call: CallerTarget;
   };
   signature_input: SharedArrayBuffer;
+  [workerBackgroundRefObjectBrand]: never;
 };
 
 export const WorkerBackgroundRefObjectConstructor =
@@ -38,7 +40,7 @@ export const WorkerBackgroundRefObjectConstructor =
         done_listen,
       },
       signature_input: new SharedArrayBuffer(24),
-    };
+    } as WorkerBackgroundRefObject;
   };
 
 export type WorkerOptions = {
