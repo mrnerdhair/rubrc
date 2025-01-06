@@ -14,7 +14,8 @@ import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
 export const fd_func_sig_u32_size: number = 18;
-export const fd_func_sig_bytes: number = fd_func_sig_u32_size * 4;
+export const fd_func_sig_bytes: number =
+  fd_func_sig_u32_size * Uint32Array.BYTES_PER_ELEMENT;
 const MAX_FDS_LEN = 128;
 
 export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
