@@ -16,8 +16,6 @@ import {
   type ListenerTarget,
   Locker,
   type LockerTarget,
-  new_caller_listener_target,
-  new_locker_target,
 } from "../locking";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
@@ -60,40 +58,25 @@ export class WorkerBackground {
 
   protected constructor(
     override_object: OverrideObject,
-    lock?: SharedArrayBuffer,
-    locks?: {
+    lock: SharedArrayBuffer,
+    locks: {
       lock: LockerTarget;
       call: CallerTarget;
       listen: ListenerTarget;
       done_call: CallerTarget;
       done_listen: ListenerTarget;
     },
-    allocator?: AllocatorUseArrayBuffer,
-    signature_input?: SharedArrayBuffer,
+    allocator: AllocatorUseArrayBuffer,
+    signature_input: SharedArrayBuffer,
   ) {
     this.override_object = override_object;
-    this.lock = lock ?? new SharedArrayBuffer(20);
-    const [call, listen] = new_caller_listener_target();
-    const [done_call, done_listen] = new_caller_listener_target(
-      1 * Int32Array.BYTES_PER_ELEMENT,
-    );
-    this.locks = locks ?? {
-      lock: new_locker_target(),
-      call,
-      listen,
-      done_call,
-      done_listen,
-    };
+    this.lock = lock;
+    this.locks = locks;
     this.locker = new Locker(this.locks.lock);
     this.listener = new Listener(this.locks.listen);
     this.done_caller = new Caller(this.locks.done_call);
-    this.allocator =
-      allocator ??
-      new AllocatorUseArrayBuffer({
-        share_arrays_memory: new SharedArrayBuffer(10 * 1024),
-        share_arrays_memory_lock: new_locker_target(),
-      });
-    this.signature_input = signature_input ?? new SharedArrayBuffer(24);
+    this.allocator = allocator;
+    this.signature_input = signature_input;
     this.listen();
   }
 
