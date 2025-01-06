@@ -251,19 +251,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           case WASIFarmParkFuncNames.set_fds_map: {
             const ptr = Atomics.load(this.base_func_util, 3);
             const len = Atomics.load(this.base_func_util, 4);
-            const data = new Uint32Array(this.allocator.get_memory(ptr, len));
-            this.allocator.free(ptr, len);
-            const wasi_farm_ref_id = Atomics.load(this.base_func_util, 5);
-
-            for (let i = 0; i < len / 4; i++) {
-              const fd = data[i];
-              if (this.fds_map[fd] === undefined) {
-                this.fds_map[fd] = [];
-                throw new Error("listen_base fd is not defined");
-              }
-              this.fds_map[fd].push(wasi_farm_ref_id);
-            }
-
+            this.set_fds_map(ptr, len);
             break;
           }
           default: {
@@ -271,6 +259,21 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           }
         }
       });
+    }
+  }
+
+  private set_fds_map(ptr: number, len: number) {
+    const data = new Uint32Array(this.allocator.get_memory(ptr, len));
+    this.allocator.free(ptr, len);
+    const wasi_farm_ref_id = Atomics.load(this.base_func_util, 5);
+
+    for (let i = 0; i < len / 4; i++) {
+      const fd = data[i];
+      if (this.fds_map[fd] === undefined) {
+        this.fds_map[fd] = [];
+        throw new Error("listen_base fd is not defined");
+      }
+      this.fds_map[fd].push(wasi_farm_ref_id);
     }
   }
 
