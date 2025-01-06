@@ -107,10 +107,8 @@ export class WASIFarmAnimal {
       instance.exports.wasi_thread_start(thread_id, start_arg);
       return 0;
     } catch (e) {
-      if (e instanceof WASIProcExit) {
-        return e.code;
-      }
-      throw e;
+      if (!(e instanceof WASIProcExit)) throw e;
+      return e.code;
     }
   }
 
