@@ -16,6 +16,7 @@ import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
 export const fd_func_sig_u32_size: number = 18;
 export const fd_func_sig_bytes: number = fd_func_sig_u32_size * 4;
+const MAX_FDS_LEN = 128;
 
 export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private readonly allocator: AllocatorUseArrayBuffer;
@@ -134,8 +135,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         share_arrays_memory: new SharedArrayBuffer(allocator_size),
       });
     }
-    const max_fds_len = 128;
-    this.lock_fds = new Array(max_fds_len).fill(undefined).map(() => {
+    this.lock_fds = new Array(MAX_FDS_LEN).fill(undefined).map(() => {
       const [call, listen] = new_caller_listener_target();
       return {
         lock: new_locker_target(),
@@ -144,7 +144,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       };
     });
     this.fd_func_sig = new SharedArrayBuffer(
-      fd_func_sig_u32_size * 4 * max_fds_len,
+      fd_func_sig_u32_size * 4 * MAX_FDS_LEN,
     );
     this.fds_len_and_num = new SharedArrayBuffer(8);
 
@@ -189,7 +189,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     if (this.fds[fd] === undefined) {
       throw new Error("fd is not defined");
     }
-    if (fd >= 128) {
+    if (fd >= MAX_FDS_LEN) {
       throw new Error("fd is too big. expand is not supported yet");
     }
     if (this.listen_fds[fd] !== undefined) {
