@@ -280,13 +280,7 @@ export class WASIFarmAnimal {
     const thread_spawner_out = !options.can_thread_spawn
       ? undefined
       : await (async () => {
-          if (thread_spawner) {
-            if (!(thread_spawner instanceof ThreadSpawner)) {
-              throw new Error("thread_spawner is not ThreadSpawner");
-            }
-
-            return thread_spawner;
-          }
+          if (thread_spawner) return thread_spawner;
           if (options.thread_spawn_worker_url === undefined) {
             throw new Error("thread_spawn_worker_url is not defined");
           }
