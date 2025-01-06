@@ -12,7 +12,7 @@ import {
   new_locker_target,
 } from "./locking";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
-import { FuncNames } from "./util";
+import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
 export const fd_func_sig_u32_size: number = 18;
 export const fd_func_sig_bytes: number = fd_func_sig_u32_size * 4;
@@ -250,8 +250,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       await listener.listen(async () => {
         const func_number = Atomics.load(lock_view, 2);
         switch (func_number) {
-          // set_fds_map: (fds_ptr: u32, fds_len: u32);
-          case 0: {
+          case WASIFarmParkFuncNames.set_fds_map: {
             const ptr = Atomics.load(lock_view, 3);
             const len = Atomics.load(lock_view, 4);
             const data = new Uint32Array(this.allocator.get_memory(ptr, len));

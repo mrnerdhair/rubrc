@@ -31,3 +31,17 @@ export enum FuncNames {
   path_symlink = 36,
   path_unlink_file = 37,
 }
+
+export enum WASIFarmParkFuncNames {
+  set_fds_map = 0,
+}
+
+export enum WorkerBackgroundFuncNames {
+  create_new_worker = 1,
+  create_start = 2,
+}
+
+export enum WorkerBackgroundReturnCodes {
+  threw = 1,
+  completed = 2,
+}

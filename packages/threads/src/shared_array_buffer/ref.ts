@@ -17,7 +17,7 @@ import {
   type LockerTarget,
 } from "./locking";
 import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
-import { FuncNames } from "./util";
+import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
 export type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBufferObject;
@@ -116,7 +116,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   set_park_fds_map(fds: Array<number>): void {
     this.locker.lock_blocking(() => {
       const view = new Int32Array(this.base_func_util);
-      Atomics.store(view, 2, 0);
+      Atomics.store(view, 2, WASIFarmParkFuncNames.set_fds_map);
       const fds_array = new Uint32Array(fds);
       this.allocator.block_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);
@@ -127,7 +127,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   async set_park_fds_map_async(fds: Array<number>): Promise<void> {
     await this.locker.lock(async () => {
       const view = new Int32Array(this.base_func_util);
-      Atomics.store(view, 2, 0);
+      Atomics.store(view, 2, WASIFarmParkFuncNames.set_fds_map);
       const fds_array = new Uint32Array(fds);
       await this.allocator.async_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);

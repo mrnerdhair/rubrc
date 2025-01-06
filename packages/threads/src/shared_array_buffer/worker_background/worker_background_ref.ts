@@ -8,6 +8,10 @@ import {
   type LockerTarget,
 } from "../locking";
 import * as Serializer from "../serialize_error";
+import {
+  WorkerBackgroundFuncNames,
+  WorkerBackgroundReturnCodes,
+} from "../util";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
 export class WorkerBackgroundRef {
@@ -55,7 +59,7 @@ export class WorkerBackgroundRef {
   ): WorkerRef {
     return this.locker.lock_blocking(() => {
       const view = new Int32Array(this.signature_input);
-      Atomics.store(view, 0, 1);
+      Atomics.store(view, 0, WorkerBackgroundFuncNames.create_new_worker);
       const url_buffer = new TextEncoder().encode(url);
       this.allocator.block_write(url_buffer, view, 1);
       Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
@@ -76,7 +80,7 @@ export class WorkerBackgroundRef {
   ) {
     await this.locker.lock(async () => {
       const view = new Int32Array(this.signature_input);
-      Atomics.store(view, 0, 2);
+      Atomics.store(view, 0, WorkerBackgroundFuncNames.create_start);
       const url_buffer = new TextEncoder().encode(url);
       await this.allocator.async_write(url_buffer, view, 1);
       Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
@@ -122,7 +126,9 @@ export class WorkerBackgroundRef {
     const notify_view = new Int32Array(this.lock, 8);
     Atomics.store(notify_view, 1, code);
 
-    this.done_caller.call_and_wait_blocking((view) => view.setInt32(0, 2));
+    this.done_caller.call_and_wait_blocking((view) =>
+      view.setInt32(0, WorkerBackgroundReturnCodes.completed),
+    );
   }
 
   private async async_wait_done_or_error(): Promise<number> {
@@ -134,11 +140,11 @@ export class WorkerBackgroundRef {
       const code = data_view.getInt32(0);
       switch (code) {
         // completed, fetch and return errno
-        case 2: {
+        case WorkerBackgroundReturnCodes.completed: {
           return Atomics.load(notify_view, 1);
         }
         // threw, fetch and rethrow error
-        case 1: {
+        case WorkerBackgroundReturnCodes.threw: {
           const ptr = Atomics.load(notify_view, 1);
           const size = Atomics.load(notify_view, 2);
           const error_buffer = this.allocator.get_memory(ptr, size);
