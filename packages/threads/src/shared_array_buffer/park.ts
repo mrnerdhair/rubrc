@@ -84,6 +84,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     call: CallerTarget;
     listen: ListenerTarget;
   }>;
+  private get_fd_locker(fd_n: number): Locker {
+    return new Locker(this.lock_fds[fd_n].lock);
+  }
+  private get_fd_listener(fd_n: number): Listener {
+    return new Listener(this.lock_fds[fd_n].listen);
+  }
 
   // 1 bytes: fds.length
   // 1 bytes: wasi_farm_ref num(id)
@@ -789,11 +795,11 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
     const errno_offset = fd_func_sig_u32_size - 1;
 
-    new Locker(this.lock_fds[fd_n].lock).reset();
+    this.get_fd_locker(fd_n).reset();
     Atomics.store(func_sig_view_i32, errno_offset, -1);
 
     const handlers = this.make_listen_fd_handlers(bytes_offset);
-    const listener = new Listener(this.lock_fds[fd_n].listen);
+    const listener = this.get_fd_listener(fd_n);
     listener.reset();
     do {
       await listener.listen(async () => {
