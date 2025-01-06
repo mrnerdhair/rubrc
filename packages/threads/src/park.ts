@@ -451,6 +451,19 @@ export abstract class WASIFarmPark {
     fs_rights_inheriting: bigint,
     fs_flags: number,
   ): Promise<[number | undefined, number]> {
+    console.log(
+      "path_open",
+      {
+        fd,
+        dirflags,
+        path,
+        oflags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+      },
+      this.fds[fd],
+    );
     if (this.fds[fd] !== undefined) {
       const { ret, fd_obj } = this.fds[fd].path_open(
         dirflags,
