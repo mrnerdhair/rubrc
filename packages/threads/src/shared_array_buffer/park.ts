@@ -280,24 +280,18 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     }
   }
 
-  // listen fd
-  async listen_fd(fd_n: number) {
-    const bytes_offset = fd_n * fd_func_sig_bytes;
+  private make_listen_fd_handlers(
+    bytes_offset: number,
+  ): Partial<Record<keyof typeof FuncNames, () => Promise<number>>> {
     const func_sig_view_u8 = new Uint8Array(this.fd_func_sig, bytes_offset);
     const func_sig_view_u16 = new Uint16Array(this.fd_func_sig, bytes_offset);
-    const func_sig_view_i32 = new Int32Array(this.fd_func_sig, bytes_offset);
-    const func_sig_view_u32 = new Int32Array(this.fd_func_sig, bytes_offset);
+    const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
     const func_sig_view_u64 = new BigUint64Array(
       this.fd_func_sig,
       bytes_offset,
     );
-    const errno_offset = fd_func_sig_u32_size - 1;
-    new Locker(this.lock_fds[fd_n].lock).reset();
-    Atomics.store(func_sig_view_i32, errno_offset, -1);
 
-    const handlers: Partial<
-      Record<keyof typeof FuncNames, () => Promise<number>>
-    > = {
+    return {
       // fd_advise: (fd: u32) => errno;
       fd_advise: async () => {
         const fd = Atomics.load(func_sig_view_u32, 1);
@@ -785,8 +779,20 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
         return this.path_unlink_file(fd, path_str);
       },
-    };
+    } as const;
+  }
 
+  // listen fd
+  async listen_fd(fd_n: number) {
+    const bytes_offset = fd_n * fd_func_sig_bytes;
+    const func_sig_view_i32 = new Int32Array(this.fd_func_sig, bytes_offset);
+    const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
+    const errno_offset = fd_func_sig_u32_size - 1;
+
+    new Locker(this.lock_fds[fd_n].lock).reset();
+    Atomics.store(func_sig_view_i32, errno_offset, -1);
+
+    const handlers = this.make_listen_fd_handlers(bytes_offset);
     const listener = new Listener(this.lock_fds[fd_n].listen);
     listener.reset();
     do {
