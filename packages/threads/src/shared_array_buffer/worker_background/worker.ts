@@ -22,6 +22,10 @@ import {
 } from "../locking";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
+import {
+  WorkerBackgroundFuncNames,
+  WorkerBackgroundReturnCodes,
+} from "../util";
 import type { WorkerBackgroundRefObject } from "./worker_export";
 
 // Note that postMessage, etc.
@@ -147,8 +151,7 @@ export class WorkerBackground {
 
         const signature_input = Atomics.load(signature_input_view, 0);
         switch (signature_input) {
-          // create new worker
-          case 1: {
+          case WorkerBackgroundFuncNames.create_new_worker: {
             const worker = gen_worker();
             const obj = gen_obj();
 
@@ -214,7 +217,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
-                  caller.call(1);
+                  caller.call(WorkerBackgroundReturnCodes.threw);
                 } catch (e) {
                   this.allocator.free(ptr, len);
                   throw e;
@@ -235,8 +238,7 @@ export class WorkerBackground {
 
             break;
           }
-          // create start
-          case 2: {
+          case WorkerBackgroundFuncNames.create_start: {
             this.start_worker = gen_worker();
             const obj = gen_obj();
 
@@ -296,7 +298,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
-                  caller.call(1);
+                  caller.call(WorkerBackgroundReturnCodes.threw);
                 } catch (e) {
                   this.allocator.free(ptr, len);
                   throw e;
