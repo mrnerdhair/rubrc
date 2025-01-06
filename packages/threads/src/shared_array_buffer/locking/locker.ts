@@ -19,7 +19,7 @@ export class Locker {
   reset(): void {
     const old = Atomics.exchange(this.view, 0, this.unlocked_value);
     if (old !== this.unlocked_value) {
-      throw new Error(`reset actually did something: ${old}`);
+      throw new Error(`locker reset actually did something: ${old}`);
     }
   }
 
