@@ -5,15 +5,18 @@ export class Locker {
   protected readonly view: Int32Array<SharedArrayBuffer>;
   protected readonly locked_value: number;
   protected readonly unlocked_value: number;
+  protected readonly dual_locked_value: number;
 
   constructor(
     { buf, byteOffset }: LockerTarget,
     locked_value = 1,
     unlocked_value = 0,
+    dual_locked_value = 2,
   ) {
     this.view = new Int32Array(buf, byteOffset, 1);
     this.locked_value = locked_value;
     this.unlocked_value = unlocked_value;
+    this.dual_locked_value = dual_locked_value;
   }
 
   reset(): void {
@@ -122,6 +125,25 @@ export class Locker {
       return await first.lock(callback);
     }
 
+    // biome-ignore lint/style/noParameterAssign:
+    first = new Locker(
+      {
+        buf: first.view.buffer,
+        byteOffset: first.view.byteOffset,
+      } as LockerTarget,
+      first.dual_locked_value,
+      first.unlocked_value,
+    );
+    // biome-ignore lint/style/noParameterAssign:
+    second = new Locker(
+      {
+        buf: first.view.buffer,
+        byteOffset: first.view.byteOffset,
+      } as LockerTarget,
+      second.dual_locked_value,
+      second.unlocked_value,
+    );
+
     while (true) {
       const [success, out] = await first.lock(async () => {
         if (early_backoff) {
@@ -144,6 +166,27 @@ export class Locker {
     if (first.equals(second)) {
       return first.lock_blocking(callback);
     }
+
+    // biome-ignore lint/style/noParameterAssign:
+    first = new Locker(
+      {
+        buf: first.view.buffer,
+        byteOffset: first.view.byteOffset,
+      } as LockerTarget,
+      first.dual_locked_value,
+      first.unlocked_value,
+      first.dual_locked_value,
+    );
+    // biome-ignore lint/style/noParameterAssign:
+    second = new Locker(
+      {
+        buf: first.view.buffer,
+        byteOffset: first.view.byteOffset,
+      } as LockerTarget,
+      second.dual_locked_value,
+      second.unlocked_value,
+      second.dual_locked_value,
+    );
 
     while (true) {
       const [success, out] = first.lock_blocking(() => {

@@ -135,8 +135,8 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   protected lock_double_fd<T>(fd1: number, fd2: number, callback: () => T): T {
-    const fd1_locker = new Locker(this.lock_fds[fd1].lock, 2);
-    const fd2_locker = new Locker(this.lock_fds[fd2].lock, 2);
+    const fd1_locker = new Locker(this.lock_fds[fd1].lock);
+    const fd2_locker = new Locker(this.lock_fds[fd2].lock);
 
     return Locker.dual_lock_blocking(
       fd1_locker,
