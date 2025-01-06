@@ -56,7 +56,7 @@ export class WASIFarmAnimal {
 
   /// Start a WASI command
   // FIXME v0.3: close opened Fds after execution
-  start(instance: WasiP1Cmd) {
+  async start(instance: WasiP1Cmd): Promise<number> {
     this._inst = instance;
     try {
       instance.exports._start();
@@ -97,11 +97,11 @@ export class WASIFarmAnimal {
     );
   }
 
-  wasi_thread_start(
+  async wasi_thread_start(
     instance: WasiP1Thread,
     thread_id: number,
     start_arg: number,
-  ): number {
+  ): Promise<number> {
     this._inst = instance;
     try {
       instance.exports.wasi_thread_start(thread_id, start_arg);
@@ -113,7 +113,7 @@ export class WASIFarmAnimal {
   }
 
   /// Initialize a WASI reactor
-  initialize(instance: WasiP1Reactor) {
+  async initialize(instance: WasiP1Reactor): Promise<void> {
     this._inst = instance;
     instance.exports._initialize?.();
   }
