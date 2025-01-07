@@ -115,7 +115,7 @@ export class WorkerBackground {
     const signature_input_view = new Int32Array(this.signature_input);
 
     const listener = this.listener;
-    listener.reset();
+    listener.reset("WorkerBackground listen");
     while (true) {
       await listener.listen(async () => {
         const gen_worker = () => {
@@ -156,7 +156,7 @@ export class WorkerBackground {
           //   Atomics.store(notify_view, 1, code);
           // }
           if (result !== WorkerBackgroundReturnCodes.threw) return;
-          this.done_caller.call(result);
+          this.done_caller.call("WorkerBackground donePromise", result);
         });
 
         const signature_input = Atomics.load(signature_input_view, 0);
@@ -315,7 +315,7 @@ export class WorkerBackground {
             break;
           }
         }
-      });
+      }, "WorkerBackground listen");
     }
   }
 }

@@ -115,13 +115,16 @@ export class WorkerBackgroundRef {
 
     Atomics.store(notify_view, 1, code);
 
-    this.done_caller.call(WorkerBackgroundReturnCodes.completed);
+    this.done_caller.call(
+      "WorkerBackgroundRef done_notify",
+      WorkerBackgroundReturnCodes.completed,
+    );
   }
 
   private async async_wait_done_or_error(): Promise<number> {
     const notify_view = new Int32Array(this.lock, 8);
     const listener = this.done_listener;
-    listener.reset();
+    listener.reset("WorkerBackgroundRef async_wait_done_or_error");
 
     return await listener.listen(async (code?: number) => {
       switch (code) {
@@ -144,7 +147,7 @@ export class WorkerBackgroundRef {
           throw new Error("unknown code");
         }
       }
-    });
+    }, "WorkerBackgroundRef async_wait_done_or_error");
   }
 }
 

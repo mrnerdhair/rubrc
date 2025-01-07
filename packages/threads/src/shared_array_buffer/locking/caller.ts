@@ -23,7 +23,7 @@ export class Caller {
     }
   }
 
-  call(code?: number): void {
+  call(foo: string, code?: number): void {
     while (true) {
       const old = Atomics.compareExchange(
         this.view,
@@ -41,11 +41,11 @@ export class Caller {
       Atomics.compareExchange(this.view, 0, CALLER_WORKING, CALL_READY) !==
       CALLER_WORKING
     ) {
-      throw new Error("caller couldn't set CALL_READY");
+      throw new Error(`caller ${foo} couldn't set CALL_READY`);
     }
     if (Atomics.notify(this.view, 0, 1) !== 1) {
       throw new Error(
-        "caller expected to notify exactly 1 listener of CALL_READY",
+        `caller ${foo} expected to notify exactly 1 listener of CALL_READY`,
       );
     }
 
@@ -57,13 +57,13 @@ export class Caller {
         UNLOCKED,
       );
       if (old === CALL_FINISHED) break;
-      console.warn("caller waiting for CALL_FINISHED to unlock lock");
+      console.warn(`caller ${foo} waiting for CALL_FINISHED to unlock lock`);
       Atomics.wait(this.view, 0, old);
     }
   }
 
-  call_and_wait_blocking(code?: number): void {
-    this.call(code);
+  call_and_wait_blocking(foo: string, code?: number): void {
+    this.call(`call_and_wait_blocking ${foo}`, code);
   }
 }
 

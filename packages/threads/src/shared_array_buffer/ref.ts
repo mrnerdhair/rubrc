@@ -120,7 +120,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const fds_array = new Uint32Array(fds);
       this.allocator.block_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);
-      this.caller.call_and_wait_blocking();
+      this.caller.call_and_wait_blocking("set_park_fds_map");
     });
   }
 
@@ -131,7 +131,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const fds_array = new Uint32Array(fds);
       await this.allocator.async_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);
-      this.caller.call_and_wait_blocking();
+      this.caller.call_and_wait_blocking("set_park_fds_map_async");
     });
   }
 
@@ -167,7 +167,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private call_fd_func(fd: number): number {
-    this.get_fd_caller(fd).call_and_wait_blocking();
+    this.get_fd_caller(fd).call_and_wait_blocking("fd_func");
     return this.get_error(fd);
   }
 

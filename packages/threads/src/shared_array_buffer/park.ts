@@ -261,7 +261,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     this.locker.reset();
 
     const listener = this.listener;
-    listener.reset();
+    listener.reset("WASIFarmParkUseArrayBuffer listen");
     while (!aborter.aborted) {
       await listener.listen(async () => {
         const func_number = Atomics.load(this.base_func_util, 2);
@@ -276,7 +276,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
             throw new Error(`unexpected func_number ${func_number}`);
           }
         }
-      });
+      }, "WASIFarmParkUseArrayBuffer listen");
     }
   }
 
@@ -812,7 +812,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
     const handlers = this.make_listen_fd_handlers(bytes_offset);
     const listener = this.get_fd_listener(fd_n);
-    listener.reset();
+    listener.reset("WASIFarmParkUseArrayBuffer listen_fd");
     while (!aborter.aborted && this.fds[fd_n] !== undefined) {
       await listener.listen(async () => {
         try {
@@ -831,7 +831,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
           throw e;
         }
-      });
+      }, "WASIFarmParkUseArrayBuffer listen_fd");
     }
   }
 }

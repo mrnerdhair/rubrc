@@ -15,15 +15,16 @@ export class Listener {
     this.view = new Int32Array(buf, byteOffset, 2);
   }
 
-  reset(): void {
+  reset(foo: string): void {
     const old = Atomics.exchange(this.view, 0, UNLOCKED);
     if (old !== UNLOCKED) {
-      throw new Error(`listener reset actually did something: ${old}`);
+      throw new Error(`listener ${foo} reset actually did something: ${old}`);
     }
   }
 
   async listen<T>(
     callback: (value?: number) => T | PromiseLike<T>,
+    foo: string,
   ): Promise<T> {
     while (true) {
       const old = Atomics.compareExchange(
@@ -33,7 +34,7 @@ export class Listener {
         LISTENER_LOCKED,
       );
       if (old === UNLOCKED) break;
-      console.warn("async listener locked, waiting");
+      console.warn(`listener ${foo} locked, waiting`);
       await Atomics.waitAsync(this.view, 0, old).value;
     }
     Atomics.notify(this.view, 0, 1);
@@ -47,11 +48,12 @@ export class Listener {
       Atomics.compareExchange(this.view, 0, CALL_READY, LISTENER_WORKING) !==
       CALL_READY
     ) {
-      throw new Error("async listener expected CALL_READY");
+      throw new Error(`listener ${foo} expected CALL_READY`);
     }
     const value = Atomics.load(this.view, 1);
 
     try {
+      console.log(`listener ${foo} got ${value}`);
       return await callback(value);
     } finally {
       if (
@@ -63,11 +65,11 @@ export class Listener {
         ) !== LISTENER_WORKING
       ) {
         // biome-ignore lint/correctness/noUnsafeFinally: a lock failure is a higher-priority error
-        throw new Error("failed to release async listener lock");
+        throw new Error(`listener ${foo} failed to release lock`);
       }
       if (Atomics.notify(this.view, 0, 1) !== 1) {
         // biome-ignore lint/correctness/noUnsafeFinally: a caller failure is a higher-priority error
-        throw new Error("async listener expected to notify exactly 1 caller");
+        throw new Error(`listener ${foo} expected to notify exactly 1 caller`);
       }
     }
   }
