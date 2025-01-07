@@ -1,4 +1,5 @@
 import { type Fd as BaseFd, wasi } from "@bjorn3/browser_wasi_shim";
+import { PromiseLocker } from "./shared_array_buffer/locking";
 import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/ref";
 
 // Not sure why we're special-casing this possibly being async, but there was runtime
@@ -41,7 +42,7 @@ export abstract class WASIFarmPark {
     }
   }
 
-  private get_new_fd_lock = new Array<() => Promise<void>>();
+  private readonly get_new_fd_lock = new PromiseLocker();
 
   // For an fd, indicates whether id currently has access to that fd.
   protected readonly fds_map: Array<number[]>;
@@ -50,37 +51,20 @@ export abstract class WASIFarmPark {
   // it will be strange,
   // but the programmer should have written it
   // so that this does not happen in the first place.
-  private async get_new_fd(fd_obj: Fd): Promise<[() => Promise<void>, number]> {
-    const promise = new Promise<[() => Promise<void>, number]>((resolve) => {
-      const len = this.get_new_fd_lock.push(async () => {
-        let new_fd = this.fds.indexOf(undefined);
-        if (new_fd === -1) {
-          new_fd = this.fds.push(undefined) - 1;
-          this.fds_map.push([]);
-        }
-
-        await this.can_set_new_fd(new_fd);
-
-        // If it's assigned, it's resolved.
-        resolve([
-          async () => {
-            this.fds[new_fd] = fd_obj;
-            this.get_new_fd_lock.shift();
-            const fn = this.get_new_fd_lock[0];
-            if (fn !== undefined) {
-              fn();
-            }
-            // assigned and notify
-            await this.notify_set_fd(new_fd);
-          },
-          new_fd,
-        ]);
-      });
-      if (len === 1) {
-        this.get_new_fd_lock[0]();
+  private async get_new_fd(fd: Fd): Promise<number> {
+    return await this.get_new_fd_lock.lock(async () => {
+      let new_fd = this.fds.indexOf(undefined);
+      if (new_fd === -1) {
+        new_fd = this.fds.push(undefined) - 1;
+        this.fds_map.push([]);
       }
+
+      await this.can_set_new_fd(new_fd);
+      this.fds[new_fd] = fd;
+      await this.notify_set_fd(new_fd);
+
+      return new_fd;
     });
-    return promise;
   }
 
   protected fd_advise(fd: number): number {
@@ -475,11 +459,7 @@ export abstract class WASIFarmPark {
         throw new Error("fd_obj should not be null");
       }
 
-      const [resolve, opened_fd] = await this.get_new_fd(fd_obj);
-
-      await resolve();
-
-      return [opened_fd, wasi.ERRNO_SUCCESS];
+      return [await this.get_new_fd(fd_obj), wasi.ERRNO_SUCCESS];
     }
     return [undefined, wasi.ERRNO_BADF];
   }
