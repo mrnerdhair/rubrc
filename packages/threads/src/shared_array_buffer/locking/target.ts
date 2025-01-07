@@ -5,7 +5,7 @@ export type AtomicTarget = {
 
 export function new_atomic_target(): AtomicTarget {
   return {
-    buf: new SharedArrayBuffer(2 * Int32Array.BYTES_PER_ELEMENT),
+    buf: new SharedArrayBuffer(5 * Int32Array.BYTES_PER_ELEMENT),
     byteOffset: 0,
   };
 }

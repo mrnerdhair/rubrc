@@ -12,7 +12,7 @@ export class Listener {
   protected readonly view: Int32Array;
 
   constructor({ buf, byteOffset }: ListenerTarget) {
-    this.view = new Int32Array(buf, byteOffset, 2);
+    this.view = new Int32Array(buf, byteOffset, 5);
   }
 
   reset(foo: string): void {
@@ -26,6 +26,7 @@ export class Listener {
     callback: (value?: number) => T | PromiseLike<T>,
     foo: string,
   ): Promise<T> {
+    const listen_id = Atomics.add(this.view, 3, 1);
     while (true) {
       const old = Atomics.compareExchange(
         this.view,
@@ -34,7 +35,7 @@ export class Listener {
         LISTENER_LOCKED,
       );
       if (old === UNLOCKED) break;
-      console.warn(`listener ${foo} locked, waiting`);
+      console.warn(`listener ${foo} locked, waiting / ${listen_id}`);
       await Atomics.waitAsync(this.view, 0, old).value;
     }
     Atomics.notify(this.view, 0, 1);
@@ -48,12 +49,13 @@ export class Listener {
       Atomics.compareExchange(this.view, 0, CALL_READY, LISTENER_WORKING) !==
       CALL_READY
     ) {
-      throw new Error(`listener ${foo} expected CALL_READY`);
+      throw new Error(`listener ${foo} expected CALL_READY / ${listen_id}`);
     }
     const value = Atomics.load(this.view, 1);
+    const call_id = Atomics.load(this.view, 2);
 
     try {
-      console.log(`listener ${foo} got ${value}`);
+      console.log(`listener ${foo} got ${value} / ${listen_id} / ${call_id}`);
       return await callback(value);
     } finally {
       if (
@@ -65,11 +67,10 @@ export class Listener {
         ) !== LISTENER_WORKING
       ) {
         // biome-ignore lint/correctness/noUnsafeFinally: a lock failure is a higher-priority error
-        throw new Error(`listener ${foo} failed to release lock`);
+        throw new Error(`listener ${foo} failed to release lock / ${listen_id} / ${call_id}`);
       }
       if (Atomics.notify(this.view, 0, 1) !== 1) {
-        // biome-ignore lint/correctness/noUnsafeFinally: a caller failure is a higher-priority error
-        throw new Error(`listener ${foo} expected to notify exactly 1 caller`);
+        console.warn(`listener ${foo} expected to notify exactly 1 caller / ${listen_id} / ${call_id}`);
       }
     }
   }

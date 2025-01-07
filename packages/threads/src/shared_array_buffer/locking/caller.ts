@@ -13,7 +13,7 @@ export class Caller {
   protected readonly view: Int32Array;
 
   constructor({ buf, byteOffset }: CallerTarget) {
-    this.view = new Int32Array(buf, byteOffset, 2);
+    this.view = new Int32Array(buf, byteOffset, 5);
   }
 
   reset(): void {
@@ -24,6 +24,7 @@ export class Caller {
   }
 
   call(foo: string, code?: number): void {
+    const call_id = Atomics.add(this.view, 4, 1);
     while (true) {
       const old = Atomics.compareExchange(
         this.view,
@@ -32,20 +33,22 @@ export class Caller {
         CALLER_WORKING,
       );
       if (old === LISTENER_LOCKED) break;
-      console.warn("caller waiting for listener lock");
+      console.warn(`caller ${foo} waiting for listener lock / ${call_id}`);
       Atomics.wait(this.view, 0, old);
     }
 
     Atomics.store(this.view, 1, code ?? 0);
+    Atomics.store(this.view, 2, call_id);
+
     if (
       Atomics.compareExchange(this.view, 0, CALLER_WORKING, CALL_READY) !==
       CALLER_WORKING
     ) {
-      throw new Error(`caller ${foo} couldn't set CALL_READY`);
+      throw new Error(`caller ${foo} couldn't set CALL_READY / ${call_id}`);
     }
     if (Atomics.notify(this.view, 0, 1) !== 1) {
       throw new Error(
-        `caller ${foo} expected to notify exactly 1 listener of CALL_READY`,
+        `caller ${foo} expected to notify exactly 1 listener of CALL_READY / ${call_id}`,
       );
     }
 
@@ -57,9 +60,11 @@ export class Caller {
         UNLOCKED,
       );
       if (old === CALL_FINISHED) break;
-      console.warn(`caller ${foo} waiting for CALL_FINISHED to unlock lock`);
+      console.warn(`caller ${foo} waiting for CALL_FINISHED to unlock lock / ${call_id}`);
       Atomics.wait(this.view, 0, old);
     }
+
+    console.warn(`caller ${foo} unlocked lock / ${call_id}`);
   }
 
   call_and_wait_blocking(foo: string, code?: number): void {

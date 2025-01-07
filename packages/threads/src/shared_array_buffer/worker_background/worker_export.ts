@@ -1,3 +1,4 @@
+import type { AtomicTarget } from "../locking/target";
 import type { AllocatorUseArrayBufferObject } from "../allocator";
 import {
   type AsyncCallerTarget,
@@ -25,6 +26,8 @@ export type WorkerBackgroundRefObject = {
   [workerBackgroundRefObjectBrand]: never;
 };
 
+let n = 1;
+
 export const WorkerBackgroundRefObjectConstructor =
   (): WorkerBackgroundRefObject => {
     const [call, listen] = new_async_caller_listener_target();
@@ -32,7 +35,7 @@ export const WorkerBackgroundRefObjectConstructor =
     const next_worker_id = new SharedArrayBuffer(4);
     // worker_id starts from 1
     Atomics.store(new Uint32Array(next_worker_id, 0, 1), 0, 1);
-    return {
+    const out = {
       allocator: {
         share_arrays_memory: new SharedArrayBuffer(10 * 1024),
         share_arrays_memory_lock: new_locker_target(),
@@ -48,6 +51,21 @@ export const WorkerBackgroundRefObjectConstructor =
       signature_input: new SharedArrayBuffer(7 * Int32Array.BYTES_PER_ELEMENT),
       next_worker_id,
     } as WorkerBackgroundRefObject;
+
+    const foo = (target: AtomicTarget) => {
+      const view = new Int32Array(target.buf, target.byteOffset)
+      Atomics.store(view, 3, 1000 * n++);
+      Atomics.store(view, 4, 1000 * n++);
+    }
+
+    foo(out.allocator.share_arrays_memory_lock);
+    foo(out.locks.lock);
+    foo(out.locks.call);
+    foo(out.locks.listen);
+    foo(out.locks.done_call);
+    foo(out.locks.done_listen);
+
+    return out;
   };
 
 export type WorkerOptions = {
