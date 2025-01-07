@@ -16,7 +16,6 @@ export abstract class WASIFarmPark {
   abstract listen(abort: AbortSignal): Promise<void>;
   protected abstract notify_set_fd(fd: number): Promise<void>;
   protected abstract notify_rm_fd(fd: number): Promise<void>;
-  protected abstract can_set_new_fd(fd: number): Promise<void>;
 
   protected abstract readonly fds: Array<Fd | undefined>;
   protected abstract readonly stdin: number | undefined;
@@ -41,7 +40,6 @@ export abstract class WASIFarmPark {
         this.fds_map.push([]);
       }
 
-      await this.can_set_new_fd(new_fd);
       this.fds[new_fd] = fd;
       await this.notify_set_fd(new_fd);
 
@@ -68,8 +66,8 @@ export abstract class WASIFarmPark {
       return wasi.ERRNO_BADF;
     }
     const ret = this.fds[fd].fd_close();
-    this.fds[fd] = undefined;
     await this.notify_rm_fd(fd);
+    this.fds[fd] = undefined;
     return ret;
   }
 
