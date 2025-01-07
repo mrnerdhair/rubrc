@@ -213,10 +213,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       throw new Error("fd is too big. expand is not supported yet");
     }
     if (this.listen_fds[fd] !== undefined) {
-      if (this.listen_fds[fd] instanceof Promise) {
-        console.warn("fd is already set yet");
-        await this.listen_fds[fd];
-      }
+      console.warn("fd is already set yet");
+      await this.listen_fds[fd];
     }
     this.listen_fds[fd] = this.listen_fd(fd);
 
