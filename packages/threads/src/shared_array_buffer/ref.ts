@@ -12,7 +12,6 @@ import {
 import {
   Caller,
   type CallerTarget,
-  type ListenerTarget,
   Locker,
   type LockerTarget,
 } from "./locking";
@@ -24,7 +23,6 @@ export type WASIFarmRefUseArrayBufferObject = {
   lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
-    listen: ListenerTarget;
   }>;
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;
@@ -32,7 +30,6 @@ export type WASIFarmRefUseArrayBufferObject = {
   base_func_util_locks: {
     lock: LockerTarget;
     call: CallerTarget;
-    listen: ListenerTarget;
   };
   fd_close_receiver: FdCloseSenderUseArrayBufferObject;
 } & WASIFarmRefObject;
@@ -44,7 +41,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   private readonly lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
-    listen: ListenerTarget;
   }>;
   // byte 1: fds_len
   // byte 2: all wasi_farm_ref num
@@ -64,7 +60,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     lock_fds: Array<{
       lock: LockerTarget;
       call: CallerTarget;
-      listen: ListenerTarget;
     }>,
     fds_len_and_num: SharedArrayBuffer,
     fd_func_sig: SharedArrayBuffer,
