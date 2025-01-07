@@ -23,6 +23,7 @@ export class WorkerBackgroundRef {
     done_call: CallerTarget;
     done_listen: ListenerTarget;
   };
+  private readonly next_worker_id: SharedArrayBuffer;
   private readonly locker: Locker;
   private readonly caller: Caller;
   private readonly done_caller: Caller;
@@ -37,9 +38,11 @@ export class WorkerBackgroundRef {
       done_call: CallerTarget;
       done_listen: ListenerTarget;
     },
+    next_worker_id: SharedArrayBuffer,
   ) {
     this.allocator = allocator;
     this.locks = locks;
+    this.next_worker_id = next_worker_id;
     this.locker = new Locker(this.locks.lock);
     this.caller = new Caller(this.locks.call);
     this.done_caller = new Caller(this.locks.done_call);
@@ -47,8 +50,9 @@ export class WorkerBackgroundRef {
   }
 
   new_worker(options: WorkerOptions, post_obj: unknown): WorkerRef {
+    const id = Atomics.add(new Uint32Array(this.next_worker_id, 0, 1), 0, 1);
     return this.locker.lock_blocking(() => {
-      const id = this.caller.call_and_wait_blocking(
+      this.caller.call_and_wait_blocking(
         (data) => {
           data.i32[0] = WorkerBackgroundFuncNames.create_new_worker;
           data.i32[1] = options.type === "module" ? 1 : 0;
@@ -60,8 +64,9 @@ export class WorkerBackgroundRef {
 
           data.i32[2] = ptr_buff[0];
           data.i32[3] = ptr_buff[1];
+
+          data.i32[4] = id;
         },
-        (data) => data.i32[0],
       );
       return new WorkerRef(id);
     });
@@ -91,6 +96,7 @@ export class WorkerBackgroundRef {
     return new WorkerBackgroundRef(
       await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.locks,
+      sl.next_worker_id,
     );
   }
 

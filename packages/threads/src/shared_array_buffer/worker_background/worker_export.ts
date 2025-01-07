@@ -17,17 +17,21 @@ export type WorkerBackgroundRefObject = {
     done_call: CallerTarget;
     done_listen: ListenerTarget;
   };
+  next_worker_id: SharedArrayBuffer;
   [workerBackgroundRefObjectBrand]: never;
 };
 
 export const WorkerBackgroundRefObjectConstructor =
   (): WorkerBackgroundRefObject => {
     const [call, listen] = new_caller_listener_target(
-      4 * Int32Array.BYTES_PER_ELEMENT,
+      5 * Int32Array.BYTES_PER_ELEMENT,
     );
     const [done_call, done_listen] = new_caller_listener_target(
       3 * Int32Array.BYTES_PER_ELEMENT,
     );
+    const next_worker_id = new SharedArrayBuffer(4);
+    // worker_id starts from 1
+    Atomics.store(new Uint32Array(next_worker_id, 0, 1), 0, 1);
     return {
       allocator: {
         share_arrays_memory: new SharedArrayBuffer(10 * 1024),
@@ -40,6 +44,7 @@ export const WorkerBackgroundRefObjectConstructor =
         done_call,
         done_listen,
       },
+      next_worker_id,
     } as WorkerBackgroundRefObject;
   };
 
