@@ -119,6 +119,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   protected readonly fds: Array<Fd | undefined> = [];
   protected readonly fds_map: Array<number[]>;
+  protected readonly stdin: number | undefined;
+  protected readonly stdout: number | undefined;
+  protected readonly stderr: number | undefined;
+  protected readonly default_allow_fds: Array<number>;
 
   // this is not send by postMessage,
   // so it is not necessary to keep shared_array_buffer
@@ -136,9 +140,13 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     default_allow_fds: Array<number>,
     allocator_size?: number,
   ) {
-    super(stdin, stdout, stderr, default_allow_fds);
+    super();
     this.fds = fds;
     this.fds_map = fds.map(() => []);
+    this.stdin = stdin;
+    this.stdout = stdout;
+    this.stderr = stderr;
+    this.default_allow_fds = default_allow_fds;
 
     if (allocator_size === undefined) {
       this.allocator = new AllocatorUseArrayBuffer();

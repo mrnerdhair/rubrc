@@ -19,22 +19,10 @@ export abstract class WASIFarmPark {
   protected abstract can_set_new_fd(fd: number): void;
 
   protected abstract readonly fds: Array<Fd | undefined>;
-  protected readonly stdin: number | undefined;
-  protected readonly stdout: number | undefined;
-  protected readonly stderr: number | undefined;
-  protected readonly default_allow_fds: Array<number>;
-
-  constructor(
-    stdin: number | undefined,
-    stdout: number | undefined,
-    stderr: number | undefined,
-    default_allow_fds: Array<number>,
-  ) {
-    this.stdin = stdin;
-    this.stdout = stdout;
-    this.stderr = stderr;
-    this.default_allow_fds = default_allow_fds;
-  }
+  protected abstract readonly stdin: number | undefined;
+  protected abstract readonly stdout: number | undefined;
+  protected abstract readonly stderr: number | undefined;
+  protected abstract readonly default_allow_fds: Array<number>;
 
   private readonly get_new_fd_lock = new PromiseLocker();
 
