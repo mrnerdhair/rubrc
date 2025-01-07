@@ -53,27 +53,27 @@ export abstract class WASIFarmPark {
   private async get_new_fd(fd_obj: Fd): Promise<[() => Promise<void>, number]> {
     const promise = new Promise<[() => Promise<void>, number]>((resolve) => {
       const len = this.get_new_fd_lock.push(async () => {
-        let ret = this.fds.indexOf(undefined);
-        if (ret === -1) {
-          ret = this.fds.push(undefined) - 1;
+        let new_fd = this.fds.indexOf(undefined);
+        if (new_fd === -1) {
+          new_fd = this.fds.push(undefined) - 1;
           this.fds_map.push([]);
         }
 
-        await this.can_set_new_fd(ret);
+        await this.can_set_new_fd(new_fd);
 
         // If it's assigned, it's resolved.
         resolve([
           async () => {
-            this.fds[ret] = fd_obj;
+            this.fds[new_fd] = fd_obj;
             this.get_new_fd_lock.shift();
             const fn = this.get_new_fd_lock[0];
             if (fn !== undefined) {
               fn();
             }
             // assigned and notify
-            await this.notify_set_fd(ret);
+            await this.notify_set_fd(new_fd);
           },
-          ret,
+          new_fd,
         ]);
       });
       if (len === 1) {
