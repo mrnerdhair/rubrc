@@ -8,6 +8,7 @@ import {
 export class WASIFarm {
   private fds: Array<Fd>;
   private park: WASIFarmPark;
+  readonly abort = new AbortController();
 
   constructor(
     stdin?: Fd,
@@ -57,7 +58,7 @@ export class WASIFarm {
       default_allow_fds,
       options?.allocator_size,
     );
-    this.park.listen();
+    this.park.listen(this.abort.signal);
   }
 
   get_ref(): WASIFarmRefUseArrayBufferObject {

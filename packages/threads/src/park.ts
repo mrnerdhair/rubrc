@@ -13,7 +13,7 @@ export type Fd = Omit<BaseFd, "fd_write"> & {
 
 export abstract class WASIFarmPark {
   abstract get_ref(): WASIFarmRefUseArrayBufferObject;
-  abstract listen(): Promise<void>;
+  abstract listen(abort: AbortSignal): Promise<void>;
   protected abstract notify_set_fd(fd: number): Promise<void>;
   protected abstract notify_rm_fd(fd: number): Promise<void>;
   protected abstract can_set_new_fd(fd: number): Promise<void>;
