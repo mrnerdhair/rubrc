@@ -117,6 +117,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // tell other processes that the file descriptor has been closed
   private readonly fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
+  protected readonly fds: Array<Fd | undefined> = [];
+  protected readonly fds_map: Array<number[]>;
+
   // this is not send by postMessage,
   // so it is not necessary to keep shared_array_buffer
   // this class is not used by user,
@@ -133,7 +136,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     default_allow_fds: Array<number>,
     allocator_size?: number,
   ) {
-    super(fds, stdin, stdout, stderr, default_allow_fds);
+    super(stdin, stdout, stderr, default_allow_fds);
+    this.fds = fds;
+    this.fds_map = fds.map(() => []);
 
     if (allocator_size === undefined) {
       this.allocator = new AllocatorUseArrayBuffer();

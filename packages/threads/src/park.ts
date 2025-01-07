@@ -18,34 +18,28 @@ export abstract class WASIFarmPark {
   protected abstract notify_rm_fd(fd: number): void;
   protected abstract can_set_new_fd(fd: number): void;
 
-  protected readonly fds: Array<Fd | undefined>;
+  protected abstract readonly fds: Array<Fd | undefined>;
   protected readonly stdin: number | undefined;
   protected readonly stdout: number | undefined;
   protected readonly stderr: number | undefined;
   protected readonly default_allow_fds: Array<number>;
 
   constructor(
-    fds: Array<Fd>,
     stdin: number | undefined,
     stdout: number | undefined,
     stderr: number | undefined,
     default_allow_fds: Array<number>,
   ) {
-    this.fds = fds;
     this.stdin = stdin;
     this.stdout = stdout;
     this.stderr = stderr;
     this.default_allow_fds = default_allow_fds;
-    this.fds_map = new Array(fds.length);
-    for (let i = 0; i < fds.length; i++) {
-      this.fds_map[i] = [];
-    }
   }
 
   private readonly get_new_fd_lock = new PromiseLocker();
 
   // For an fd, indicates whether id currently has access to that fd.
-  protected readonly fds_map: Array<number[]>;
+  protected abstract readonly fds_map: Array<number[]>;
 
   // If the reassigned value is accessed after being closed,
   // it will be strange,
