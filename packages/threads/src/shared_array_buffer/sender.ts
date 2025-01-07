@@ -32,13 +32,13 @@ export abstract class ToRefSenderUseArrayBuffer {
   // n * 4 bytes: target allocation numbers
   // Data
   // data_size bytes: data
-  share_arrays_memory: SharedArrayBuffer;
-  share_arrays_memory_lock: LockerTarget;
+  protected readonly share_arrays_memory: SharedArrayBuffer;
+  protected readonly share_arrays_memory_lock: LockerTarget;
 
   // The size of the data
-  data_size: number;
+  protected readonly data_size: number;
 
-  protected locker: Locker;
+  private readonly locker: Locker;
 
   protected constructor(
     // data is Uint32Array
