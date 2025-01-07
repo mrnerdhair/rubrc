@@ -24,6 +24,7 @@ export class WorkerBackgroundRef {
     done_listen: ListenerTarget;
   };
   private readonly signature_input: SharedArrayBuffer;
+  private readonly next_worker_id: SharedArrayBuffer;
   private readonly locker: Locker;
   private readonly caller: Caller;
   private readonly done_caller: Caller;
@@ -39,11 +40,13 @@ export class WorkerBackgroundRef {
       done_listen: ListenerTarget;
     },
     signature_input: SharedArrayBuffer,
+    next_worker_id: SharedArrayBuffer,
   ) {
     this.allocator = allocator;
     this.lock = lock;
     this.locks = locks;
     this.signature_input = signature_input;
+    this.next_worker_id = next_worker_id;
     this.locker = new Locker(this.locks.lock);
     this.caller = new Caller(this.locks.call);
     this.done_caller = new Caller(this.locks.done_call, null);
@@ -58,15 +61,18 @@ export class WorkerBackgroundRef {
     return this.locker.lock_blocking(() => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, WorkerBackgroundFuncNames.create_new_worker);
+
+      const id = Atomics.add(new Uint32Array(this.next_worker_id, 0, 1), 0, 1);
+      Atomics.store(view, 6, id);
+
       const url_buffer = new TextEncoder().encode(url);
       this.allocator.block_write(url_buffer, view, 1);
       Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking();
+      this.caller.call();
 
-      const id = Atomics.load(view, 0);
       return new WorkerRef(id);
     });
   }
@@ -98,6 +104,7 @@ export class WorkerBackgroundRef {
       sl.lock,
       sl.locks,
       sl.signature_input,
+      sl.next_worker_id,
     );
   }
 

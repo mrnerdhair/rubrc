@@ -51,8 +51,8 @@ export class WorkerBackground {
   private readonly listener: Listener;
   private readonly done_caller: Caller;
 
-  // worker_id starts from 1
-  private readonly workers: Array<Worker | undefined> = [undefined];
+  private readonly workers = new Map<number, Worker>();
+  private readonly next_worker_id: SharedArrayBuffer;
 
   private start_worker?: Worker;
 
@@ -68,6 +68,7 @@ export class WorkerBackground {
     },
     allocator: AllocatorUseArrayBuffer,
     signature_input: SharedArrayBuffer,
+    next_worker_id: SharedArrayBuffer,
   ) {
     this.override_object = override_object;
     this.lock = lock;
@@ -77,6 +78,7 @@ export class WorkerBackground {
     this.done_caller = new Caller(this.locks.done_call, null);
     this.allocator = allocator;
     this.signature_input = signature_input;
+    this.next_worker_id = next_worker_id;
     this.listen();
   }
 
@@ -92,17 +94,8 @@ export class WorkerBackground {
         worker_background_ref_object.allocator,
       ),
       worker_background_ref_object.signature_input,
+      worker_background_ref_object.next_worker_id,
     );
-  }
-
-  assign_worker_id(): number {
-    for (let i = 1; i < this.workers.length; i++) {
-      if (this.workers[i] === undefined) {
-        return i;
-      }
-    }
-    this.workers.push(undefined);
-    return this.workers.length - 1;
   }
 
   ref(): WorkerBackgroundRefObject {
@@ -111,6 +104,7 @@ export class WorkerBackground {
       lock: this.lock,
       locks: this.locks,
       signature_input: this.signature_input,
+      next_worker_id: this.next_worker_id,
     } as WorkerBackgroundRefObject;
   }
 
@@ -170,11 +164,9 @@ export class WorkerBackground {
             const worker = gen_worker();
             const obj = gen_obj();
 
-            const worker_id = this.assign_worker_id();
-
+            const worker_id = Atomics.load(signature_input_view, 6);
             console.log(`new worker ${worker_id}`);
-
-            this.workers[worker_id] = worker;
+            this.workers.set(worker_id, worker);
 
             const { promise: readyPromise, resolve: readyResolve } =
               Promise.withResolvers<void>();
@@ -189,35 +181,30 @@ export class WorkerBackground {
               if (msg === "done") {
                 console.log(`worker ${worker_id} done so terminate`);
 
-                this.workers[worker_id]?.terminate();
-                this.workers[worker_id] = undefined;
+                worker.terminate();
+                this.workers.delete(worker_id);
 
                 doneResolve([WorkerBackgroundReturnCodes.completed, code]);
               }
 
               if (msg === "error") {
-                this.workers[worker_id]?.terminate();
-                this.workers[worker_id] = undefined;
+                worker.terminate();
+                this.workers.delete(worker_id);
 
-                let n = 0;
-                for (const worker of this.workers) {
-                  if (worker !== undefined) {
-                    console.warn(
-                      `wasi throw error but child process exists, terminate ${n}`,
-                    );
-                    worker.terminate();
-                  }
-                  n++;
+                for (const [n, worker] of this.workers) {
+                  console.warn(
+                    `wasi throw error but child process exists, terminate ${n}`,
+                  );
+                  worker.terminate();
                 }
+                this.workers.clear();
+
                 if (this.start_worker !== undefined) {
                   console.warn(
                     "wasi throw error but wasi exists, terminate wasi",
                   );
                   this.start_worker.terminate();
                 }
-
-                this.workers.length = 0;
-                this.workers.push(undefined);
                 this.start_worker = undefined;
 
                 const error = e.data.error;
@@ -252,8 +239,6 @@ export class WorkerBackground {
 
             await readyPromise;
 
-            Atomics.store(signature_input_view, 0, worker_id);
-
             break;
           }
           case WorkerBackgroundFuncNames.create_start: {
@@ -264,14 +249,11 @@ export class WorkerBackground {
               const { msg, code } = e.data;
 
               if (msg === "done") {
-                let n = 0;
-                for (const worker of this.workers) {
-                  if (worker !== undefined) {
-                    console.warn(`wasi done but worker exists, terminate ${n}`);
-                    worker.terminate();
-                  }
-                  n++;
+                for (const [n, worker] of this.workers) {
+                  console.warn(`wasi done but worker exists, terminate ${n}`);
+                  worker.terminate();
                 }
+                this.workers.clear();
 
                 console.log("start worker done so terminate");
 
@@ -282,25 +264,20 @@ export class WorkerBackground {
               }
 
               if (msg === "error") {
-                let n = 0;
-                for (const worker of this.workers) {
-                  if (worker !== undefined) {
-                    console.warn(
-                      `wasi throw error but worker exists, terminate ${n}`,
-                    );
-                    worker.terminate();
-                  }
-                  n++;
+                for (const [n, worker] of this.workers) {
+                  console.warn(
+                    `wasi throw error but worker exists, terminate ${n}`,
+                  );
+                  worker.terminate();
                 }
+                this.workers.clear();
+
                 if (this.start_worker !== undefined) {
                   console.warn(
                     "wasi throw error but wasi exists, terminate start worker",
                   );
-                  this.start_worker.terminate();
                 }
-
-                this.workers.length = 0;
-                this.workers.push(undefined);
+                this.start_worker?.terminate();
                 this.start_worker = undefined;
 
                 const error = e.data.error;
