@@ -50,7 +50,7 @@ export abstract class WASIFarmPark {
   // it will be strange,
   // but the programmer should have written it
   // so that this does not happen in the first place.
-  private async get_new_fd(): Promise<[() => Promise<void>, number]> {
+  private async get_new_fd(fd_obj: Fd): Promise<[() => Promise<void>, number]> {
     const promise = new Promise<[() => Promise<void>, number]>((resolve) => {
       const len = this.get_new_fd_lock.push(async () => {
         let ret = this.fds.indexOf(undefined);
@@ -64,6 +64,7 @@ export abstract class WASIFarmPark {
         // If it's assigned, it's resolved.
         resolve([
           async () => {
+            this.fds[ret] = fd_obj;
             this.get_new_fd_lock.shift();
             const fn = this.get_new_fd_lock[0];
             if (fn !== undefined) {
@@ -470,13 +471,11 @@ export abstract class WASIFarmPark {
         return [undefined, ret];
       }
 
-      const [resolve, opened_fd] = await this.get_new_fd();
-
       if (!fd_obj) {
         throw new Error("fd_obj should not be null");
       }
 
-      this.fds[opened_fd] = fd_obj;
+      const [resolve, opened_fd] = await this.get_new_fd(fd_obj);
 
       await resolve();
 
