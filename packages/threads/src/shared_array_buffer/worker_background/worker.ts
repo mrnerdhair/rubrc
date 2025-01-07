@@ -76,7 +76,7 @@ export class WorkerBackground {
     this.locks = locks;
     this.locker = new Locker(this.locks.lock);
     this.listener = new Listener(this.locks.listen);
-    this.done_caller = new Caller(this.locks.done_call, null);
+    this.done_caller = new Caller(this.locks.done_call);
     this.allocator = allocator;
     this.signature_input = signature_input;
     this.next_worker_id = next_worker_id;

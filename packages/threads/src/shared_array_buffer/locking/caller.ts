@@ -1,57 +1,69 @@
+import {
+  CALLER_WORKING,
+  CALL_FINISHED,
+  CALL_READY,
+  LISTENER_LOCKED,
+  UNLOCKED,
+} from "./listener";
+
 import { type AtomicTarget, new_atomic_target } from "./target";
 import "./polyfill";
 
 export class Caller {
   protected readonly view: Int32Array;
-  protected readonly locked_value: number | undefined;
-  protected readonly unlocked_value: number;
 
-  constructor(
-    { buf, byteOffset }: CallerTarget,
-    locked_value: number | null = 1,
-    unlocked_value = 0,
-  ) {
-    this.view = new Int32Array(buf, byteOffset, 1);
-    this.locked_value = locked_value ?? undefined;
-    this.unlocked_value = unlocked_value;
+  constructor({ buf, byteOffset }: CallerTarget) {
+    this.view = new Int32Array(buf, byteOffset, 2);
   }
 
   reset(): void {
-    const old = Atomics.exchange(this.view, 0, this.unlocked_value);
-    if (old !== this.unlocked_value) {
+    const old = Atomics.exchange(this.view, 0, UNLOCKED);
+    if (old !== UNLOCKED) {
       throw new Error(`caller reset actually did something: ${old}`);
     }
   }
 
-  call(code = this.locked_value): void {
-    if (code === undefined) throw new Error("must provide a code");
-    if (code === this.unlocked_value) {
-      throw new Error("code can't be the unlocked value");
-    }
+  call(code?: number): void {
     while (true) {
       const old = Atomics.compareExchange(
         this.view,
         0,
-        this.unlocked_value,
-        code,
+        LISTENER_LOCKED,
+        CALLER_WORKING,
       );
-      if (old === this.unlocked_value) break;
-      console.warn("caller already locked, waiting");
+      if (old === LISTENER_LOCKED) break;
+      console.warn("caller waiting for listener lock");
       Atomics.wait(this.view, 0, old);
     }
-    const n = Atomics.notify(this.view, 0, 1);
-    if (n === 0) {
-      throw new Error("invoked, but waiter is late");
+
+    Atomics.store(this.view, 1, code ?? 0);
+    if (
+      Atomics.compareExchange(this.view, 0, CALLER_WORKING, CALL_READY) !==
+      CALLER_WORKING
+    ) {
+      throw new Error("caller couldn't set CALL_READY");
+    }
+    if (Atomics.notify(this.view, 0, 1) !== 1) {
+      throw new Error(
+        "caller expected to notify exactly 1 listener of CALL_READY",
+      );
+    }
+
+    while (true) {
+      const old = Atomics.compareExchange(
+        this.view,
+        0,
+        CALL_FINISHED,
+        UNLOCKED,
+      );
+      if (old === CALL_FINISHED) break;
+      console.warn("caller waiting for CALL_FINISHED to unlock lock");
+      Atomics.wait(this.view, 0, old);
     }
   }
 
-  call_and_wait_blocking(code = this.locked_value): void {
-    if (code === undefined) throw new Error("must provide a code");
+  call_and_wait_blocking(code?: number): void {
     this.call(code);
-    const lock = Atomics.wait(this.view, 0, code);
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
   }
 }
 

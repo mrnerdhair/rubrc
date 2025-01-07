@@ -51,8 +51,8 @@ export class WorkerBackgroundRef {
     this.next_worker_id = next_worker_id;
     this.locker = new Locker(this.locks.lock);
     this.caller = new AsyncCaller(this.locks.call);
-    this.done_caller = new Caller(this.locks.done_call, null);
-    this.done_listener = new Listener(this.locks.done_listen, null);
+    this.done_caller = new Caller(this.locks.done_call);
+    this.done_listener = new Listener(this.locks.done_listen);
   }
 
   new_worker(
@@ -73,7 +73,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call();
+      this.caller.call_and_wait();
 
       return new WorkerRef(id);
     });
