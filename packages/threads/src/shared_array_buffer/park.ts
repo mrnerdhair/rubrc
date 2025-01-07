@@ -205,7 +205,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // from fd set ex) path_open
   // received and listen the fd
   // and set fds.length
-  protected async notify_set_fd(fd: number) {
+  protected async notify_set_fd(fd: number): Promise<void> {
     if (this.fds[fd] === undefined) {
       throw new Error("fd is not defined");
     }
@@ -226,7 +226,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // abstract methods implementation
   // called by fd close ex) fd_close
-  protected async notify_rm_fd(fd: number) {
+  protected async notify_rm_fd(fd: number): Promise<void> {
     (async () => {
       await this.listen_fds[fd];
       this.listen_fds[fd] = undefined;
