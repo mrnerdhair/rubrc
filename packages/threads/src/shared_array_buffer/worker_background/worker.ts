@@ -149,6 +149,22 @@ export class WorkerBackground {
           return out;
         };
 
+        const { promise: donePromise, resolve: doneResolve } =
+          Promise.withResolvers<
+            | [WorkerBackgroundReturnCodes.completed, number]
+            | [WorkerBackgroundReturnCodes.threw]
+          >();
+
+        donePromise.then(([result, _code]) => {
+          // if (code !== undefined) {
+          //   const notify_view = new Int32Array(this.lock, 8);
+          //   Atomics.store(notify_view, 1, code);
+          // }
+          if (result !== WorkerBackgroundReturnCodes.threw) return;
+          const caller = new Caller(this.locks.done, null);
+          caller.call(result);
+        });
+
         const signature_input = Atomics.load(signature_input_view, 0);
         switch (signature_input) {
           case WorkerBackgroundFuncNames.create_new_worker: {
@@ -161,13 +177,14 @@ export class WorkerBackground {
 
             this.workers[worker_id] = worker;
 
-            const { promise, resolve } = Promise.withResolvers<void>();
+            const { promise: readyPromise, resolve: readyResolve } =
+              Promise.withResolvers<void>();
 
             worker.onmessage = async (e) => {
-              const { msg } = e.data;
+              const { msg, code } = e.data;
 
               if (msg === "ready") {
-                resolve();
+                readyResolve();
               }
 
               if (msg === "done") {
@@ -175,6 +192,8 @@ export class WorkerBackground {
 
                 this.workers[worker_id]?.terminate();
                 this.workers[worker_id] = undefined;
+
+                doneResolve([WorkerBackgroundReturnCodes.completed, code]);
               }
 
               if (msg === "error") {
@@ -205,7 +224,6 @@ export class WorkerBackground {
                 const error = e.data.error;
 
                 const notify_view = new Int32Array(this.lock, 8);
-                const caller = new Caller(this.locks.done, null);
 
                 const serialized_error = Serializer.serialize(error);
 
@@ -218,7 +236,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
-                  caller.call(WorkerBackgroundReturnCodes.threw);
+                  doneResolve([WorkerBackgroundReturnCodes.threw]);
                 } catch (e) {
                   this.allocator.free(ptr, len);
                   throw e;
@@ -233,7 +251,7 @@ export class WorkerBackground {
               worker_background_ref: this.ref(),
             });
 
-            await promise;
+            await readyPromise;
 
             Atomics.store(signature_input_view, 0, worker_id);
 
@@ -244,7 +262,7 @@ export class WorkerBackground {
             const obj = gen_obj();
 
             this.start_worker.onmessage = async (e) => {
-              const { msg } = e.data;
+              const { msg, code } = e.data;
 
               if (msg === "done") {
                 let n = 0;
@@ -260,6 +278,8 @@ export class WorkerBackground {
 
                 this.start_worker?.terminate();
                 this.start_worker = undefined;
+
+                doneResolve([WorkerBackgroundReturnCodes.completed, code]);
               }
 
               if (msg === "error") {
@@ -287,7 +307,6 @@ export class WorkerBackground {
                 const error = e.data.error;
 
                 const notify_view = new Int32Array(this.lock, 8);
-                const caller = new Caller(this.locks.done, null);
 
                 const serialized_error = Serializer.serialize(error);
 
@@ -300,7 +319,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
-                  caller.call(WorkerBackgroundReturnCodes.threw);
+                  doneResolve([WorkerBackgroundReturnCodes.threw]);
                 } catch (e) {
                   this.allocator.free(ptr, len);
                   throw e;

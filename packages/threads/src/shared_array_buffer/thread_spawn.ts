@@ -258,7 +258,12 @@ export const thread_spawn_on_worker = async (msg: {
       const inst = await wasi.instantiate_cmd(thread_spawn_wasm);
 
       try {
-        wasi.start(inst);
+        globalThis.postMessage({
+          msg: "done",
+          code: await wasi.start(inst),
+        });
+
+        return wasi;
       } catch (e) {
         globalThis.postMessage({
           msg: "error",
@@ -267,12 +272,6 @@ export const thread_spawn_on_worker = async (msg: {
 
         return wasi;
       }
-
-      globalThis.postMessage({
-        msg: "done",
-      });
-
-      return wasi;
     }
 
     const { worker_id: thread_id, start_arg } = msg;
@@ -298,7 +297,12 @@ export const thread_spawn_on_worker = async (msg: {
     });
 
     try {
-      wasi.wasi_thread_start(inst, thread_id, start_arg);
+      globalThis.postMessage({
+        msg: "done",
+        code: await wasi.wasi_thread_start(inst, thread_id, start_arg),
+      });
+
+      return wasi;
     } catch (e) {
       globalThis.postMessage({
         msg: "error",
@@ -307,11 +311,5 @@ export const thread_spawn_on_worker = async (msg: {
 
       return wasi;
     }
-
-    globalThis.postMessage({
-      msg: "done",
-    });
-
-    return wasi;
   }
 };
