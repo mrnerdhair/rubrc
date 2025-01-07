@@ -20,11 +20,14 @@ export class WorkerBackgroundRef {
   private readonly locks: {
     lock: LockerTarget;
     call: CallerTarget;
-    done: ListenerTarget;
+    done_call: CallerTarget;
+    done_listen: ListenerTarget;
   };
   private readonly signature_input: SharedArrayBuffer;
   private readonly locker: Locker;
   private readonly caller: Caller;
+  private readonly done_caller: Caller;
+  private readonly done_listener: Listener;
 
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -32,7 +35,8 @@ export class WorkerBackgroundRef {
     locks: {
       lock: LockerTarget;
       call: CallerTarget;
-      done: ListenerTarget;
+      done_call: CallerTarget;
+      done_listen: ListenerTarget;
     },
     signature_input: SharedArrayBuffer,
   ) {
@@ -42,6 +46,8 @@ export class WorkerBackgroundRef {
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
     this.caller = new Caller(this.locks.call);
+    this.done_caller = new Caller(this.locks.done_call, null);
+    this.done_listener = new Listener(this.locks.done_listen, null);
   }
 
   new_worker(
@@ -100,14 +106,12 @@ export class WorkerBackgroundRef {
 
     Atomics.store(notify_view, 1, code);
 
-    new Caller(this.locks.done, null).call(
-      WorkerBackgroundReturnCodes.completed,
-    );
+    this.done_caller.call(WorkerBackgroundReturnCodes.completed);
   }
 
   private async async_wait_done_or_error(): Promise<number> {
     const notify_view = new Int32Array(this.lock, 8);
-    const listener = new Listener(this.locks.done, null);
+    const listener = this.done_listener;
     listener.reset();
 
     return await listener.listen(async (code?: number) => {

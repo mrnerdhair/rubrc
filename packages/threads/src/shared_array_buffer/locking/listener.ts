@@ -1,4 +1,3 @@
-import type { CallerTarget } from "./caller";
 import { type AtomicTarget, new_atomic_target } from "./target";
 import "./polyfill";
 
@@ -8,7 +7,7 @@ export class Listener {
   protected readonly unlocked_value: number;
 
   constructor(
-    { buf, byteOffset }: ListenerTarget | CallerTarget,
+    { buf, byteOffset }: ListenerTarget,
     locked_value: number | null | undefined = 1,
     unlocked_value = 0,
   ) {

@@ -41,9 +41,15 @@ export class WorkerBackground {
   private readonly locks: {
     lock: LockerTarget;
     call: CallerTarget;
-    done: ListenerTarget;
+    listen: ListenerTarget;
+    done_call: CallerTarget;
+    done_listen: ListenerTarget;
   };
   private readonly signature_input: SharedArrayBuffer;
+
+  private readonly locker: Locker;
+  private readonly listener: Listener;
+  private readonly done_caller: Caller;
 
   // worker_id starts from 1
   private readonly workers: Array<Worker | undefined> = [undefined];
@@ -56,7 +62,9 @@ export class WorkerBackground {
     locks: {
       lock: LockerTarget;
       call: CallerTarget;
-      done: ListenerTarget;
+      listen: ListenerTarget;
+      done_call: CallerTarget;
+      done_listen: ListenerTarget;
     },
     allocator: AllocatorUseArrayBuffer,
     signature_input: SharedArrayBuffer,
@@ -64,6 +72,9 @@ export class WorkerBackground {
     this.override_object = override_object;
     this.lock = lock;
     this.locks = locks;
+    this.locker = new Locker(this.locks.lock);
+    this.listener = new Listener(this.locks.listen);
+    this.done_caller = new Caller(this.locks.done_call, null);
     this.allocator = allocator;
     this.signature_input = signature_input;
     this.listen();
@@ -104,11 +115,11 @@ export class WorkerBackground {
   }
 
   async listen(): Promise<void> {
-    new Locker(this.locks.lock).reset();
+    this.locker.reset();
 
     const signature_input_view = new Int32Array(this.signature_input);
 
-    const listener = new Listener(this.locks.call);
+    const listener = this.listener;
     listener.reset();
     while (true) {
       await listener.listen(async () => {
@@ -150,8 +161,7 @@ export class WorkerBackground {
           //   Atomics.store(notify_view, 1, code);
           // }
           if (result !== WorkerBackgroundReturnCodes.threw) return;
-          const caller = new Caller(this.locks.done, null);
-          caller.call(result);
+          this.done_caller.call(result);
         });
 
         const signature_input = Atomics.load(signature_input_view, 0);

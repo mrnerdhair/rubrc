@@ -6,10 +6,10 @@ import {
   type CallerTarget,
   Locker,
   type LockerTarget,
-  new_caller_target,
+  new_caller_listener_target,
   new_locker_target,
 } from "./locking";
-import { Listener } from "./locking/listener";
+import { Listener, type ListenerTarget } from "./locking/listener";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
@@ -80,6 +80,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private readonly lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
+    listen: ListenerTarget;
   }>;
 
   // 1 bytes: fds.length
@@ -99,7 +100,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private readonly base_func_util_locks: {
     lock: LockerTarget;
     call: CallerTarget;
+    listen: ListenerTarget;
   };
+  private readonly locker: Locker;
+  private readonly listener: Listener;
 
   // tell other processes that the file descriptor has been closed
   private readonly fd_close_receiver: FdCloseSenderUseArrayBuffer;
@@ -130,10 +134,14 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       });
     }
     const max_fds_len = 128;
-    this.lock_fds = new Array(max_fds_len).fill(undefined).map(() => ({
-      lock: new_locker_target(),
-      call: new_caller_target(),
-    }));
+    this.lock_fds = new Array(max_fds_len).fill(undefined).map(() => {
+      const [call, listen] = new_caller_listener_target();
+      return {
+        lock: new_locker_target(),
+        call,
+        listen,
+      };
+    });
     this.fd_func_sig = new SharedArrayBuffer(
       fd_func_sig_u32_size * 4 * max_fds_len,
     );
@@ -145,10 +153,15 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
     this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
     this.base_func_util = new SharedArrayBuffer(24);
+
+    const [call, listen] = new_caller_listener_target();
     this.base_func_util_locks = {
       lock: new_locker_target(),
-      call: new_caller_target(),
+      call,
+      listen,
     };
+    this.locker = new Locker(this.base_func_util_locks.lock);
+    this.listener = new Listener(this.base_func_util_locks.listen);
   }
 
   /// Send this return by postMessage.
@@ -227,9 +240,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // so, set fds_map
   async listen_base() {
     const lock_view = new Int32Array(this.base_func_util);
-    new Locker(this.base_func_util_locks.lock).reset();
+    this.locker.reset();
 
-    const listener = new Listener(this.base_func_util_locks.call);
+    const listener = this.listener;
     listener.reset();
     while (true) {
       await listener.listen(async () => {
@@ -769,7 +782,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
     };
 
-    const listener = new Listener(this.lock_fds[fd_n].call);
+    const listener = new Listener(this.lock_fds[fd_n].listen);
     listener.reset();
     do {
       await listener.listen(async () => {
