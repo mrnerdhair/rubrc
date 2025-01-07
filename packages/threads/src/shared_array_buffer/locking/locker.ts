@@ -26,88 +26,49 @@ export class Locker {
     }
   }
 
-  async lock<T>(callback: () => T | PromiseLike<T>): Promise<T> {
+  async lock<T>(callback: () => T | PromiseLike<T>, wait = true): Promise<T> {
+    let spinning = false;
     while (true) {
-      const [success, out] = await this.try_lock(callback);
-      if (success) return out;
-      console.warn("spinning async");
-      await async_yield();
+      const old = Atomics.compareExchange(this.view, 0, this.unlocked_value, this.locked_value);
+      if (old === this.unlocked_value) break;
+      if (!wait) throw new LockNotReady();
+      if (spinning) console.warn("spinning async");
+      spinning = true;
+      await Atomics.waitAsync(this.view, 0, old).value;
+    }
+    try {
+      return await callback();
+    } finally {
+      if (Atomics.compareExchange(this.view, 0, this.locked_value, this.unlocked_value) !== this.locked_value) {
+        // biome-ignore lint/correctness/noUnsafeFinally: lock failure is a higher-priority error
+        throw new Error("lock was not locked when released");
+      }
+      Atomics.notify(this.view, 0, 1);
     }
   }
 
-  lock_blocking<T>(callback: () => T): T {
+  lock_blocking<T>(callback: () => T, wait = true): T {
+    let spinning = false;
     while (true) {
-      const [success, out] = this.try_lock_blocking(callback);
-      if (success) return out;
-      console.warn("spinning");
+      const old = Atomics.compareExchange(this.view, 0, this.unlocked_value, this.locked_value);
+      if (old === this.unlocked_value) break;
+      if (!wait) throw new LockNotReady();
+      if (spinning) console.warn("spinning");
+      spinning = true;
+      Atomics.wait(this.view, 0, old);
     }
-  }
-
-  async try_lock<T>(
-    callback: () => T | PromiseLike<T>,
-  ): Promise<[true, T] | [false, undefined]> {
-    if (!(await this.try_take_lock())) return [false, undefined];
     try {
-      return [true, await callback()];
+      return callback();
     } finally {
-      this.release_lock();
-    }
-  }
-
-  try_lock_blocking<T>(callback: () => T): [true, T] | [false, undefined] {
-    if (!this.try_take_lock_blocking()) return [false, undefined];
-    try {
-      return [true, callback()];
-    } finally {
-      this.release_lock();
-    }
-  }
-
-  protected async try_take_lock(): Promise<boolean> {
-    const current = Atomics.load(this.view, 0);
-    if (current !== this.unlocked_value) {
-      if (current === this.locked_value) return false;
-      const lock = await Atomics.waitAsync(this.view, 0, current).value;
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
+      if (Atomics.compareExchange(this.view, 0, this.locked_value, this.unlocked_value) !== this.locked_value) {
+        // biome-ignore lint/correctness/noUnsafeFinally: lock failure is a higher-priority error
+        throw new Error("lock was not locked when released");
       }
-    }
-    const old = Atomics.compareExchange(
-      this.view,
-      0,
-      this.unlocked_value,
-      this.locked_value,
-    );
-    return old === this.unlocked_value;
-  }
-
-  protected try_take_lock_blocking(): boolean {
-    const current = Atomics.load(this.view, 0);
-    if (current !== this.unlocked_value) {
-      if (current === this.locked_value) return false;
-      const lock = Atomics.wait(this.view, 0, current);
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-    }
-    const old = Atomics.compareExchange(
-      this.view,
-      0,
-      this.unlocked_value,
-      this.locked_value,
-    );
-    return old === this.unlocked_value;
-  }
-
-  protected release_lock() {
-    const old = Atomics.exchange(this.view, 0, this.unlocked_value);
-    Atomics.notify(this.view, 0, 1);
-    if (old !== this.locked_value) {
-      throw new Error("lock was not locked when released");
+      Atomics.notify(this.view, 0, 1);
     }
   }
 
-  protected equals(other: Locker): boolean {
+  private equals(other: Locker): boolean {
     return (
       this.view.buffer === other.view.buffer &&
       this.view.byteOffset === other.view.byteOffset &&
@@ -145,15 +106,15 @@ export class Locker {
     );
 
     while (true) {
-      const [success, out] = await first.lock(async () => {
-        if (early_backoff) {
-          return await second.try_lock(callback);
-        }
-        return [true, await second.lock(callback)];
-      });
-      if (success) return out;
-      console.warn("spinning async with deadlock avoidance");
-      await async_yield();
+      try {
+        return await first.lock(async () => {
+          return await second.lock(callback, !early_backoff);
+        });
+      } catch (e) {
+        if (!(e instanceof LockNotReady)) throw e;
+        console.warn("spinning async for deadlock avoidance");
+        await async_yield();
+      }
     }
   }
 
@@ -189,17 +150,19 @@ export class Locker {
     );
 
     while (true) {
-      const [success, out] = first.lock_blocking(() => {
-        if (early_backoff) {
-          return second.try_lock_blocking(callback);
-        }
-        return [true, second.lock_blocking(callback)];
-      });
-      if (success) return out;
-      console.warn("spinning with deadlock avoidance");
+      try {
+        return first.lock_blocking(() => {
+          return second.lock_blocking(callback, !early_backoff);
+        });
+      } catch (e) {
+        if (!(e instanceof LockNotReady)) throw e;
+        console.warn("spinning for deadlock avoidance");
+      }
     }
   }
 }
+
+export class LockNotReady {}
 
 declare const lockerTargetBrand: unique symbol;
 export type LockerTarget = AtomicTarget & { [lockerTargetBrand]: never };
@@ -209,9 +172,10 @@ export function new_locker_target(): LockerTarget {
 
 // kludgy but cross-platform replacement for setImmediate
 function async_yield(): Promise<void> {
-  const { port1, port2 } = new MessageChannel();
-  const { promise, resolve } = Promise.withResolvers<void>();
-  port2.onmessage = () => resolve();
-  port1.postMessage(undefined);
-  return promise;
+  return new Promise(resolve => setTimeout(resolve, 100));
+  // const { port1, port2 } = new MessageChannel();
+  // const { promise, resolve } = Promise.withResolvers<void>();
+  // port2.onmessage = () => resolve();
+  // port1.postMessage(undefined);
+  // return promise;
 }
