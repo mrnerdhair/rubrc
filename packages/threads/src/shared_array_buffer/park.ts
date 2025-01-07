@@ -98,6 +98,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private readonly fds_len_and_num: SharedArrayBuffer;
   // listen promise keep
   private readonly listen_fds: Array<Promise<void> | undefined> = [];
+  private readonly abort_fds: Array<AbortController | undefined> = [];
 
   // The largest size is u32 * 18 + 1
   // Alignment is troublesome, so make it u32 * 18 + 4
@@ -215,9 +216,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     }
     if (this.listen_fds[fd] !== undefined) {
       console.warn("fd is already set yet");
+      this.abort_fds[fd]?.abort();
       await this.listen_fds[fd];
     }
-    this.listen_fds[fd] = this.listen_fd(fd);
+    const aborter = new AbortController();
+    this.abort_fds[fd] = aborter;
+    this.listen_fds[fd] = this.listen_fd(fd, aborter.signal);
 
     const view = new Int32Array(this.fds_len_and_num);
     Atomics.store(view, 0, this.fds.length);
@@ -227,6 +231,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // called by fd close ex) fd_close
   protected async notify_rm_fd(fd: number): Promise<void> {
     this.can_set_new_fd(fd).then(() => {
+      this.abort_fds[fd] = undefined;
       this.listen_fds[fd] = undefined;
     });
 
@@ -238,17 +243,22 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // abstract methods implementation
   // wait to close old listener
   protected async can_set_new_fd(fd: number): Promise<void> {
+    this.abort_fds[fd]?.abort();
     await this.listen_fds[fd];
   }
 
   // listen all fds and base
   // Must be called before was_ref_id is instantiated
-  listen() {
+  listen(aborter: AbortSignal) {
+    this.abort_fds.length = 0;
     this.listen_fds.length = 0;
     for (let i = 0; i < this.fds.length; i++) {
-      this.listen_fds.push(this.listen_fd(i));
+      const fd_aborter = new AbortController();
+      aborter.addEventListener("abort", () => fd_aborter.abort());
+      this.abort_fds.push(fd_aborter);
+      this.listen_fds.push(this.listen_fd(i, fd_aborter.signal));
     }
-    return this.listen_base();
+    return this.listen_base(aborter);
   }
 
   // listen base
@@ -256,12 +266,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // if close fd and send to other process,
   // it need targets wasi_farm_ref id
   // so, set fds_map
-  async listen_base() {
+  async listen_base(aborter: AbortSignal) {
     this.locker.reset();
 
     const listener = this.listener;
     listener.reset();
-    while (true) {
+    while (!aborter.aborted) {
       await listener.listen(async () => {
         const func_number = Atomics.load(this.base_func_util, 2);
         switch (func_number) {
@@ -800,7 +810,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   }
 
   // listen fd
-  async listen_fd(fd_n: number) {
+  async listen_fd(fd_n: number, aborter: AbortSignal) {
     const bytes_offset = fd_n * fd_func_sig_bytes;
     const func_sig_view_i32 = new Int32Array(this.fd_func_sig, bytes_offset);
     const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
@@ -812,30 +822,25 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     const handlers = this.make_listen_fd_handlers(bytes_offset);
     const listener = this.get_fd_listener(fd_n);
     listener.reset();
-    do {
-      try {
-        await listener.listen(async () => {
-          try {
-            const func_number = Atomics.load(func_sig_view_u32, 0);
-            const func_name = FuncNames[func_number] as keyof typeof FuncNames;
-            const handler =
-              handlers[func_name] ??
-              (() => {
-                throw new Error(`Unknown function number: ${func_number}`);
-              });
-            const errno = await handler();
-            Atomics.store(func_sig_view_i32, errno_offset, errno);
-          } catch (e) {
-            const func_sig_view = new Int32Array(this.fd_func_sig);
-            Atomics.exchange(func_sig_view, 16, -1);
+    while (!aborter.aborted && this.fds[fd_n] !== undefined) {
+      await listener.listen(async () => {
+        try {
+          const func_number = Atomics.load(func_sig_view_u32, 0);
+          const func_name = FuncNames[func_number] as keyof typeof FuncNames;
+          const handler =
+            handlers[func_name] ??
+            (() => {
+              throw new Error(`Unknown function number: ${func_number}`);
+            });
+          const errno = await handler();
+          Atomics.store(func_sig_view_i32, errno_offset, errno);
+        } catch (e) {
+          const func_sig_view = new Int32Array(this.fd_func_sig);
+          Atomics.exchange(func_sig_view, 16, -1);
 
-            throw e;
-          }
-        });
-      } catch (e) {
-        const func_sig_view = new Int32Array(this.fd_func_sig);
-        Atomics.exchange(func_sig_view, 16, -1);
-      }
-    } while (this.fds[fd_n] !== undefined);
+          throw e;
+        }
+      });
+    }
   }
 }
