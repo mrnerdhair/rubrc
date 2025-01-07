@@ -215,9 +215,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     }
     if (this.listen_fds[fd] !== undefined) {
       console.warn("fd is already set yet");
-      if (this.listen_fds[fd] instanceof Promise) {
-        await this.listen_fds[fd];
-      }
+      await this.listen_fds[fd];
     }
     this.listen_fds[fd] = this.listen_fd(fd);
 
