@@ -225,10 +225,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // abstract methods implementation
   // called by fd close ex) fd_close
   protected async notify_rm_fd(fd: number): Promise<void> {
-    (async () => {
-      await this.listen_fds[fd];
+    this.can_set_new_fd(fd).then(() => {
       this.listen_fds[fd] = undefined;
-    })();
+    });
 
     await this.fd_close_receiver.send(this.fds_map[fd], fd);
 
