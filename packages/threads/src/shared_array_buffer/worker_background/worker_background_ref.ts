@@ -15,22 +15,22 @@ import {
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
 export class WorkerBackgroundRef {
-  private allocator: AllocatorUseArrayBuffer;
-  private lock: SharedArrayBuffer;
-  private locks: {
+  private readonly allocator: AllocatorUseArrayBuffer;
+  private readonly lock: SharedArrayBuffer;
+  private readonly locks: {
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
     done_call: CallerTarget;
     done_listen: ListenerTarget;
   };
-  private signature_input: SharedArrayBuffer;
-  private locker: Locker;
-  private caller: Caller;
-  private done_caller: Caller;
-  private done_listener: Listener;
+  private readonly signature_input: SharedArrayBuffer;
+  private readonly locker: Locker;
+  private readonly caller: Caller;
+  private readonly done_caller: Caller;
+  private readonly done_listener: Listener;
 
-  constructor(
+  protected constructor(
     allocator: AllocatorUseArrayBuffer,
     lock: SharedArrayBuffer,
     locks: {

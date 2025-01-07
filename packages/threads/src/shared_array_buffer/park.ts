@@ -18,7 +18,7 @@ export const fd_func_sig_u32_size: number = 18;
 export const fd_func_sig_bytes: number = fd_func_sig_u32_size * 4;
 
 export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
-  private allocator: AllocatorUseArrayBuffer;
+  private readonly allocator: AllocatorUseArrayBuffer;
 
   // args and env do not change, so copying them is fine.
   // Functions that do not depend on fds are skipped.
@@ -78,7 +78,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // path_unlink_file: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
 
   // Lock when you want to use fd
-  private lock_fds: Array<{
+  private readonly lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
@@ -87,19 +87,18 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // 1 bytes: fds.length
   // 1 bytes: wasi_farm_ref num(id)
   // Actually, as long as it is working properly, fds.length is not used
-  private fds_len_and_num: SharedArrayBuffer;
-
+  private readonly fds_len_and_num: SharedArrayBuffer;
   // listen promise keep
-  private listen_fds: Array<Promise<void> | undefined> = [];
+  private readonly listen_fds: Array<Promise<void> | undefined> = [];
 
   // The largest size is u32 * 18 + 1
   // Alignment is troublesome, so make it u32 * 18 + 4
   // In other words, one size is 76 bytes
-  private fd_func_sig: SharedArrayBuffer;
+  private readonly fd_func_sig: SharedArrayBuffer;
 
   // listen base lock and call etc
-  private base_func_util: SharedArrayBuffer;
-  private base_func_util_locks: {
+  private readonly base_func_util: SharedArrayBuffer;
+  private readonly base_func_util_locks: {
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
@@ -108,7 +107,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private readonly listener: Listener;
 
   // tell other processes that the file descriptor has been closed
-  private fd_close_receiver: FdCloseSenderUseArrayBuffer;
+  private readonly fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
   // this is not send by postMessage,
   // so it is not necessary to keep shared_array_buffer
@@ -186,7 +185,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // from fd set ex) path_open
   // received and listen the fd
   // and set fds.length
-  async notify_set_fd(fd: number) {
+  protected async notify_set_fd(fd: number) {
     if (this.fds[fd] === undefined) {
       throw new Error("fd is not defined");
     }
@@ -207,7 +206,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // abstract methods implementation
   // called by fd close ex) fd_close
-  async notify_rm_fd(fd: number) {
+  protected async notify_rm_fd(fd: number) {
     (async () => {
       if (this.listen_fds[fd] !== undefined) {
         if (this.listen_fds[fd] instanceof Promise) {
@@ -224,14 +223,17 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // abstract methods implementation
   // wait to close old listener
-  async can_set_new_fd(fd: number): Promise<void> {
+  protected async can_set_new_fd(fd: number): Promise<void> {
     await this.listen_fds[fd];
   }
 
   // listen all fds and base
   // Must be called before was_ref_id is instantiated
   listen() {
-    this.listen_fds = this.fds.map((_fd, n) => this.listen_fd(n));
+    this.listen_fds.length = 0;
+    for (let i = 0; i < this.fds.length; i++) {
+      this.listen_fds.push(this.listen_fd(i));
+    }
     return this.listen_base();
   }
 

@@ -13,15 +13,15 @@ export type Fd = Omit<BaseFd, "fd_write"> & {
 export abstract class WASIFarmPark {
   abstract get_ref(): WASIFarmRefUseArrayBufferObject;
   abstract listen(): Promise<void>;
-  abstract notify_set_fd(fd: number): void;
-  abstract notify_rm_fd(fd: number): void;
-  abstract can_set_new_fd(fd: number): Promise<void>;
+  protected abstract notify_set_fd(fd: number): void;
+  protected abstract notify_rm_fd(fd: number): void;
+  protected abstract can_set_new_fd(fd: number): void;
 
-  protected fds: Array<Fd | undefined>;
-  protected stdin: number | undefined;
-  protected stdout: number | undefined;
-  protected stderr: number | undefined;
-  protected default_allow_fds: Array<number>;
+  protected readonly fds: Array<Fd | undefined>;
+  protected readonly stdin: number | undefined;
+  protected readonly stdout: number | undefined;
+  protected readonly stderr: number | undefined;
+  protected readonly default_allow_fds: Array<number>;
 
   constructor(
     fds: Array<Fd>,
@@ -44,7 +44,7 @@ export abstract class WASIFarmPark {
   private get_new_fd_lock = new Array<() => Promise<void>>();
 
   // For an fd, indicates whether id currently has access to that fd.
-  protected fds_map: Array<number[]>;
+  protected readonly fds_map: Array<number[]>;
 
   // If the reassigned value is accessed after being closed,
   // it will be strange,

@@ -37,24 +37,24 @@ export type OverrideObject = {
 };
 
 export class WorkerBackground {
-  private override_object: OverrideObject;
-  private allocator: AllocatorUseArrayBuffer;
-  private lock: SharedArrayBuffer;
-  private locks: {
+  private readonly override_object: OverrideObject;
+  private readonly allocator: AllocatorUseArrayBuffer;
+  private readonly lock: SharedArrayBuffer;
+  private readonly locks: {
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
     done_call: CallerTarget;
     done_listen: ListenerTarget;
   };
-  private signature_input: SharedArrayBuffer;
+  private readonly signature_input: SharedArrayBuffer;
 
   private locker: Locker;
   private listener: Listener;
   private done_caller: Caller;
 
   // worker_id starts from 1
-  private workers: Array<Worker | undefined> = [undefined];
+  private readonly workers: Array<Worker | undefined> = [undefined];
 
   private start_worker?: Worker;
 
@@ -216,7 +216,8 @@ export class WorkerBackground {
                   this.start_worker.terminate();
                 }
 
-                this.workers = [undefined];
+                this.workers.length = 0;
+                this.workers.push(undefined);
                 this.start_worker = undefined;
 
                 const error = e.data.error;
@@ -295,7 +296,8 @@ export class WorkerBackground {
                   this.start_worker.terminate();
                 }
 
-                this.workers = [undefined];
+                this.workers.length = 0;
+                this.workers.push(undefined);
                 this.start_worker = undefined;
 
                 const error = e.data.error;

@@ -25,10 +25,10 @@ export class AllocatorUseArrayBuffer {
 
   // Even if 100MB is allocated, due to browser virtualization,
   // the memory should not actually be used until it is needed.
-  share_arrays_memory: SharedArrayBuffer;
-  readonly share_arrays_memory_lock: LockerTarget;
+  private readonly share_arrays_memory: SharedArrayBuffer;
+  private readonly share_arrays_memory_lock: LockerTarget;
 
-  protected locker: Locker;
+  private readonly locker: Locker;
 
   // Since postMessage makes the class an object,
   // it must be able to receive and assign a SharedArrayBuffer.

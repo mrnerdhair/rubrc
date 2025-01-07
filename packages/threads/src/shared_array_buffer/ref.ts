@@ -40,22 +40,22 @@ export type WASIFarmRefUseArrayBufferObject = {
 // Transmittable objects to communicate with Park
 export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
-  allocator: AllocatorUseArrayBuffer;
-  readonly lock_fds: Array<{
+  private readonly allocator: AllocatorUseArrayBuffer;
+  private readonly lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
   }>;
   // byte 1: fds_len
   // byte 2: all wasi_farm_ref num
-  fds_len_and_num: SharedArrayBuffer;
-  fd_func_sig: SharedArrayBuffer;
-  base_func_util: SharedArrayBuffer;
+  private readonly fds_len_and_num: SharedArrayBuffer;
+  private readonly fd_func_sig: SharedArrayBuffer;
+  private readonly base_func_util: SharedArrayBuffer;
 
   declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
-  protected locker: Locker;
-  protected caller: Caller;
+  private readonly locker: Locker;
+  private readonly caller: Caller;
 
   readonly id: number;
 
