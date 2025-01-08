@@ -1,7 +1,9 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   type CallerTarget,
-  Listener,
+  DummyCaller4,
+  DummyCaller5,
+  DummyListener4,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -195,138 +197,5 @@ export class WorkerRef {
 
   get_id(): number {
     return this.id;
-  }
-}
-
-class DummyListener4 {
-  private readonly notify_view: Int32Array<SharedArrayBuffer>;
-  constructor(notify_view: Int32Array<SharedArrayBuffer>) {
-    this.notify_view = notify_view;
-  }
-  reset() {
-    Atomics.store(this.notify_view, 0, 0);
-  }
-  async listen(callback: (code?: number) => Promise<number>): Promise<number> {
-    const lock = await Atomics.waitAsync(this.notify_view, 0, 0).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
-    if (lock === "not-equal") {
-      throw new Error("not-equal");
-    }
-
-    const code = Atomics.load(this.notify_view, 0);
-
-    let out: number;
-    try {
-      out = await callback(code);
-    } catch (error) {
-      if (!(error instanceof Error && error.message === "unknown code")) {
-        const old = Atomics.compareExchange(this.notify_view, 0, 1, 0);
-
-        if (old !== 1) {
-          console.error("what happened?");
-        }
-      }
-
-      throw error;
-    }
-
-    const old = Atomics.compareExchange(this.notify_view, 0, 2, 0);
-    if (old !== 2) {
-      throw new Error("what happened?");
-    }
-
-    return out;
-  }
-  listen_blocking(callback: (code?: number) => number): number {
-    const value = Atomics.wait(this.notify_view, 0, 0);
-    if (value === "timed-out") {
-      throw new Error("timed-out");
-    }
-    if (value === "not-equal") {
-      throw new Error("not-equal");
-    }
-
-    const code = Atomics.load(this.notify_view, 0);
-
-    let out: number;
-    try {
-      out = callback(code);
-    } catch (error) {
-      if (!(error instanceof Error && error.message === "unknown code")) {
-        const old = Atomics.compareExchange(this.notify_view, 0, 1, 0);
-
-        if (old !== 1) {
-          console.error("what happened?");
-        }
-      }
-
-      throw error;
-    }
-
-    const old = Atomics.compareExchange(this.notify_view, 0, 2, 0);
-    if (old !== 2) {
-      throw new Error("what happened?");
-    }
-
-    return out;
-  }
-}
-
-class DummyCaller5 {
-  private readonly notify_view: Int32Array<SharedArrayBuffer>;
-  constructor(notify_view: Int32Array<SharedArrayBuffer>) {
-    this.notify_view = notify_view;
-  }
-
-  call(_code: number, callback?: () => void): void {
-    // notify done = code 2
-    const old = Atomics.compareExchange(this.notify_view, 0, 0, 2);
-
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-
-    callback?.();
-
-    const num = Atomics.notify(this.notify_view, 0);
-
-    if (num === 0) {
-      Atomics.store(this.notify_view, 0, 0);
-      throw new NoListener();
-    }
-  }
-}
-
-class DummyCaller4 {
-  private readonly lock: SharedArrayBuffer;
-  constructor(lock: SharedArrayBuffer) {
-    this.lock = lock;
-  }
-  call_and_wait_blocking(): void {
-    const view = new Int32Array(this.lock);
-    const old = Atomics.exchange(view, 1, 1);
-    Atomics.notify(view, 1, 1);
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-    const lock = Atomics.wait(view, 1, 1);
-    if (lock === "timed-out") {
-      throw new Error("timed-out lock");
-    }
-  }
-
-  async call_and_wait(): Promise<void> {
-    const view = new Int32Array(this.lock);
-    const old = Atomics.exchange(view, 1, 1);
-    Atomics.notify(view, 1, 1);
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-    const lock = await Atomics.waitAsync(view, 1, 1).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
   }
 }

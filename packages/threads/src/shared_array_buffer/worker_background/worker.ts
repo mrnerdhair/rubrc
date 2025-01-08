@@ -11,6 +11,8 @@ import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   type CallerTarget,
+  DummyCaller3,
+  DummyListener3,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -336,61 +338,3 @@ export type WorkerBackgroundInit = typeof WorkerBackground.init;
 
 setTransferHandlers();
 Comlink.expose(WorkerBackground.init, self);
-
-class DummyCaller3 {
-  private readonly notify_view: Int32Array<SharedArrayBuffer>;
-  constructor(notify_view: Int32Array<SharedArrayBuffer>) {
-    this.notify_view = notify_view;
-  }
-  call(_code: number): void {
-    // notify error = code 1
-    const old = Atomics.compareExchange(this.notify_view, 0, 0, 1);
-
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-
-    const num = Atomics.notify(this.notify_view, 0);
-
-    if (num === 0) {
-      Atomics.store(this.notify_view, 0, 0);
-      throw new NoListener();
-    }
-  }
-}
-
-class DummyListener3 {
-  private readonly lock_view: Int32Array<SharedArrayBuffer>;
-  constructor(lock_view: Int32Array<SharedArrayBuffer>) {
-    this.lock_view = lock_view;
-  }
-  reset() {
-    Atomics.store(this.lock_view, 1, 0);
-  }
-  async listen(callback: () => Promise<void>): Promise<void> {
-    const lock = await Atomics.waitAsync(this.lock_view, 1, 0).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
-
-    const locked_value = Atomics.load(this.lock_view, 1);
-    if (locked_value !== 1) {
-      throw new Error("locked");
-    }
-
-    await callback();
-
-    const old_call_lock = Atomics.exchange(this.lock_view, 1, 0);
-    if (old_call_lock !== 1) {
-      throw new Error("Lock is already set");
-    }
-    const num = Atomics.notify(this.lock_view, 1, 1);
-    if (num !== 1) {
-      if (num === 0) {
-        console.warn("notify failed, waiter is late");
-        return;
-      }
-      throw new Error(`notify failed: ${num}`);
-    }
-  }
-}
