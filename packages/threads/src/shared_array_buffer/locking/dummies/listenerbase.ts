@@ -42,10 +42,13 @@ export abstract class DummyListenerBase {
       const value = next.value;
       let out: [true, Awaited<T> | string] | [false, unknown];
       try {
-        out = [true, await (() => {
-          if (value instanceof Wait) return value.waitAsync();
-          return value;
-        })()];
+        out = [
+          true,
+          await (() => {
+            if (value instanceof Wait) return value.waitAsync();
+            return value;
+          })(),
+        ];
       } catch (e) {
         out = [false, e];
       }
@@ -65,10 +68,13 @@ export abstract class DummyListenerBase {
       const value = next.value;
       let out: [true, T | string] | [false, unknown];
       try {
-        out = [true, (() => {
-          if (value instanceof Wait) return value.wait();
-          return value;
-        })()];
+        out = [
+          true,
+          (() => {
+            if (value instanceof Wait) return value.wait();
+            return value;
+          })(),
+        ];
       } catch (e) {
         out = [false, e];
       }
