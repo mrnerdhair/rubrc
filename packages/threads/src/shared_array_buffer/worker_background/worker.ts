@@ -45,8 +45,8 @@ export class WorkerBackground {
   private signature_input: SharedArrayBuffer;
 
   private locker: Locker;
-  private listener: DummyListener1;
-  private done_caller: DummyCaller1;
+  private listener: DummyListener3;
+  private done_caller: DummyCaller3;
 
   // worker_id starts from 1
   private workers: Array<Worker | undefined> = [undefined];
@@ -78,8 +78,8 @@ export class WorkerBackground {
       done_listen,
     };
     this.locker = new Locker(this.locks.lock);
-    this.listener = new DummyListener1(new Int32Array(this.lock));
-    this.done_caller = new DummyCaller1(new Int32Array(this.lock, 8));
+    this.listener = new DummyListener3(new Int32Array(this.lock));
+    this.done_caller = new DummyCaller3(new Int32Array(this.lock, 8));
     this.allocator =
       allocator ??
       new AllocatorUseArrayBuffer({
@@ -337,7 +337,7 @@ export type WorkerBackgroundInit = typeof WorkerBackground.init;
 setTransferHandlers();
 Comlink.expose(WorkerBackground.init, self);
 
-class DummyCaller1 {
+class DummyCaller3 {
   private readonly notify_view: Int32Array<SharedArrayBuffer>;
   constructor(notify_view: Int32Array<SharedArrayBuffer>) {
     this.notify_view = notify_view;
@@ -359,7 +359,7 @@ class DummyCaller1 {
   }
 }
 
-class DummyListener1 {
+class DummyListener3 {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
   constructor(lock_view: Int32Array<SharedArrayBuffer>) {
     this.lock_view = lock_view;

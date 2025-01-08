@@ -22,9 +22,9 @@ export class WorkerBackgroundRef {
   };
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
-  private caller: DummyCaller1;
-  private done_caller: DummyCaller2;
-  private done_listener: DummyListener1;
+  private caller: DummyCaller4;
+  private done_caller: DummyCaller5;
+  private done_listener: DummyListener4;
 
   constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -43,9 +43,9 @@ export class WorkerBackgroundRef {
     this.locks = locks;
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
-    this.caller = new DummyCaller1(this.lock);
-    this.done_caller = new DummyCaller2(new Int32Array(this.lock, 8));
-    this.done_listener = new DummyListener1(new Int32Array(this.lock, 8));
+    this.caller = new DummyCaller4(this.lock);
+    this.done_caller = new DummyCaller5(new Int32Array(this.lock, 8));
+    this.done_listener = new DummyListener4(new Int32Array(this.lock, 8));
   }
 
   new_worker(
@@ -198,7 +198,7 @@ export class WorkerRef {
   }
 }
 
-class DummyListener1 {
+class DummyListener4 {
   private readonly notify_view: Int32Array<SharedArrayBuffer>;
   constructor(notify_view: Int32Array<SharedArrayBuffer>) {
     this.notify_view = notify_view;
@@ -274,7 +274,7 @@ class DummyListener1 {
   }
 }
 
-class DummyCaller2 {
+class DummyCaller5 {
   private readonly notify_view: Int32Array<SharedArrayBuffer>;
   constructor(notify_view: Int32Array<SharedArrayBuffer>) {
     this.notify_view = notify_view;
@@ -299,7 +299,7 @@ class DummyCaller2 {
   }
 }
 
-class DummyCaller1 {
+class DummyCaller4 {
   private readonly lock: SharedArrayBuffer;
   constructor(lock: SharedArrayBuffer) {
     this.lock = lock;
