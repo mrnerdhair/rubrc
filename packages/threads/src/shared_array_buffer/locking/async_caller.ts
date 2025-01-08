@@ -23,7 +23,10 @@ export class AsyncCaller {
     }
   }
 
-  async call_and_wait(code?: number): Promise<void> {
+  async call_and_wait(
+    code?: number,
+    callback?: () => void | PromiseLike<void>,
+  ): Promise<void> {
     while (true) {
       const old = Atomics.compareExchange(
         this.view,
@@ -37,6 +40,20 @@ export class AsyncCaller {
     }
 
     Atomics.store(this.view, 1, code ?? 0);
+    try {
+      await callback?.();
+    } catch (e) {
+      if (
+        Atomics.compareExchange(this.view, 0, CALLER_WORKING, UNLOCKED) !==
+        CALLER_WORKING
+      ) {
+        throw new Error(
+          "caller callback failed, but unlocking the caller lock also failed",
+        );
+      }
+      throw e;
+    }
+
     if (
       Atomics.compareExchange(this.view, 0, CALLER_WORKING, CALL_READY) !==
       CALLER_WORKING
