@@ -170,7 +170,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   private call_fd_func(fd: number): number {
     const caller = new DummyCaller2(
-      new Int32Array(this.lock_fds, fd * 12 + 4, 1),
+      new Int32Array(this.lock_fds_new[fd].call.buf, this.lock_fds_new[fd].call.byteOffset, 1),
       fd,
       this.get_fds_len(),
     );

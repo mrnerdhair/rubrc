@@ -795,7 +795,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     };
 
     const listener = new DummyListener2(
-      new Int32Array(this.lock_fds, fd_n * 12 + 4, 1),
+      new Int32Array(this.lock_fds_new[fd_n].listen.buf, this.lock_fds_new[fd_n].listen.byteOffset, 1),
       this.lock_fds,
       this.fd_func_sig,
     );
