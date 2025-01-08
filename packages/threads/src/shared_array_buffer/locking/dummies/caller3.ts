@@ -1,3 +1,5 @@
+import { NoListener } from "../caller";
+
 export class DummyCaller3 {
   private readonly notify_view: Int32Array<SharedArrayBuffer>;
 
@@ -21,6 +23,7 @@ export class DummyCaller3 {
         throw new Error(`invoke_fd_func notify failed: ${n}`);
       }
       console.warn("invoke_func_loop is late");
+      throw new NoListener();
     }
 
     const lock = Atomics.wait(this.notify_view, 0, code);

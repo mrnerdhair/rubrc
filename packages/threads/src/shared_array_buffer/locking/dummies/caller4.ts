@@ -22,7 +22,13 @@ export class DummyCaller4 {
       if (n !== 0) {
         throw new Error(`invoke_fd_func notify failed: ${n}`);
       }
+      console.warn("invoke_func_loop is late");
       throw new NoListener();
     }
+
+    // const lock = Atomics.wait(this.notify_view, 0, code);
+    // if (lock === "timed-out") {
+    //   throw new Error("timed-out lock");
+    // }
   }
 }
