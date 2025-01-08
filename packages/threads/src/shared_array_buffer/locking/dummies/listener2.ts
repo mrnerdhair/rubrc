@@ -46,12 +46,13 @@ export class DummyListener2 extends DummyListenerBase {
           if (n === 0) {
             console.warn("notify number is 0. ref is late?");
           } else {
-            console.warn(`notify number is not 1: ${n}`);
+            throw new Error(`notify number is not 1: ${n}`);
           }
         }
         return out;
       } catch (e) {
-        Atomics.exchange(this.lock_view, 0, 0);
+        Atomics.store(this.lock_view, 0, 0);
+        Atomics.notify(this.lock_view, 0, 1);
         throw e;
       }
     }.call(this, callback);
