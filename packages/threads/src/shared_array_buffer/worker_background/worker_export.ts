@@ -1,4 +1,5 @@
 import type { AllocatorUseArrayBufferObject } from "../allocator";
+import { new_locker_target } from "../locking";
 
 export type WorkerBackgroundRefObject = {
   allocator: AllocatorUseArrayBufferObject;
@@ -11,6 +12,7 @@ export const WorkerBackgroundRefObjectConstructor =
     return {
       allocator: {
         share_arrays_memory: new SharedArrayBuffer(10 * 1024),
+        share_arrays_memory_lock: new_locker_target(),
       },
       lock: new SharedArrayBuffer(20),
       signature_input: new SharedArrayBuffer(24),

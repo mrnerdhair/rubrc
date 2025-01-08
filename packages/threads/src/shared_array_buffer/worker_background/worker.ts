@@ -9,6 +9,7 @@
 import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
+import { new_locker_target } from "../locking";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
 import type { WorkerBackgroundRefObject } from "./worker_export";
@@ -43,7 +44,10 @@ export class WorkerBackground {
     this.lock = lock ?? new SharedArrayBuffer(20);
     this.allocator =
       allocator ??
-      new AllocatorUseArrayBuffer(new SharedArrayBuffer(10 * 1024));
+      new AllocatorUseArrayBuffer({
+        share_arrays_memory: new SharedArrayBuffer(10 * 1024),
+        share_arrays_memory_lock: new_locker_target(),
+      });
     this.signature_input = signature_input ?? new SharedArrayBuffer(24);
     this.listen();
   }

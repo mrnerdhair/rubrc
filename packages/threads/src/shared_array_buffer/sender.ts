@@ -1,6 +1,9 @@
+import { Locker, type LockerTarget, new_locker_target } from "./locking";
+
 export type ToRefSenderUseArrayBufferObject = {
   data_size: number;
   share_arrays_memory: SharedArrayBuffer;
+  share_arrays_memory_lock: LockerTarget;
 };
 
 // To ref sender abstract class
@@ -30,9 +33,12 @@ export abstract class ToRefSenderUseArrayBuffer {
   // Data
   // data_size bytes: data
   share_arrays_memory: SharedArrayBuffer;
+  share_arrays_memory_lock: LockerTarget;
 
   // The size of the data
   data_size: number;
+
+  protected locker: Locker;
 
   constructor(
     // data is Uint32Array
@@ -40,6 +46,7 @@ export abstract class ToRefSenderUseArrayBuffer {
     data_size: number,
     max_share_arrays_memory: number = 100 * 1024,
     share_arrays_memory?: SharedArrayBuffer,
+    share_arrays_memory_lock?: LockerTarget,
   ) {
     this.data_size = data_size;
     if (share_arrays_memory) {
@@ -47,59 +54,21 @@ export abstract class ToRefSenderUseArrayBuffer {
     } else {
       this.share_arrays_memory = new SharedArrayBuffer(max_share_arrays_memory);
     }
+    this.share_arrays_memory_lock =
+      share_arrays_memory_lock ?? new_locker_target();
     const view = new Int32Array(this.share_arrays_memory);
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);
     Atomics.store(view, 2, 12);
-  }
 
-  private async async_lock<T>(callback: () => T | PromiseLike<T>): Promise<T> {
-    const view = new Int32Array(this.share_arrays_memory);
-    while (true) {
-      const lock = await Atomics.waitAsync(view, 0, 1).value;
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-      break;
-    }
-    try {
-      return await callback();
-    } finally {
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-    }
-  }
-
-  private block_lock<T>(callback: () => T): T {
-    const view = new Int32Array(this.share_arrays_memory);
-    while (true) {
-      const lock = Atomics.wait(view, 0, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-      break;
-    }
-    try {
-      return callback();
-    } finally {
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-    }
+    this.locker = new Locker(this.share_arrays_memory_lock);
   }
 
   protected async async_send(
     targets: Array<number>,
     data: Uint32Array,
   ): Promise<void> {
-    return await this.async_lock(async () => {
+    return await this.locker.lock(async () => {
       const view = new Int32Array(this.share_arrays_memory);
       const used_len = Atomics.load(view, 2);
       const data_len = data.byteLength;
@@ -135,7 +104,7 @@ export abstract class ToRefSenderUseArrayBuffer {
       return undefined;
     }
 
-    return this.block_lock(() => {
+    return this.locker.lock_blocking(() => {
       const data_num = Atomics.load(view, 1);
 
       const return_data: Array<Uint32Array> = [];

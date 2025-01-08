@@ -1,4 +1,5 @@
 import type { FdCloseSender } from "../sender";
+import type { LockerTarget } from "./locking";
 import {
   ToRefSenderUseArrayBuffer,
   type ToRefSenderUseArrayBufferObject,
@@ -19,8 +20,14 @@ export class FdCloseSenderUseArrayBuffer
   constructor(
     max_share_arrays_memory?: number,
     share_arrays_memory?: SharedArrayBuffer,
+    share_arrays_memory_lock?: LockerTarget,
   ) {
-    super(4, max_share_arrays_memory, share_arrays_memory);
+    super(
+      4,
+      max_share_arrays_memory,
+      share_arrays_memory,
+      share_arrays_memory_lock,
+    );
   }
 
   // Send the closed file descriptor to the target process
@@ -50,6 +57,7 @@ export class FdCloseSenderUseArrayBuffer
     return {
       data_size: this.data_size,
       share_arrays_memory: this.share_arrays_memory,
+      share_arrays_memory_lock: this.share_arrays_memory_lock,
     };
   }
 
@@ -60,6 +68,7 @@ export class FdCloseSenderUseArrayBuffer
     return new FdCloseSenderUseArrayBuffer(
       sl.share_arrays_memory.byteLength,
       sl.share_arrays_memory,
+      sl.share_arrays_memory_lock,
     );
   }
 }

@@ -112,9 +112,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     if (allocator_size === undefined) {
       this.allocator = new AllocatorUseArrayBuffer();
     } else {
-      this.allocator = new AllocatorUseArrayBuffer(
-        new SharedArrayBuffer(allocator_size),
-      );
+      this.allocator = new AllocatorUseArrayBuffer({
+        share_arrays_memory: new SharedArrayBuffer(allocator_size),
+      });
     }
     const max_fds_len = 128;
     this.lock_fds = new SharedArrayBuffer(4 * max_fds_len * 3);

@@ -1,5 +1,8 @@
+import { Locker, type LockerTarget, new_locker_target } from "./locking";
+
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
+  share_arrays_memory_lock: LockerTarget;
 };
 
 export class AllocatorUseArrayBuffer {
@@ -23,28 +26,25 @@ export class AllocatorUseArrayBuffer {
   // Even if 100MB is allocated, due to browser virtualization,
   // the memory should not actually be used until it is needed.
   share_arrays_memory: SharedArrayBuffer;
+  readonly share_arrays_memory_lock: LockerTarget;
 
-  // When adding data, use Atomics.wait to wait until the first 4 bytes become 0.
-  // After that, use Atomics.compareExchange to set the first 4 bytes to 1.
-  // Then, use Atomics.add to increment the next 4 bytes by 1.
-  // If the return value is 0, proceed to *1.
-  // If the return value is 1, use Atomics.wait to wait until the first 4 bytes become 0.
-  // *1: Increment the second by 1 using Atomics.add. If the return value is 0, reset it.
-  // Add the data. Extend if there is not enough space.
-  // To release, just decrement by 1 using Atomics.sub.
+  protected locker: Locker;
 
   // Since postMessage makes the class an object,
   // it must be able to receive and assign a SharedArrayBuffer.
-  constructor(
-    share_arrays_memory: SharedArrayBuffer = new SharedArrayBuffer(
-      10 * 1024 * 1024,
-    ),
-  ) {
-    this.share_arrays_memory = share_arrays_memory;
+  constructor(opts?: {
+    share_arrays_memory?: SharedArrayBuffer;
+    share_arrays_memory_lock?: LockerTarget;
+  }) {
+    this.share_arrays_memory =
+      opts?.share_arrays_memory ?? new SharedArrayBuffer(10 * 1024 * 1024);
+    this.share_arrays_memory_lock =
+      opts?.share_arrays_memory_lock ?? new_locker_target();
     const view = new Int32Array(this.share_arrays_memory);
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);
     Atomics.store(view, 2, 12);
+    this.locker = new Locker(this.share_arrays_memory_lock);
   }
 
   // Since postMessage converts classes to objects,
@@ -52,12 +52,13 @@ export class AllocatorUseArrayBuffer {
   static async init(
     sl: AllocatorUseArrayBufferObject,
   ): Promise<AllocatorUseArrayBuffer> {
-    return new AllocatorUseArrayBuffer(sl.share_arrays_memory);
+    return new AllocatorUseArrayBuffer(sl);
   }
 
   get_ref(): AllocatorUseArrayBufferObject {
     return {
       share_arrays_memory: this.share_arrays_memory,
+      share_arrays_memory_lock: this.share_arrays_memory_lock,
     };
   }
 
@@ -69,25 +70,7 @@ export class AllocatorUseArrayBuffer {
     // Pass I32Array ret_ptr
     ret_ptr: number,
   ): Promise<void> {
-    const view = new Int32Array(this.share_arrays_memory);
-    while (true) {
-      const lock = await Atomics.waitAsync(view, 0, 1).value;
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-
-      this.write_inner(data, memory, ret_ptr);
-
-      // release lock
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-
-      return;
-    }
+    await this.locker.lock(() => this.write_inner(data, memory, ret_ptr));
   }
 
   // Blocking threads for writing when acquiring locks
@@ -97,25 +80,7 @@ export class AllocatorUseArrayBuffer {
     // ptr, len
     ret_ptr: number,
   ): void {
-    while (true) {
-      const view = new Int32Array(this.share_arrays_memory);
-      const lock = Atomics.wait(view, 0, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out lock");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-
-      this.write_inner(data, memory, ret_ptr);
-
-      // release lock
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-
-      return;
-    }
+    this.locker.lock_blocking(() => this.write_inner(data, memory, ret_ptr));
   }
 
   // Function to write after acquiring a lock
@@ -192,6 +157,7 @@ export class AllocatorUseArrayBuffer {
   get_object(): AllocatorUseArrayBufferObject {
     return {
       share_arrays_memory: this.share_arrays_memory,
+      share_arrays_memory_lock: this.share_arrays_memory_lock,
     };
   }
 }
