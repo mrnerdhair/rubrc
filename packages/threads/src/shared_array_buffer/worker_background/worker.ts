@@ -12,7 +12,6 @@ import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   Caller,
   type CallerTarget,
-  Listener,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -46,8 +45,7 @@ export class WorkerBackground {
   private signature_input: SharedArrayBuffer;
 
   private locker: Locker;
-  // @ts-expect-error
-  private listener: Listener;
+  private listener: DummyListener1;
   // @ts-expect-error
   private done_caller: Caller;
 
@@ -81,7 +79,7 @@ export class WorkerBackground {
       done_listen,
     };
     this.locker = new Locker(this.locks.lock);
-    this.listener = new Listener(this.locks.listen);
+    this.listener = new DummyListener1(new Int32Array(this.lock));
     this.done_caller = new Caller(this.locks.done_call);
     this.allocator =
       allocator ??
@@ -132,20 +130,10 @@ export class WorkerBackground {
 
     const signature_input_view = new Int32Array(this.signature_input);
 
-    const lock_view = new Int32Array(this.lock);
-    Atomics.store(lock_view, 1, 0);
+    const listener = this.listener;
+    listener.reset();
     while (true) {
-      const lock = await Atomics.waitAsync(lock_view, 1, 0).value;
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-
-      const locked_value = Atomics.load(lock_view, 1);
-      if (locked_value !== 1) {
-        throw new Error("locked");
-      }
-
-      await ((x) => x())(async () => {
+      await listener.listen(async () => {
         const gen_worker = () => {
           console.log("gen_worker");
           const url_ptr = Atomics.load(signature_input_view, 1);
@@ -357,19 +345,6 @@ export class WorkerBackground {
           }
         }
       });
-
-      const old_call_lock = Atomics.exchange(lock_view, 1, 0);
-      if (old_call_lock !== 1) {
-        throw new Error("Lock is already set");
-      }
-      const num = Atomics.notify(lock_view, 1, 1);
-      if (num !== 1) {
-        if (num === 0) {
-          console.warn("notify failed, waiter is late");
-          continue;
-        }
-        throw new Error(`notify failed: ${num}`);
-      }
     }
   }
 }
@@ -378,3 +353,39 @@ export type WorkerBackgroundInit = typeof WorkerBackground.init;
 
 setTransferHandlers();
 Comlink.expose(WorkerBackground.init, self);
+
+class DummyListener1 {
+  private readonly lock_view: Int32Array<SharedArrayBuffer>;
+  constructor(lock_view: Int32Array<SharedArrayBuffer>) {
+    this.lock_view = lock_view;
+  }
+  reset() {
+    Atomics.store(this.lock_view, 1, 0);
+  }
+  async listen(callback: () => Promise<void>): Promise<void> {
+    const lock = await Atomics.waitAsync(this.lock_view, 1, 0).value;
+    if (lock === "timed-out") {
+      throw new Error("timed-out");
+    }
+
+    const locked_value = Atomics.load(this.lock_view, 1);
+    if (locked_value !== 1) {
+      throw new Error("locked");
+    }
+
+    await callback();
+
+    const old_call_lock = Atomics.exchange(this.lock_view, 1, 0);
+    if (old_call_lock !== 1) {
+      throw new Error("Lock is already set");
+    }
+    const num = Atomics.notify(this.lock_view, 1, 1);
+    if (num !== 1) {
+      if (num === 0) {
+        console.warn("notify failed, waiter is late");
+        return;
+      }
+      throw new Error(`notify failed: ${num}`);
+    }
+  }
+}
