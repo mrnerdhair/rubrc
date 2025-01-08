@@ -181,8 +181,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         this.lock_fds_new[fd].call.byteOffset,
         1,
       ),
-      fd,
-      this.get_fds_len(),
     );
     caller.call_and_wait_blocking();
     return this.get_error(fd);
