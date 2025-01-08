@@ -136,7 +136,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const fds_array = new Uint32Array(fds);
       this.allocator.block_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);
-      this.caller.call_and_wait_blocking();
+      this.caller.call_and_wait_blocking(1);
     });
   }
 
@@ -182,7 +182,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         1,
       ),
     );
-    caller.call_and_wait_blocking();
+    caller.call_and_wait_blocking(1);
     return this.get_error(fd);
   }
 
