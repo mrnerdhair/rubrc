@@ -46,8 +46,20 @@ export class WorkerBackgroundRef {
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
     this.caller = new DummyCaller4(new Int32Array(this.lock, 4, 1));
-    this.done_caller = new DummyCaller3(new Int32Array(this.locks.done_call.buf, this.locks.done_call.byteOffset, 1));
-    this.done_listener = new DummyListener4(new Int32Array(this.locks.done_listen.buf, this.locks.done_listen.byteOffset, 1));
+    this.done_caller = new DummyCaller3(
+      new Int32Array(
+        this.locks.done_call.buf,
+        this.locks.done_call.byteOffset,
+        1,
+      ),
+    );
+    this.done_listener = new DummyListener4(
+      new Int32Array(
+        this.locks.done_listen.buf,
+        this.locks.done_listen.byteOffset,
+        1,
+      ),
+    );
   }
 
   new_worker(
