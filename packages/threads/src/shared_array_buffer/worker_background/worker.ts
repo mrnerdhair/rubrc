@@ -11,7 +11,7 @@ import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   type CallerTarget,
-  DummyCaller3,
+  DummyCaller4,
   DummyListener3,
   type ListenerTarget,
   Locker,
@@ -48,7 +48,7 @@ export class WorkerBackground {
 
   private locker: Locker;
   private listener: DummyListener3;
-  private done_caller: DummyCaller3;
+  private done_caller: DummyCaller4;
 
   // worker_id starts from 1
   private workers: Array<Worker | undefined> = [undefined];
@@ -83,7 +83,7 @@ export class WorkerBackground {
     this.listener = new DummyListener3(
       new Int32Array(this.locks.listen.buf, this.locks.listen.byteOffset, 1),
     );
-    this.done_caller = new DummyCaller3(
+    this.done_caller = new DummyCaller4(
       new Int32Array(
         this.locks.done_call.buf,
         this.locks.done_call.byteOffset,

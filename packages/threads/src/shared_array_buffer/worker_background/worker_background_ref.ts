@@ -24,8 +24,8 @@ export class WorkerBackgroundRef {
   };
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
-  private caller: DummyCaller4;
-  private done_caller: DummyCaller3;
+  private caller: DummyCaller3;
+  private done_caller: DummyCaller4;
   private done_listener: DummyListener4;
 
   constructor(
@@ -45,10 +45,10 @@ export class WorkerBackgroundRef {
     this.locks = locks;
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
-    this.caller = new DummyCaller4(
+    this.caller = new DummyCaller3(
       new Int32Array(this.locks.call.buf, this.locks.call.byteOffset, 1),
     );
-    this.done_caller = new DummyCaller3(
+    this.done_caller = new DummyCaller4(
       new Int32Array(
         this.locks.done_call.buf,
         this.locks.done_call.byteOffset,

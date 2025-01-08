@@ -1,5 +1,3 @@
-import { NoListener } from "../caller";
-
 export class DummyCaller3 {
   private readonly notify_view: Int32Array<SharedArrayBuffer>;
 
@@ -7,18 +5,27 @@ export class DummyCaller3 {
     this.notify_view = notify_view;
   }
 
-  call(code: number): void {
-    const old = Atomics.compareExchange(this.notify_view, 0, 0, code);
-
+  call_and_wait_blocking(): void {
+    const old = Atomics.exchange(this.notify_view, 0, 1);
+    Atomics.notify(this.notify_view, 0, 1);
     if (old !== 0) {
       throw new Error("what happened?");
     }
+    const lock = Atomics.wait(this.notify_view, 0, 1);
+    if (lock === "timed-out") {
+      throw new Error("timed-out lock");
+    }
+  }
 
-    const num = Atomics.notify(this.notify_view, 0);
-
-    if (num === 0) {
-      Atomics.store(this.notify_view, 0, 0);
-      throw new NoListener();
+  async call_and_wait(): Promise<void> {
+    const old = Atomics.exchange(this.notify_view, 0, 1);
+    Atomics.notify(this.notify_view, 0, 1);
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
+    const lock = await Atomics.waitAsync(this.notify_view, 0, 1).value;
+    if (lock === "timed-out") {
+      throw new Error("timed-out");
     }
   }
 }
