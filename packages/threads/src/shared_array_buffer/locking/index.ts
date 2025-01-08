@@ -23,7 +23,6 @@ export {
   DummyCaller2,
   DummyCaller3,
   DummyCaller4,
-  DummyCaller5,
   DummyListener1,
   DummyListener2,
   DummyListener3,
