@@ -10,7 +10,6 @@ import {
   type FdCloseSenderUseArrayBufferObject,
 } from "./fd_close_sender";
 import {
-  Caller,
   type CallerTarget,
   type ListenerTarget,
   Locker,
@@ -57,7 +56,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
   protected locker: Locker;
-  protected caller: Caller;
+  protected caller: DummyCaller1;
 
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -88,7 +87,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
     this.locker = new Locker(base_func_util_locks.lock);
-    this.caller = new Caller(base_func_util_locks.call);
+    this.caller = new DummyCaller1(base_func_util);
   }
 
   get_fds_len(): number {
@@ -121,28 +120,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return id;
   }
 
-  private call_base_func(): void {
-    const invoke_base_func = () => {
-      const view = new Int32Array(this.base_func_util);
-      const old = Atomics.exchange(view, 1, 1);
-      Atomics.notify(view, 1, 1);
-      if (old !== 0) {
-        throw new Error("what happened?");
-      }
-    };
-
-    const wait_base_func = () => {
-      const view = new Int32Array(this.base_func_util);
-      const lock = Atomics.wait(view, 1, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out lock");
-      }
-    };
-
-    invoke_base_func();
-    wait_base_func();
-  }
-
   // set park_fds_map
   set_park_fds_map(fds: Array<number>): void {
     this.locker.lock_blocking(() => {
@@ -151,7 +128,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const fds_array = new Uint32Array(fds);
       this.allocator.block_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);
-      this.call_base_func();
+      this.caller.call_and_wait_blocking();
     });
   }
 
@@ -190,40 +167,12 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private call_fd_func(fd: number): number {
-    const view = new Int32Array(this.lock_fds, fd * 12 + 4);
-
-    const invoke_fd_func = () => {
-      const old = Atomics.exchange(view, 0, 1);
-      if (old === 1) {
-        throw new Error(`invoke_fd_func already invoked\nfd: ${fd}`);
-      }
-      const n = Atomics.notify(view, 0);
-      if (n !== 1) {
-        if (n !== 0) {
-          throw new Error(`invoke_fd_func notify failed: ${n}`);
-        }
-        const len = this.get_fds_len();
-        if (len <= fd) {
-          const lock = Atomics.exchange(view, 0, 0);
-          if (lock !== 1) {
-            throw new Error("what happened?");
-          }
-          Atomics.notify(view, 0, 1);
-          throw new Error(`what happened?: len ${len} fd ${fd}`);
-        }
-        console.warn("invoke_func_loop is late");
-      }
-    };
-
-    const wait_fd_func = () => {
-      const value = Atomics.wait(view, 0, 1);
-      if (value === "timed-out") {
-        throw new Error("wait call park_fd_func timed-out");
-      }
-    };
-
-    invoke_fd_func();
-    wait_fd_func();
+    const caller = new DummyCaller2(
+      new Int32Array(this.lock_fds, fd * 12 + 4),
+      fd,
+      this.get_fds_len(),
+    );
+    caller.call_and_wait_blocking();
     return this.get_error(fd);
   }
 
@@ -1036,5 +985,85 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
         fd * fd_func_sig_u32_size + 2,
       );
     });
+  }
+}
+
+class DummyCaller1 {
+  private readonly base_func_util: SharedArrayBuffer;
+  constructor(base_func_util: SharedArrayBuffer) {
+    this.base_func_util = base_func_util;
+  }
+  call_and_wait_blocking(): void {
+    const invoke_base_func = () => {
+      const view = new Int32Array(this.base_func_util);
+      const old = Atomics.exchange(view, 1, 1);
+      Atomics.notify(view, 1, 1);
+      if (old !== 0) {
+        throw new Error("what happened?");
+      }
+    };
+
+    const wait_base_func = () => {
+      const view = new Int32Array(this.base_func_util);
+      const lock = Atomics.wait(view, 1, 1);
+      if (lock === "timed-out") {
+        throw new Error("timed-out lock");
+      }
+    };
+
+    invoke_base_func();
+    wait_base_func();
+  }
+}
+
+class DummyCaller2 {
+  private readonly view: Int32Array<SharedArrayBuffer>;
+  private readonly fd: number;
+  private readonly fds_len: number;
+  constructor(
+    view: Int32Array<SharedArrayBuffer>,
+    fd: number,
+    fds_len: number,
+  ) {
+    this.view = view;
+    this.fd = fd;
+    this.fds_len = fds_len;
+  }
+  private get_fds_len() {
+    return this.fds_len;
+  }
+  call_and_wait_blocking(): void {
+    const invoke_fd_func = () => {
+      const old = Atomics.exchange(this.view, 0, 1);
+      if (old === 1) {
+        throw new Error(`invoke_fd_func already invoked\nfd: ${this.fd}`);
+      }
+      const n = Atomics.notify(this.view, 0);
+      if (n !== 1) {
+        if (n !== 0) {
+          throw new Error(`invoke_fd_func notify failed: ${n}`);
+        }
+        const len = this.get_fds_len();
+        if (len <= this.fd) {
+          const lock = Atomics.exchange(this.view, 0, 0);
+          if (lock !== 1) {
+            throw new Error("what happened?");
+          }
+          Atomics.notify(this.view, 0, 1);
+          throw new Error(`what happened?: len ${len} fd ${this.fd}`);
+        }
+        console.warn("invoke_func_loop is late");
+      }
+    };
+
+    const wait_fd_func = () => {
+      const value = Atomics.wait(this.view, 0, 1);
+      if (value === "timed-out") {
+        throw new Error("wait call park_fd_func timed-out");
+      }
+    };
+
+    invoke_fd_func();
+    wait_fd_func();
   }
 }
