@@ -199,6 +199,7 @@ export class WorkerBackground {
               }
 
               if (msg === "error") {
+                console.warn(`worker ${worker_id} error so terminate`);
                 this.workers[worker_id]?.terminate();
                 this.workers[worker_id] = undefined;
 
