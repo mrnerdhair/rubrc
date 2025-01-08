@@ -24,8 +24,7 @@ export class WorkerBackgroundRef {
   };
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
-  // @ts-expect-error
-  private caller: Caller;
+  private caller: DummyCaller1;
   // @ts-expect-error
   private done_caller: Caller;
   // @ts-expect-error
@@ -48,35 +47,9 @@ export class WorkerBackgroundRef {
     this.locks = locks;
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
-    this.caller = new Caller(this.locks.call);
+    this.caller = new DummyCaller1(this.lock);
     this.done_caller = new Caller(this.locks.done_call);
     this.done_listener = new Listener(this.locks.done_listen);
-  }
-
-  private call_block_wait_base_func(): void {
-    const view = new Int32Array(this.lock);
-    const old = Atomics.exchange(view, 1, 1);
-    Atomics.notify(view, 1, 1);
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-    const lock = Atomics.wait(view, 1, 1);
-    if (lock === "timed-out") {
-      throw new Error("timed-out lock");
-    }
-  }
-
-  private async call_async_wait_base_func(): Promise<void> {
-    const view = new Int32Array(this.lock);
-    const old = Atomics.exchange(view, 1, 1);
-    Atomics.notify(view, 1, 1);
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-    const lock = await Atomics.waitAsync(view, 1, 1).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
   }
 
   new_worker(
@@ -93,7 +66,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.call_block_wait_base_func();
+      this.caller.call_and_wait_blocking();
 
       const id = Atomics.load(view, 0);
       return new WorkerRef(id);
@@ -114,7 +87,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       await this.allocator.async_write(obj_buffer, view, 4);
-      await this.call_async_wait_base_func();
+      await this.caller.call_and_wait_blocking();
     });
   }
 
@@ -132,7 +105,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.call_block_wait_base_func();
+      this.caller.call_and_wait_blocking();
     });
   }
 
@@ -280,5 +253,37 @@ export class WorkerRef {
 
   get_id(): number {
     return this.id;
+  }
+}
+
+class DummyCaller1 {
+  private readonly lock: SharedArrayBuffer;
+  constructor(lock: SharedArrayBuffer) {
+    this.lock = lock;
+  }
+  call_and_wait_blocking(): void {
+    const view = new Int32Array(this.lock);
+    const old = Atomics.exchange(view, 1, 1);
+    Atomics.notify(view, 1, 1);
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
+    const lock = Atomics.wait(view, 1, 1);
+    if (lock === "timed-out") {
+      throw new Error("timed-out lock");
+    }
+  }
+
+  async call_and_wait(): Promise<void> {
+    const view = new Int32Array(this.lock);
+    const old = Atomics.exchange(view, 1, 1);
+    Atomics.notify(view, 1, 1);
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
+    const lock = await Atomics.waitAsync(view, 1, 1).value;
+    if (lock === "timed-out") {
+      throw new Error("timed-out");
+    }
   }
 }
