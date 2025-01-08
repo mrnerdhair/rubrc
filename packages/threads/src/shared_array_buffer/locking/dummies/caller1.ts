@@ -6,22 +6,15 @@ export class DummyCaller1 {
   }
 
   call_and_wait_blocking(): void {
-    const invoke_base_func = () => {
-      const old = Atomics.exchange(this.notify_view, 0, 1);
-      Atomics.notify(this.notify_view, 0, 1);
-      if (old !== 0) {
-        throw new Error("what happened?");
-      }
-    };
+    const old = Atomics.exchange(this.notify_view, 0, 1);
+    Atomics.notify(this.notify_view, 0, 1);
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
 
-    const wait_base_func = () => {
-      const lock = Atomics.wait(this.notify_view, 0, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out lock");
-      }
-    };
-
-    invoke_base_func();
-    wait_base_func();
+    const lock = Atomics.wait(this.notify_view, 0, 1);
+    if (lock === "timed-out") {
+      throw new Error("timed-out lock");
+    }
   }
 }
