@@ -1,20 +1,57 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
+import {
+  Caller,
+  type CallerTarget,
+  Listener,
+  type ListenerTarget,
+  Locker,
+  type LockerTarget,
+  // @ts-expect-error
+  NoListener,
+} from "../locking";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
 export class WorkerBackgroundRef {
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
+  private locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+    listen: ListenerTarget;
+    done_call: CallerTarget;
+    done_listen: ListenerTarget;
+  };
   private signature_input: SharedArrayBuffer;
+  // @ts-expect-error
+  private locker: Locker;
+  // @ts-expect-error
+  private caller: Caller;
+  // @ts-expect-error
+  private done_caller: Caller;
+  // @ts-expect-error
+  private done_listener: Listener;
 
   constructor(
     allocator: AllocatorUseArrayBuffer,
     lock: SharedArrayBuffer,
+    locks: {
+      lock: LockerTarget;
+      call: CallerTarget;
+      listen: ListenerTarget;
+      done_call: CallerTarget;
+      done_listen: ListenerTarget;
+    },
     signature_input: SharedArrayBuffer,
   ) {
     this.allocator = allocator;
     this.lock = lock;
+    this.locks = locks;
     this.signature_input = signature_input;
+    this.locker = new Locker(this.locks.lock);
+    this.caller = new Caller(this.locks.call);
+    this.done_caller = new Caller(this.locks.done_call);
+    this.done_listener = new Listener(this.locks.done_listen);
   }
 
   private block_lock_base_func<T>(callback: () => T): T {
@@ -150,6 +187,7 @@ export class WorkerBackgroundRef {
     return new WorkerBackgroundRef(
       await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.lock,
+      sl.locks,
       sl.signature_input,
     );
   }

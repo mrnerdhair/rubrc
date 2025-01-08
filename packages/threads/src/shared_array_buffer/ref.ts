@@ -9,15 +9,32 @@ import {
   FdCloseSenderUseArrayBuffer,
   type FdCloseSenderUseArrayBufferObject,
 } from "./fd_close_sender";
+import {
+  Caller,
+  type CallerTarget,
+  type ListenerTarget,
+  Locker,
+  type LockerTarget,
+} from "./locking";
 import { fd_func_sig_bytes, fd_func_sig_u32_size } from "./park";
 import { FuncNames } from "./util";
 
 export type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBufferObject;
   lock_fds: SharedArrayBuffer;
+  lock_fds_new: Array<{
+    lock: LockerTarget;
+    call: CallerTarget;
+    listen: ListenerTarget;
+  }>;
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;
   base_func_util: SharedArrayBuffer;
+  base_func_util_locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+    listen: ListenerTarget;
+  };
   fd_close_receiver: FdCloseSenderUseArrayBufferObject;
 } & WASIFarmRefObject;
 
@@ -26,6 +43,11 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
   allocator: AllocatorUseArrayBuffer;
   lock_fds: SharedArrayBuffer;
+  readonly lock_fds_new: Array<{
+    lock: LockerTarget;
+    call: CallerTarget;
+    listen: ListenerTarget;
+  }>;
   // byte 1: fds_len
   // byte 2: all wasi_farm_ref num
   fds_len_and_num: SharedArrayBuffer;
@@ -34,12 +56,24 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
+  protected locker: Locker;
+  protected caller: Caller;
+
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
     lock_fds: SharedArrayBuffer,
+    lock_fds_new: Array<{
+      lock: LockerTarget;
+      call: CallerTarget;
+      listen: ListenerTarget;
+    }>,
     fds_len_and_num: SharedArrayBuffer,
     fd_func_sig: SharedArrayBuffer,
     base_func_util: SharedArrayBuffer,
+    base_func_util_locks: {
+      lock: LockerTarget;
+      call: CallerTarget;
+    },
     fd_close_receiver: FdCloseSender,
     stdin: number | undefined,
     stdout: number | undefined,
@@ -49,9 +83,12 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     super(stdin, stdout, stderr, fd_close_receiver, default_fds);
     this.allocator = allocator;
     this.lock_fds = lock_fds;
+    this.lock_fds_new = lock_fds_new;
     this.fd_func_sig = fd_func_sig;
     this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
+    this.locker = new Locker(base_func_util_locks.lock);
+    this.caller = new Caller(base_func_util_locks.call);
   }
 
   get_fds_len(): number {
@@ -63,9 +100,11 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return new WASIFarmRefUseArrayBuffer(
       await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.lock_fds,
+      sl.lock_fds_new,
       sl.fds_len_and_num,
       sl.fd_func_sig,
       sl.base_func_util,
+      sl.base_func_util_locks,
       await FdCloseSenderUseArrayBuffer.init(sl.fd_close_receiver),
       sl.stdin,
       sl.stdout,

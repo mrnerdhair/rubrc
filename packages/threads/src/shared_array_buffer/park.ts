@@ -2,6 +2,15 @@ import { type Fd, wasi } from "@bjorn3/browser_wasi_shim";
 import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
+import {
+  type CallerTarget,
+  Listener,
+  type ListenerTarget,
+  Locker,
+  type LockerTarget,
+  new_caller_listener_target,
+  new_locker_target,
+} from "./locking";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames } from "./util";
 
@@ -72,6 +81,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // Array<[lock, call_func]>
   private lock_fds: SharedArrayBuffer;
 
+  private lock_fds_new: Array<{
+    lock: LockerTarget;
+    call: CallerTarget;
+    listen: ListenerTarget;
+  }>;
+
   // 1 bytes: fds.length
   // 1 bytes: wasi_farm_ref num(id)
   // Actually, as long as it is working properly, fds.length is not used
@@ -87,6 +102,15 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // listen base lock and call etc
   private base_func_util: SharedArrayBuffer;
+  private base_func_util_locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+    listen: ListenerTarget;
+  };
+  // @ts-expect-error
+  private readonly locker: Locker;
+  // @ts-expect-error
+  private readonly listener: Listener;
 
   // tell other processes that the file descriptor has been closed
   private fd_close_receiver: FdCloseSenderUseArrayBuffer;
@@ -118,6 +142,14 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     }
     const max_fds_len = 128;
     this.lock_fds = new SharedArrayBuffer(4 * max_fds_len * 3);
+    this.lock_fds_new = new Array(max_fds_len).fill(undefined).map(() => {
+      const [call, listen] = new_caller_listener_target();
+      return {
+        lock: new_locker_target(),
+        call,
+        listen,
+      };
+    });
     this.fd_func_sig = new SharedArrayBuffer(
       fd_func_sig_u32_size * 4 * max_fds_len,
     );
@@ -129,6 +161,14 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
     this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
     this.base_func_util = new SharedArrayBuffer(24);
+    const [call, listen] = new_caller_listener_target();
+    this.base_func_util_locks = {
+      lock: new_locker_target(),
+      call,
+      listen,
+    };
+    this.locker = new Locker(this.base_func_util_locks.lock);
+    this.listener = new Listener(this.base_func_util_locks.listen);
   }
 
   /// Send this return by postMessage.
@@ -136,9 +176,11 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     return {
       allocator: this.allocator.get_ref(),
       lock_fds: this.lock_fds,
+      lock_fds_new: this.lock_fds_new,
       fds_len_and_num: this.fds_len_and_num,
       fd_func_sig: this.fd_func_sig,
       base_func_util: this.base_func_util,
+      base_func_util_locks: this.base_func_util_locks,
       fd_close_receiver: this.fd_close_receiver.get_ref(),
       stdin: this.stdin,
       stdout: this.stdout,

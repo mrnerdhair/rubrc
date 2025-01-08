@@ -9,7 +9,16 @@
 import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
-import { new_locker_target } from "../locking";
+import {
+  Caller,
+  type CallerTarget,
+  Listener,
+  type ListenerTarget,
+  Locker,
+  type LockerTarget,
+  new_caller_listener_target,
+  new_locker_target,
+} from "../locking";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
 import type { WorkerBackgroundRefObject } from "./worker_export";
@@ -27,7 +36,21 @@ export class WorkerBackground {
   private override_object: OverrideObject;
   private allocator: AllocatorUseArrayBuffer;
   private lock: SharedArrayBuffer;
+  private locks: {
+    lock: LockerTarget;
+    call: CallerTarget;
+    listen: ListenerTarget;
+    done_call: CallerTarget;
+    done_listen: ListenerTarget;
+  };
   private signature_input: SharedArrayBuffer;
+
+  // @ts-expect-error
+  private locker: Locker;
+  // @ts-expect-error
+  private listener: Listener;
+  // @ts-expect-error
+  private done_caller: Caller;
 
   // worker_id starts from 1
   private workers: Array<Worker | undefined> = [undefined];
@@ -37,11 +60,30 @@ export class WorkerBackground {
   protected constructor(
     override_object: OverrideObject,
     lock?: SharedArrayBuffer,
+    locks?: {
+      lock: LockerTarget;
+      call: CallerTarget;
+      listen: ListenerTarget;
+      done_call: CallerTarget;
+      done_listen: ListenerTarget;
+    },
     allocator?: AllocatorUseArrayBuffer,
     signature_input?: SharedArrayBuffer,
   ) {
     this.override_object = override_object;
     this.lock = lock ?? new SharedArrayBuffer(20);
+    const [call, listen] = new_caller_listener_target();
+    const [done_call, done_listen] = new_caller_listener_target();
+    this.locks = locks ?? {
+      lock: new_locker_target(),
+      call,
+      listen,
+      done_call,
+      done_listen,
+    };
+    this.locker = new Locker(this.locks.lock);
+    this.listener = new Listener(this.locks.listen);
+    this.done_caller = new Caller(this.locks.done_call);
     this.allocator =
       allocator ??
       new AllocatorUseArrayBuffer({
@@ -59,6 +101,7 @@ export class WorkerBackground {
     return new WorkerBackground(
       override_object,
       worker_background_ref_object.lock,
+      worker_background_ref_object.locks,
       await AllocatorUseArrayBuffer.init(
         worker_background_ref_object.allocator,
       ),
@@ -80,6 +123,7 @@ export class WorkerBackground {
     return {
       allocator: this.allocator.get_object(),
       lock: this.lock,
+      locks: this.locks,
       signature_input: this.signature_input,
     };
   }
