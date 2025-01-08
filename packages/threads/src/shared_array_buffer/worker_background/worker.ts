@@ -10,11 +10,11 @@ import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
-  Caller,
   type CallerTarget,
   type ListenerTarget,
   Locker,
   type LockerTarget,
+  NoListener,
   new_caller_listener_target,
   new_locker_target,
 } from "../locking";
@@ -46,8 +46,7 @@ export class WorkerBackground {
 
   private locker: Locker;
   private listener: DummyListener1;
-  // @ts-expect-error
-  private done_caller: Caller;
+  private done_caller: DummyCaller1;
 
   // worker_id starts from 1
   private workers: Array<Worker | undefined> = [undefined];
@@ -80,7 +79,7 @@ export class WorkerBackground {
     };
     this.locker = new Locker(this.locks.lock);
     this.listener = new DummyListener1(new Int32Array(this.lock));
-    this.done_caller = new Caller(this.locks.done_call);
+    this.done_caller = new DummyCaller1(new Int32Array(this.lock, 8));
     this.allocator =
       allocator ??
       new AllocatorUseArrayBuffer({
@@ -227,19 +226,11 @@ export class WorkerBackground {
                 const ptr = Atomics.load(notify_view, 0);
                 const len = Atomics.load(notify_view, 1);
 
-                // notify error = code 1
-                const old = Atomics.compareExchange(notify_view, 0, 0, 1);
-
-                if (old !== 0) {
+                try {
+                  this.done_caller.call(1);
+                } catch (e) {
                   this.allocator.free(ptr, len);
-                  throw new Error("what happened?");
-                }
-
-                const num = Atomics.notify(notify_view, 0);
-
-                if (num === 0) {
-                  this.allocator.free(ptr, len);
-                  Atomics.store(notify_view, 0, 0);
+                  if (!(e instanceof NoListener)) throw e;
                   throw error;
                 }
               }
@@ -317,19 +308,11 @@ export class WorkerBackground {
                 const ptr = Atomics.load(notify_view, 0);
                 const len = Atomics.load(notify_view, 1);
 
-                // notify error = code 1
-                const old = Atomics.compareExchange(notify_view, 0, 0, 1);
-
-                if (old !== 0) {
+                try {
+                  this.done_caller.call(1);
+                } catch (e) {
                   this.allocator.free(ptr, len);
-                  throw new Error("what happened?");
-                }
-
-                const num = Atomics.notify(notify_view, 0);
-
-                if (num === 0) {
-                  this.allocator.free(ptr, len);
-                  Atomics.store(notify_view, 0, 0);
+                  if (!(e instanceof NoListener)) throw e;
                   throw new Error(error);
                 }
               }
@@ -353,6 +336,28 @@ export type WorkerBackgroundInit = typeof WorkerBackground.init;
 
 setTransferHandlers();
 Comlink.expose(WorkerBackground.init, self);
+
+class DummyCaller1 {
+  private readonly notify_view: Int32Array<SharedArrayBuffer>;
+  constructor(notify_view: Int32Array<SharedArrayBuffer>) {
+    this.notify_view = notify_view;
+  }
+  call(_code: number): void {
+    // notify error = code 1
+    const old = Atomics.compareExchange(this.notify_view, 0, 0, 1);
+
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
+
+    const num = Atomics.notify(this.notify_view, 0);
+
+    if (num === 0) {
+      Atomics.store(this.notify_view, 0, 0);
+      throw new NoListener();
+    }
+  }
+}
 
 class DummyListener1 {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
