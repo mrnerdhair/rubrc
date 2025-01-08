@@ -1,10 +1,12 @@
 export class DummyCaller4 {
-  private readonly lock: SharedArrayBuffer;
-  constructor(lock: SharedArrayBuffer) {
-    this.lock = lock;
+  private readonly notify_view: SharedArrayBuffer;
+
+  constructor(notify_view: SharedArrayBuffer) {
+    this.notify_view = notify_view;
   }
+
   call_and_wait_blocking(): void {
-    const view = new Int32Array(this.lock);
+    const view = new Int32Array(this.notify_view);
     const old = Atomics.exchange(view, 1, 1);
     Atomics.notify(view, 1, 1);
     if (old !== 0) {
@@ -17,7 +19,7 @@ export class DummyCaller4 {
   }
 
   async call_and_wait(): Promise<void> {
-    const view = new Int32Array(this.lock);
+    const view = new Int32Array(this.notify_view);
     const old = Atomics.exchange(view, 1, 1);
     Atomics.notify(view, 1, 1);
     if (old !== 0) {
