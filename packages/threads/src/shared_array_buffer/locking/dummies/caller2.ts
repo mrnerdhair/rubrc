@@ -18,37 +18,30 @@ export class DummyCaller2 {
   }
 
   call_and_wait_blocking(): void {
-    const invoke_fd_func = () => {
-      const old = Atomics.exchange(this.notify_view, 0, 1);
-      if (old === 1) {
-        throw new Error(`invoke_fd_func already invoked\nfd: ${this.fd}`);
+    const old = Atomics.exchange(this.notify_view, 0, 1);
+    if (old === 1) {
+      throw new Error(`invoke_fd_func already invoked\nfd: ${this.fd}`);
+    }
+    const n = Atomics.notify(this.notify_view, 0);
+    if (n !== 1) {
+      if (n !== 0) {
+        throw new Error(`invoke_fd_func notify failed: ${n}`);
       }
-      const n = Atomics.notify(this.notify_view, 0);
-      if (n !== 1) {
-        if (n !== 0) {
-          throw new Error(`invoke_fd_func notify failed: ${n}`);
+      const len = this.get_fds_len();
+      if (len <= this.fd) {
+        const lock = Atomics.exchange(this.notify_view, 0, 0);
+        if (lock !== 1) {
+          throw new Error("what happened?");
         }
-        const len = this.get_fds_len();
-        if (len <= this.fd) {
-          const lock = Atomics.exchange(this.notify_view, 0, 0);
-          if (lock !== 1) {
-            throw new Error("what happened?");
-          }
-          Atomics.notify(this.notify_view, 0, 1);
-          throw new Error(`what happened?: len ${len} fd ${this.fd}`);
-        }
-        console.warn("invoke_func_loop is late");
+        Atomics.notify(this.notify_view, 0, 1);
+        throw new Error(`what happened?: len ${len} fd ${this.fd}`);
       }
-    };
+      console.warn("invoke_func_loop is late");
+    }
 
-    const wait_fd_func = () => {
-      const value = Atomics.wait(this.notify_view, 0, 1);
-      if (value === "timed-out") {
-        throw new Error("wait call park_fd_func timed-out");
-      }
-    };
-
-    invoke_fd_func();
-    wait_fd_func();
+    const value = Atomics.wait(this.notify_view, 0, 1);
+    if (value === "timed-out") {
+      throw new Error("wait call park_fd_func timed-out");
+    }
   }
 }
