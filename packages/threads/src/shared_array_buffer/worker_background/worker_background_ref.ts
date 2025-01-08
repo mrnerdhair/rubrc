@@ -17,7 +17,7 @@ export class WorkerBackgroundRef {
     this.signature_input = signature_input;
   }
 
-  private block_lock_base_func(): void {
+  private block_lock_base_func<T>(callback: () => T): T {
     const view = new Int32Array(this.lock);
     while (true) {
       const lock = Atomics.wait(view, 0, 1);
@@ -30,9 +30,17 @@ export class WorkerBackgroundRef {
       }
       break;
     }
+    try {
+      return callback();
+    } finally {
+      Atomics.store(view, 0, 0);
+      Atomics.notify(view, 0, 1);
+    }
   }
 
-  private async async_lock_base_func(): Promise<void> {
+  private async async_lock_base_func<T>(
+    callback: () => T | PromiseLike<T>,
+  ): Promise<T> {
     const view = new Int32Array(this.lock);
     while (true) {
       const lock = await Atomics.waitAsync(view, 0, 1).value;
@@ -45,39 +53,38 @@ export class WorkerBackgroundRef {
       }
       break;
     }
+    try {
+      return await callback();
+    } finally {
+      Atomics.store(view, 0, 0);
+      Atomics.notify(view, 0, 1);
+    }
   }
 
-  private call_base_func(): void {
+  private call_block_wait_base_func(): void {
     const view = new Int32Array(this.lock);
     const old = Atomics.exchange(view, 1, 1);
     Atomics.notify(view, 1, 1);
     if (old !== 0) {
       throw new Error("what happened?");
     }
-  }
-
-  // wait base_func
-  private block_wait_base_func(): void {
-    const view = new Int32Array(this.lock);
     const lock = Atomics.wait(view, 1, 1);
     if (lock === "timed-out") {
       throw new Error("timed-out lock");
     }
   }
 
-  private async async_wait_base_func(): Promise<void> {
+  private async call_async_wait_base_func(): Promise<void> {
     const view = new Int32Array(this.lock);
+    const old = Atomics.exchange(view, 1, 1);
+    Atomics.notify(view, 1, 1);
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
     const lock = await Atomics.waitAsync(view, 1, 1).value;
     if (lock === "timed-out") {
       throw new Error("timed-out");
     }
-  }
-
-  // release base_func
-  private release_base_func(): void {
-    const view = new Int32Array(this.lock);
-    Atomics.store(view, 0, 0);
-    Atomics.notify(view, 0, 1);
   }
 
   new_worker(
@@ -85,23 +92,20 @@ export class WorkerBackgroundRef {
     options?: WorkerOptions,
     post_obj?: unknown,
   ): WorkerRef {
-    this.block_lock_base_func();
-    const view = new Int32Array(this.signature_input);
-    Atomics.store(view, 0, 1);
-    const url_buffer = new TextEncoder().encode(url);
-    this.allocator.block_write(url_buffer, view, 1);
-    Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
-    const obj_json = JSON.stringify(post_obj);
-    const obj_buffer = new TextEncoder().encode(obj_json);
-    this.allocator.block_write(obj_buffer, view, 4);
-    this.call_base_func();
-    this.block_wait_base_func();
+    return this.block_lock_base_func(() => {
+      const view = new Int32Array(this.signature_input);
+      Atomics.store(view, 0, 1);
+      const url_buffer = new TextEncoder().encode(url);
+      this.allocator.block_write(url_buffer, view, 1);
+      Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
+      const obj_json = JSON.stringify(post_obj);
+      const obj_buffer = new TextEncoder().encode(obj_json);
+      this.allocator.block_write(obj_buffer, view, 4);
+      this.call_block_wait_base_func();
 
-    const id = Atomics.load(view, 0);
-
-    this.release_base_func();
-
-    return new WorkerRef(id);
+      const id = Atomics.load(view, 0);
+      return new WorkerRef(id);
+    });
   }
 
   async async_start_on_thread(
@@ -109,19 +113,17 @@ export class WorkerBackgroundRef {
     options: WorkerOptions | undefined,
     post_obj: unknown,
   ) {
-    await this.async_lock_base_func();
-    const view = new Int32Array(this.signature_input);
-    Atomics.store(view, 0, 2);
-    const url_buffer = new TextEncoder().encode(url);
-    await this.allocator.async_write(url_buffer, view, 1);
-    Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
-    const obj_json = JSON.stringify(post_obj);
-    const obj_buffer = new TextEncoder().encode(obj_json);
-    await this.allocator.async_write(obj_buffer, view, 4);
-    this.call_base_func();
-    await this.async_wait_base_func();
-
-    this.release_base_func();
+    return await this.async_lock_base_func(async () => {
+      const view = new Int32Array(this.signature_input);
+      Atomics.store(view, 0, 2);
+      const url_buffer = new TextEncoder().encode(url);
+      await this.allocator.async_write(url_buffer, view, 1);
+      Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
+      const obj_json = JSON.stringify(post_obj);
+      const obj_buffer = new TextEncoder().encode(obj_json);
+      await this.allocator.async_write(obj_buffer, view, 4);
+      await this.call_async_wait_base_func();
+    });
   }
 
   block_start_on_thread(
@@ -129,19 +131,17 @@ export class WorkerBackgroundRef {
     options: WorkerOptions | undefined,
     post_obj: unknown,
   ) {
-    this.block_lock_base_func();
-    const view = new Int32Array(this.signature_input);
-    Atomics.store(view, 0, 2);
-    const url_buffer = new TextEncoder().encode(url);
-    this.allocator.block_write(url_buffer, view, 1);
-    Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
-    const obj_json = JSON.stringify(post_obj);
-    const obj_buffer = new TextEncoder().encode(obj_json);
-    this.allocator.block_write(obj_buffer, view, 4);
-    this.call_base_func();
-    this.block_wait_base_func();
-
-    this.release_base_func();
+    return this.block_lock_base_func(() => {
+      const view = new Int32Array(this.signature_input);
+      Atomics.store(view, 0, 2);
+      const url_buffer = new TextEncoder().encode(url);
+      this.allocator.block_write(url_buffer, view, 1);
+      Atomics.store(view, 3, options?.type === "module" ? 1 : 0);
+      const obj_json = JSON.stringify(post_obj);
+      const obj_buffer = new TextEncoder().encode(obj_json);
+      this.allocator.block_write(obj_buffer, view, 4);
+      this.call_block_wait_base_func();
+    });
   }
 
   static async init(
