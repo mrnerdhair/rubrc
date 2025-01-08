@@ -23,7 +23,7 @@ export class Caller {
     }
   }
 
-  call(code?: number, callback?: () => void): void {
+  call(code?: number): void {
     while (true) {
       const old = Atomics.compareExchange(
         this.view,
@@ -37,20 +37,6 @@ export class Caller {
     }
 
     Atomics.store(this.view, 1, code ?? 0);
-    try {
-      callback?.();
-    } catch (e) {
-      if (
-        Atomics.compareExchange(this.view, 0, CALLER_WORKING, UNLOCKED) !==
-        CALLER_WORKING
-      ) {
-        throw new Error(
-          "caller callback failed, but unlocking the caller lock also failed",
-        );
-      }
-      throw e;
-    }
-
     if (
       Atomics.compareExchange(this.view, 0, CALLER_WORKING, CALL_READY) !==
       CALLER_WORKING
