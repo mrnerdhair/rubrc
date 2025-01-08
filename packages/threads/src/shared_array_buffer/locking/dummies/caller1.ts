@@ -16,15 +16,6 @@ export class DummyCaller1 {
       if (n !== 0) {
         throw new Error(`invoke_fd_func notify failed: ${n}`);
       }
-      // const len = this.get_fds_len();
-      // if (len <= this.fd) {
-      //   const lock = Atomics.exchange(this.notify_view, 0, 0);
-      //   if (lock !== 1) {
-      //     throw new Error("what happened?");
-      //   }
-      //   Atomics.notify(this.notify_view, 0, 1);
-      //   throw new Error(`what happened?: len ${len} fd ${this.fd}`);
-      // }
       console.warn("invoke_func_loop is late");
     }
 
