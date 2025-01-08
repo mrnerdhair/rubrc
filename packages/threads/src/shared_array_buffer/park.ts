@@ -207,9 +207,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       throw new Error("fd is too big. expand is not supported yet");
     }
     if (this.listen_fds[fd] !== undefined) {
+      console.warn("fd is already set yet", fd, this.listen_fds[fd]);
       if (this.listen_fds[fd] instanceof Promise) {
-        console.warn("fd is already set yet");
-        await this.listen_fds[fd];
+        const foo = await this.listen_fds[fd];
+        console.warn("fd complete", fd, this.listen_fds[fd], foo);
       }
     }
     this.listen_fds[fd] = this.listen_fd(fd);
@@ -222,8 +223,14 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // called by fd close ex) fd_close
   async notify_rm_fd(fd: number) {
     (async () => {
-      await this.listen_fds[fd];
-      this.listen_fds[fd] = undefined;
+      if (this.listen_fds[fd] !== undefined) {
+        console.log(`fd ${fd} listener still running`);
+        if (this.listen_fds[fd] instanceof Promise) {
+          await this.listen_fds[fd];
+          console.log(`fd ${fd} listener now stopped`);
+        }
+        this.listen_fds[fd] = undefined;
+      }
     })();
 
     await this.fd_close_receiver.send(this.fds_map[fd], fd);
