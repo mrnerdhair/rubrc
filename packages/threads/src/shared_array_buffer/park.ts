@@ -167,7 +167,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       listen,
     };
     this.locker = new Locker(this.base_func_util_locks.lock);
-    this.listener = new DummyListener1(new Int32Array(this.base_func_util));
+    this.listener = new DummyListener1(new Int32Array(this.base_func_util, 4, 1));
   }
 
   /// Send this return by postMessage.
@@ -794,7 +794,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     };
 
     const listener = new DummyListener2(
-      new Int32Array(this.lock_fds, fd_n * 12),
+      new Int32Array(this.lock_fds, fd_n * 12 + 4, 1),
       this.lock_fds,
       this.fd_func_sig,
     );

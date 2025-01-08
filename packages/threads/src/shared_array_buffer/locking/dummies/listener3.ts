@@ -9,7 +9,7 @@ export class DummyListener3 extends DummyListenerBase {
   }
 
   reset() {
-    Atomics.store(this.lock_view, 1, 0);
+    Atomics.store(this.lock_view, 0, 0);
   }
 
   protected listen_inner<T>(callback: (code?: number) => T) {
@@ -21,23 +21,23 @@ export class DummyListener3 extends DummyListenerBase {
       Awaited<T>,
       Awaited<T> | string
     > {
-      const lock = yield [this.lock_view, 1, 0];
+      const lock = yield [this.lock_view, 0, 0];
       if (lock === "timed-out") {
         throw new Error("timed-out");
       }
 
-      const locked_value = Atomics.load(this.lock_view, 1);
+      const locked_value = Atomics.load(this.lock_view, 0);
       if (locked_value !== 1) {
         throw new Error("locked");
       }
 
       const out = (yield callback()) as Awaited<T>;
 
-      const old_call_lock = Atomics.exchange(this.lock_view, 1, 0);
+      const old_call_lock = Atomics.exchange(this.lock_view, 0, 0);
       if (old_call_lock !== 1) {
         throw new Error("Lock is already set");
       }
-      const num = Atomics.notify(this.lock_view, 1, 1);
+      const num = Atomics.notify(this.lock_view, 0, 1);
       if (num !== 1) {
         if (num === 0) {
           console.warn("notify failed, waiter is late");

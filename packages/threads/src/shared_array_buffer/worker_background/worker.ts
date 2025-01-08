@@ -80,8 +80,8 @@ export class WorkerBackground {
       done_listen,
     };
     this.locker = new Locker(this.locks.lock);
-    this.listener = new DummyListener3(new Int32Array(this.lock));
-    this.done_caller = new DummyCaller3(new Int32Array(this.lock, 8));
+    this.listener = new DummyListener3(new Int32Array(this.lock, 4, 1));
+    this.done_caller = new DummyCaller3(new Int32Array(this.lock, 8, 1));
     this.allocator =
       allocator ??
       new AllocatorUseArrayBuffer({

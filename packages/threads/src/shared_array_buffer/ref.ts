@@ -89,7 +89,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
     this.locker = new Locker(base_func_util_locks.lock);
-    this.caller = new DummyCaller1(new Int32Array(base_func_util, 4));
+    this.caller = new DummyCaller1(new Int32Array(base_func_util, 4, 1));
   }
 
   get_fds_len(): number {
@@ -170,7 +170,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   private call_fd_func(fd: number): number {
     const caller = new DummyCaller2(
-      new Int32Array(this.lock_fds, fd * 12 + 4),
+      new Int32Array(this.lock_fds, fd * 12 + 4, 1),
       fd,
       this.get_fds_len(),
     );
