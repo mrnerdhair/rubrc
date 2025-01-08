@@ -21,8 +21,7 @@ import { FuncNames } from "./util";
 
 export type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBufferObject;
-  lock_fds: SharedArrayBuffer;
-  lock_fds_new: Array<{
+  lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
@@ -42,8 +41,7 @@ export type WASIFarmRefUseArrayBufferObject = {
 export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
   allocator: AllocatorUseArrayBuffer;
-  lock_fds: SharedArrayBuffer;
-  readonly lock_fds_new: Array<{
+  readonly lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
@@ -61,8 +59,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
-    lock_fds: SharedArrayBuffer,
-    lock_fds_new: Array<{
+    lock_fds: Array<{
       lock: LockerTarget;
       call: CallerTarget;
       listen: ListenerTarget;
@@ -83,7 +80,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     super(stdin, stdout, stderr, fd_close_receiver, default_fds);
     this.allocator = allocator;
     this.lock_fds = lock_fds;
-    this.lock_fds_new = lock_fds_new;
     this.fd_func_sig = fd_func_sig;
     this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
@@ -100,7 +96,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return new WASIFarmRefUseArrayBuffer(
       await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.lock_fds,
-      sl.lock_fds_new,
       sl.fds_len_and_num,
       sl.fd_func_sig,
       sl.base_func_util,
@@ -134,12 +129,12 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   protected lock_fd<T>(fd: number, callback: () => T): T {
-    return new Locker(this.lock_fds_new[fd].lock).lock_blocking(callback);
+    return new Locker(this.lock_fds[fd].lock).lock_blocking(callback);
   }
 
   protected lock_double_fd<T>(fd1: number, fd2: number, callback: () => T): T {
-    const fd1_locker = new Locker(this.lock_fds_new[fd1].lock);
-    const fd2_locker = new Locker(this.lock_fds_new[fd2].lock);
+    const fd1_locker = new Locker(this.lock_fds[fd1].lock);
+    const fd2_locker = new Locker(this.lock_fds[fd2].lock);
 
     return Locker.dual_lock_blocking(
       fd1_locker,
@@ -168,7 +163,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private call_fd_func(fd: number): number {
-    const caller = new Caller(this.lock_fds_new[fd].call);
+    const caller = new Caller(this.lock_fds[fd].call);
     caller.call_and_wait_blocking();
     return this.get_error(fd);
   }

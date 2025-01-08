@@ -78,10 +78,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // path_unlink_file: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
 
   // Lock when you want to use fd
-  // Array<[lock, call_func]>
-  private lock_fds: SharedArrayBuffer;
-
-  private lock_fds_new: Array<{
+  private lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
     listen: ListenerTarget;
@@ -139,8 +136,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       });
     }
     const max_fds_len = 128;
-    this.lock_fds = new SharedArrayBuffer(4 * max_fds_len * 3);
-    this.lock_fds_new = new Array(max_fds_len).fill(undefined).map(() => {
+    this.lock_fds = new Array(max_fds_len).fill(undefined).map(() => {
       const [call, listen] = new_caller_listener_target();
       return {
         lock: new_locker_target(),
@@ -174,7 +170,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     return {
       allocator: this.allocator.get_ref(),
       lock_fds: this.lock_fds,
-      lock_fds_new: this.lock_fds_new,
       fds_len_and_num: this.fds_len_and_num,
       fd_func_sig: this.fd_func_sig,
       base_func_util: this.base_func_util,
@@ -301,7 +296,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       bytes_offset,
     );
     const errno_offset = fd_func_sig_u32_size - 1;
-    new Locker(this.lock_fds_new[fd_n].lock).reset();
+    new Locker(this.lock_fds[fd_n].lock).reset();
     Atomics.store(func_sig_view_i32, errno_offset, -1);
 
     const handlers: Partial<
@@ -796,7 +791,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
     };
 
-    const listener = new Listener(this.lock_fds_new[fd_n].listen);
+    const listener = new Listener(this.lock_fds[fd_n].listen);
     listener.reset();
     do {
       try {
