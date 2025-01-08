@@ -140,6 +140,7 @@ export class WorkerBackgroundRef {
       this.done_caller.call(2);
     } catch (e) {
       if (!(e instanceof NoListener)) throw e;
+      this.done_caller.reset();
     }
   }
 
