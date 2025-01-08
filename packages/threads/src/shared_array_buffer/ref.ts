@@ -121,28 +121,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     return id;
   }
 
-  // lock base_func
-  private lock_base_func<T>(callback: () => T): T {
-    const view = new Int32Array(this.base_func_util);
-    while (true) {
-      const lock = Atomics.wait(view, 0, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out lock");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-      break;
-    }
-    try {
-      return callback();
-    } finally {
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-    }
-  }
-
   private call_base_func(): void {
     const invoke_base_func = () => {
       const view = new Int32Array(this.base_func_util);
@@ -167,7 +145,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   // set park_fds_map
   set_park_fds_map(fds: Array<number>): void {
-    this.lock_base_func(() => {
+    this.locker.lock_blocking(() => {
       const view = new Int32Array(this.base_func_util);
       Atomics.store(view, 2, 0);
       const fds_array = new Uint32Array(fds);
@@ -177,72 +155,20 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     });
   }
 
-  private lock_fd<T>(fd: number, callback: () => T): T {
-    const view = new Int32Array(this.lock_fds, fd * 12);
-    while (true) {
-      const now_value = Atomics.load(view, 0);
-      if (now_value !== 0) {
-        const value = Atomics.wait(view, 0, now_value);
-        if (value === "timed-out") {
-          throw new Error("lock_fd timed-out");
-        }
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old === 0) {
-        break;
-      }
-    }
-    try {
-      return callback();
-    } finally {
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-    }
+  protected lock_fd<T>(fd: number, callback: () => T): T {
+    return new Locker(this.lock_fds_new[fd].lock).lock_blocking(callback);
   }
 
-  private lock_double_fd<T>(fd1: number, fd2: number, callback: () => T): T {
-    if (fd1 === fd2) {
-      return this.lock_fd(fd1, callback);
-    }
-    const view = new Int32Array(this.lock_fds);
-    while (true) {
-      const now_value1 = Atomics.load(view, fd1 * 3);
-      const value = Atomics.wait(view, fd1 * 3, now_value1);
-      if (value === "timed-out") {
-        throw new Error("lock_double_fd timed-out");
-      }
-      const old1 = Atomics.exchange(view, fd1 * 3, 2);
-      if (old1 === 0) {
-        const now_value2 = Atomics.load(view, fd2 * 3);
-        if (now_value2 === 2) {
-          // It's nearly deadlocked.
-          if (fd1 < fd2) {
-            // release fd1
-            Atomics.store(view, fd1 * 3, 0);
-            Atomics.notify(view, fd1 * 3, 1);
-            continue;
-          }
-        }
-        const value = Atomics.wait(view, fd2 * 3, now_value2);
-        if (value === "timed-out") {
-          throw new Error("lock_double_fd timed-out");
-        }
-        const old2 = Atomics.exchange(view, fd2 * 3, 2);
-        if (old2 === 0) {
-          break;
-        }
-        Atomics.store(view, fd1 * 3, 0);
-        Atomics.notify(view, fd1 * 3, 1);
-      }
-    }
-    try {
-      return callback();
-    } finally {
-      Atomics.store(view, fd1 * 3, 0);
-      Atomics.notify(view, fd1 * 3, 1);
-      Atomics.store(view, fd2 * 3, 0);
-      Atomics.notify(view, fd2 * 3, 1);
-    }
+  protected lock_double_fd<T>(fd1: number, fd2: number, callback: () => T): T {
+    const fd1_locker = new Locker(this.lock_fds_new[fd1].lock);
+    const fd2_locker = new Locker(this.lock_fds_new[fd2].lock);
+
+    return Locker.dual_lock_blocking(
+      fd1_locker,
+      fd2_locker,
+      callback,
+      fd1 < fd2,
+    );
   }
 
   protected call_fd(fd: number, callback: () => void): number {

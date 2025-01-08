@@ -23,7 +23,6 @@ export class WorkerBackgroundRef {
     done_listen: ListenerTarget;
   };
   private signature_input: SharedArrayBuffer;
-  // @ts-expect-error
   private locker: Locker;
   // @ts-expect-error
   private caller: Caller;
@@ -52,50 +51,6 @@ export class WorkerBackgroundRef {
     this.caller = new Caller(this.locks.call);
     this.done_caller = new Caller(this.locks.done_call);
     this.done_listener = new Listener(this.locks.done_listen);
-  }
-
-  private block_lock_base_func<T>(callback: () => T): T {
-    const view = new Int32Array(this.lock);
-    while (true) {
-      const lock = Atomics.wait(view, 0, 1);
-      if (lock === "timed-out") {
-        throw new Error("timed-out lock");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-      break;
-    }
-    try {
-      return callback();
-    } finally {
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-    }
-  }
-
-  private async async_lock_base_func<T>(
-    callback: () => T | PromiseLike<T>,
-  ): Promise<T> {
-    const view = new Int32Array(this.lock);
-    while (true) {
-      const lock = await Atomics.waitAsync(view, 0, 1).value;
-      if (lock === "timed-out") {
-        throw new Error("timed-out");
-      }
-      const old = Atomics.compareExchange(view, 0, 0, 1);
-      if (old !== 0) {
-        continue;
-      }
-      break;
-    }
-    try {
-      return await callback();
-    } finally {
-      Atomics.store(view, 0, 0);
-      Atomics.notify(view, 0, 1);
-    }
   }
 
   private call_block_wait_base_func(): void {
@@ -129,7 +84,7 @@ export class WorkerBackgroundRef {
     options?: WorkerOptions,
     post_obj?: unknown,
   ): WorkerRef {
-    return this.block_lock_base_func(() => {
+    return this.locker.lock_blocking(() => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, 1);
       const url_buffer = new TextEncoder().encode(url);
@@ -150,7 +105,7 @@ export class WorkerBackgroundRef {
     options: WorkerOptions | undefined,
     post_obj: unknown,
   ) {
-    return await this.async_lock_base_func(async () => {
+    await this.locker.lock(async () => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, 2);
       const url_buffer = new TextEncoder().encode(url);
@@ -168,7 +123,7 @@ export class WorkerBackgroundRef {
     options: WorkerOptions | undefined,
     post_obj: unknown,
   ) {
-    return this.block_lock_base_func(() => {
+    this.locker.lock_blocking(() => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, 2);
       const url_buffer = new TextEncoder().encode(url);

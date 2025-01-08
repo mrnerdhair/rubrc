@@ -45,7 +45,6 @@ export class WorkerBackground {
   };
   private signature_input: SharedArrayBuffer;
 
-  // @ts-expect-error
   private locker: Locker;
   // @ts-expect-error
   private listener: Listener;
@@ -129,12 +128,12 @@ export class WorkerBackground {
   }
 
   async listen(): Promise<void> {
-    const lock_view = new Int32Array(this.lock);
-    Atomics.store(lock_view, 0, 0);
-    Atomics.store(lock_view, 1, 0);
+    this.locker.reset();
 
     const signature_input_view = new Int32Array(this.signature_input);
 
+    const lock_view = new Int32Array(this.lock);
+    Atomics.store(lock_view, 1, 0);
     while (true) {
       const lock = await Atomics.waitAsync(lock_view, 1, 0).value;
       if (lock === "timed-out") {

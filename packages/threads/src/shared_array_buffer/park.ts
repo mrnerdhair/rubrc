@@ -107,7 +107,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     call: CallerTarget;
     listen: ListenerTarget;
   };
-  // @ts-expect-error
   private readonly locker: Locker;
   // @ts-expect-error
   private readonly listener: Listener;
@@ -251,8 +250,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // so, set fds_map
   async listen_base() {
     const lock_view = new Int32Array(this.base_func_util);
-    Atomics.store(lock_view, 0, 0);
-    Atomics.store(lock_view, 1, 0);
+    this.locker.reset();
 
     while (true) {
       try {
@@ -307,7 +305,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // listen fd
   async listen_fd(fd_n: number) {
-    const lock_view = new Int32Array(this.lock_fds, fd_n * 12);
     const bytes_offset = fd_n * fd_func_sig_bytes;
     const func_sig_view_u8 = new Uint8Array(this.fd_func_sig, bytes_offset);
     const func_sig_view_u16 = new Uint16Array(this.fd_func_sig, bytes_offset);
@@ -318,8 +315,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       bytes_offset,
     );
     const errno_offset = fd_func_sig_u32_size - 1;
-    Atomics.store(lock_view, 0, 0);
-    Atomics.store(lock_view, 1, 0);
+    new Locker(this.lock_fds_new[fd_n].lock).reset();
     Atomics.store(func_sig_view_i32, errno_offset, -1);
 
     const handlers: Partial<
@@ -814,6 +810,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
     };
 
+    const lock_view = new Int32Array(this.lock_fds, fd_n * 12);
+    Atomics.store(lock_view, 1, 0);
     do {
       await ((x) => x())(async () => {
         try {
