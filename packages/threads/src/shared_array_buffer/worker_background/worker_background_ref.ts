@@ -1,12 +1,10 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
-  Caller,
   type CallerTarget,
   Listener,
   type ListenerTarget,
   Locker,
   type LockerTarget,
-  // @ts-expect-error
   NoListener,
 } from "../locking";
 import * as Serializer from "../serialize_error";
@@ -25,8 +23,7 @@ export class WorkerBackgroundRef {
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
   private caller: DummyCaller1;
-  // @ts-expect-error
-  private done_caller: Caller;
+  private done_caller: DummyCaller2;
   // @ts-expect-error
   private done_listener: Listener;
 
@@ -48,7 +45,7 @@ export class WorkerBackgroundRef {
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
     this.caller = new DummyCaller1(this.lock);
-    this.done_caller = new Caller(this.locks.done_call);
+    this.done_caller = new DummyCaller2(new Int32Array(this.lock, 8));
     this.done_listener = new Listener(this.locks.done_listen);
   }
 
@@ -121,21 +118,13 @@ export class WorkerBackgroundRef {
   }
 
   done_notify(code: number): void {
-    const notify_view = new Int32Array(this.lock, 8);
-
-    // notify done = code 2
-    const old = Atomics.compareExchange(notify_view, 0, 0, 2);
-
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-
-    Atomics.store(notify_view, 1, code);
-
-    const num = Atomics.notify(notify_view, 0);
-
-    if (num === 0) {
-      Atomics.store(notify_view, 0, 0);
+    try {
+      this.done_caller.call(2, () => {
+        const notify_view = new Int32Array(this.lock, 8);
+        Atomics.store(notify_view, 1, code);
+      });
+    } catch (e) {
+      if (!(e instanceof NoListener)) throw e;
     }
   }
 
@@ -253,6 +242,31 @@ export class WorkerRef {
 
   get_id(): number {
     return this.id;
+  }
+}
+
+class DummyCaller2 {
+  private readonly notify_view: Int32Array<SharedArrayBuffer>;
+  constructor(notify_view: Int32Array<SharedArrayBuffer>) {
+    this.notify_view = notify_view;
+  }
+
+  call(_code: number, callback?: () => void): void {
+    // notify done = code 2
+    const old = Atomics.compareExchange(this.notify_view, 0, 0, 2);
+
+    if (old !== 0) {
+      throw new Error("what happened?");
+    }
+
+    callback?.();
+
+    const num = Atomics.notify(this.notify_view, 0);
+
+    if (num === 0) {
+      Atomics.store(this.notify_view, 0, 0);
+      throw new NoListener();
+    }
   }
 }
 
