@@ -119,11 +119,11 @@ export class WorkerBackgroundRef {
   }
 
   done_notify(code: number): void {
+    const notify_view = new Int32Array(this.lock, 8);
+    Atomics.store(notify_view, 1, code);
+
     try {
-      this.done_caller.call(2, () => {
-        const notify_view = new Int32Array(this.lock, 8);
-        Atomics.store(notify_view, 1, code);
-      });
+      this.done_caller.call(2);
     } catch (e) {
       if (!(e instanceof NoListener)) throw e;
     }
