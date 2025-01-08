@@ -41,7 +41,7 @@ export class DummyListener2 extends DummyListenerBase {
           );
         }
 
-        const n = Atomics.notify(this.lock_view, 0);
+        const n = Atomics.notify(this.lock_view, 0, 1);
         if (n !== 1) {
           if (n === 0) {
             console.warn("notify number is 0. ref is late?");

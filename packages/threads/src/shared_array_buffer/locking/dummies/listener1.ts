@@ -27,19 +27,27 @@ export class DummyListener1 extends DummyListenerBase {
           throw new Error("timed-out");
         }
 
+        // const func_lock = Atomics.load(this.lock_view, 0);
+        // if (func_lock !== 1) {
+        //   throw new Error(`func_lock is already set: ${func_lock}`);
+        // }
+
         const out = (yield callback()) as Awaited<T>;
 
         const old_call_lock = Atomics.exchange(this.lock_view, 0, 0);
         if (old_call_lock !== 1) {
-          throw new Error("Lock is already set");
+          throw new Error(
+            `Call is already set: ${old_call_lock}\nfunc: \${func_name}\nfd: \${fd_n}`,
+          );
         }
-        const num = Atomics.notify(this.lock_view, 0, 1);
-        if (num !== 1) {
-          if (num === 0) {
-            console.warn("notify failed, waiter is late");
-            return out;
+
+        const n = Atomics.notify(this.lock_view, 0, 1);
+        if (n !== 1) {
+          if (n === 0) {
+            console.warn("notify number is 0. ref is late?");
+          } else {
+            throw new Error(`notify failed: ${n}`);
           }
-          throw new Error(`notify failed: ${num}`);
         }
         return out;
       } catch (e) {
