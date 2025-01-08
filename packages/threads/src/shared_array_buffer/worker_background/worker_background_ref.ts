@@ -99,7 +99,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       await this.allocator.async_write(obj_buffer, view, 4);
-      await this.caller.call_and_wait();
+      this.caller.call_and_wait_blocking();
     });
   }
 

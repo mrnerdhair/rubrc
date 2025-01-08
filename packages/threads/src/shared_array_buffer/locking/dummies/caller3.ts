@@ -16,16 +16,4 @@ export class DummyCaller3 {
       throw new Error("timed-out lock");
     }
   }
-
-  async call_and_wait(): Promise<void> {
-    const old = Atomics.exchange(this.notify_view, 0, 1);
-    Atomics.notify(this.notify_view, 0, 1);
-    if (old !== 0) {
-      throw new Error("what happened?");
-    }
-    const lock = await Atomics.waitAsync(this.notify_view, 0, 1).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
-  }
 }
