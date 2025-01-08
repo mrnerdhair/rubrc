@@ -24,8 +24,7 @@ export class WorkerBackgroundRef {
   private locker: Locker;
   private caller: DummyCaller1;
   private done_caller: DummyCaller2;
-  // @ts-expect-error
-  private done_listener: Listener;
+  private done_listener: DummyListener1;
 
   constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -46,7 +45,7 @@ export class WorkerBackgroundRef {
     this.locker = new Locker(this.locks.lock);
     this.caller = new DummyCaller1(this.lock);
     this.done_caller = new DummyCaller2(new Int32Array(this.lock, 8));
-    this.done_listener = new Listener(this.locks.done_listen);
+    this.done_listener = new DummyListener1(new Int32Array(this.lock, 8));
   }
 
   new_worker(
@@ -130,27 +129,13 @@ export class WorkerBackgroundRef {
 
   async async_wait_done_or_error(): Promise<number> {
     const notify_view = new Int32Array(this.lock, 8);
+    const listener = this.done_listener;
+    listener.reset();
 
-    Atomics.store(notify_view, 0, 0);
-
-    const lock = await Atomics.waitAsync(notify_view, 0, 0).value;
-    if (lock === "timed-out") {
-      throw new Error("timed-out");
-    }
-    if (lock === "not-equal") {
-      throw new Error("not-equal");
-    }
-
-    const code = Atomics.load(notify_view, 0);
-    try {
+    return await listener.listen(async (code?: number) => {
       switch (code) {
         // completed, fetch and return errno
         case 2: {
-          const old = Atomics.compareExchange(notify_view, 0, 2, 0);
-          if (old !== 2) {
-            throw new Error("what happened?");
-          }
-
           return Atomics.load(notify_view, 1);
         }
         // threw, fetch and rethrow error
@@ -165,44 +150,21 @@ export class WorkerBackgroundRef {
           throw Serializer.deserialize(error_serialized);
         }
         default: {
-          throw "unknown code";
+          throw new Error("unknown code");
         }
       }
-    } catch (error) {
-      if (typeof error === "string") throw new Error(error);
-      const old = Atomics.compareExchange(notify_view, 0, 1, 0);
-
-      if (old !== 1) {
-        console.error("what happened?");
-      }
-
-      throw error;
-    }
+    });
   }
 
   block_wait_done_or_error(): number {
     const notify_view = new Int32Array(this.lock, 8);
+    const listener = this.done_listener;
+    listener.reset();
 
-    Atomics.store(notify_view, 0, 0);
-
-    const value = Atomics.wait(notify_view, 0, 0);
-    if (value === "timed-out") {
-      throw new Error("timed-out");
-    }
-    if (value === "not-equal") {
-      throw new Error("not-equal");
-    }
-
-    const code = Atomics.load(notify_view, 0);
-    try {
+    return listener.listen_blocking((code?: number) => {
       switch (code) {
         // completed, fetch and return errno
         case 2: {
-          const old = Atomics.compareExchange(notify_view, 0, 2, 0);
-          if (old !== 2) {
-            throw new Error("what happened?");
-          }
-
           return Atomics.load(notify_view, 1);
         }
         // threw, fetch and rethrow error
@@ -217,19 +179,10 @@ export class WorkerBackgroundRef {
           throw Serializer.deserialize(error_serialized);
         }
         default: {
-          throw "unknown code";
+          throw new Error("unknown code");
         }
       }
-    } catch (error) {
-      if (typeof error === "string") throw new Error(error);
-      const old = Atomics.compareExchange(notify_view, 0, 1, 0);
-
-      if (old !== 1) {
-        console.error("what happened?");
-      }
-
-      throw error;
-    }
+    });
   }
 }
 
@@ -242,6 +195,82 @@ export class WorkerRef {
 
   get_id(): number {
     return this.id;
+  }
+}
+
+class DummyListener1 {
+  private readonly notify_view: Int32Array<SharedArrayBuffer>;
+  constructor(notify_view: Int32Array<SharedArrayBuffer>) {
+    this.notify_view = notify_view;
+  }
+  reset() {
+    Atomics.store(this.notify_view, 0, 0);
+  }
+  async listen(callback: (code?: number) => Promise<number>): Promise<number> {
+    const lock = await Atomics.waitAsync(this.notify_view, 0, 0).value;
+    if (lock === "timed-out") {
+      throw new Error("timed-out");
+    }
+    if (lock === "not-equal") {
+      throw new Error("not-equal");
+    }
+
+    const code = Atomics.load(this.notify_view, 0);
+
+    let out: number;
+    try {
+      out = await callback(code);
+    } catch (error) {
+      if (!(error instanceof Error && error.message === "unknown code")) {
+        const old = Atomics.compareExchange(this.notify_view, 0, 1, 0);
+
+        if (old !== 1) {
+          console.error("what happened?");
+        }
+      }
+
+      throw error;
+    }
+
+    const old = Atomics.compareExchange(this.notify_view, 0, 2, 0);
+    if (old !== 2) {
+      throw new Error("what happened?");
+    }
+
+    return out;
+  }
+  listen_blocking(callback: (code?: number) => number): number {
+    const value = Atomics.wait(this.notify_view, 0, 0);
+    if (value === "timed-out") {
+      throw new Error("timed-out");
+    }
+    if (value === "not-equal") {
+      throw new Error("not-equal");
+    }
+
+    const code = Atomics.load(this.notify_view, 0);
+
+    let out: number;
+    try {
+      out = callback(code);
+    } catch (error) {
+      if (!(error instanceof Error && error.message === "unknown code")) {
+        const old = Atomics.compareExchange(this.notify_view, 0, 1, 0);
+
+        if (old !== 1) {
+          console.error("what happened?");
+        }
+      }
+
+      throw error;
+    }
+
+    const old = Atomics.compareExchange(this.notify_view, 0, 2, 0);
+    if (old !== 2) {
+      throw new Error("what happened?");
+    }
+
+    return out;
   }
 }
 
