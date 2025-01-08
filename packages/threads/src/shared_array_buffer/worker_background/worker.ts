@@ -146,216 +146,218 @@ export class WorkerBackground {
         throw new Error("locked");
       }
 
-      const gen_worker = () => {
-        console.log("gen_worker");
-        const url_ptr = Atomics.load(signature_input_view, 1);
-        const url_len = Atomics.load(signature_input_view, 2);
-        const url_buff = this.allocator.get_memory(url_ptr, url_len);
-        this.allocator.free(url_ptr, url_len);
-        const url = new TextDecoder().decode(url_buff);
-        const is_module = Atomics.load(signature_input_view, 3) === 1;
-        return new Worker(url, {
-          type: is_module ? "module" : "classic",
-        });
-      };
-
-      const gen_obj = (): Record<string, unknown> => {
-        console.log("gen_obj");
-        const json_ptr = Atomics.load(signature_input_view, 4);
-        const json_len = Atomics.load(signature_input_view, 5);
-        const json_buff = this.allocator.get_memory(json_ptr, json_len);
-        this.allocator.free(json_ptr, json_len);
-        const json = new TextDecoder().decode(json_buff);
-        const out = JSON.parse(json);
-        if (!out || typeof out !== "object" || Array.isArray(out))
-          throw new Error("expected JSON object");
-        return out;
-      };
-
-      const signature_input = Atomics.load(signature_input_view, 0);
-      switch (signature_input) {
-        // create new worker
-        case 1: {
-          const worker = gen_worker();
-          const obj = gen_obj();
-
-          const worker_id = this.assign_worker_id();
-
-          console.log(`new worker ${worker_id}`);
-
-          this.workers[worker_id] = worker;
-
-          const { promise, resolve } = Promise.withResolvers<void>();
-
-          worker.onmessage = async (e) => {
-            const { msg } = e.data;
-
-            if (msg === "ready") {
-              resolve();
-            }
-
-            if (msg === "done") {
-              console.log(`worker ${worker_id} done so terminate`);
-
-              this.workers[worker_id]?.terminate();
-              this.workers[worker_id] = undefined;
-            }
-
-            if (msg === "error") {
-              this.workers[worker_id]?.terminate();
-              this.workers[worker_id] = undefined;
-
-              let n = 0;
-              for (const worker of this.workers) {
-                if (worker !== undefined) {
-                  console.warn(
-                    `wasi throw error but child process exists, terminate ${n}`,
-                  );
-                  worker.terminate();
-                }
-                n++;
-              }
-              if (this.start_worker !== undefined) {
-                console.warn(
-                  "wasi throw error but wasi exists, terminate wasi",
-                );
-                this.start_worker.terminate();
-              }
-
-              this.workers = [undefined];
-              this.start_worker = undefined;
-
-              const error = e.data.error;
-
-              const notify_view = new Int32Array(this.lock, 8);
-
-              const serialized_error = Serializer.serialize(error);
-
-              await this.allocator.async_write(
-                new TextEncoder().encode(JSON.stringify(serialized_error)),
-                new Int32Array(this.lock),
-                3,
-              );
-              const ptr = Atomics.load(notify_view, 0);
-              const len = Atomics.load(notify_view, 1);
-
-              // notify error = code 1
-              const old = Atomics.compareExchange(notify_view, 0, 0, 1);
-
-              if (old !== 0) {
-                this.allocator.free(ptr, len);
-                throw new Error("what happened?");
-              }
-
-              const num = Atomics.notify(notify_view, 0);
-
-              if (num === 0) {
-                this.allocator.free(ptr, len);
-                Atomics.store(notify_view, 0, 0);
-                throw error;
-              }
-            }
-          };
-
-          worker.postMessage({
-            ...this.override_object,
-            ...obj,
-            worker_id,
-            worker_background_ref: this.ref(),
+      await ((x) => x())(async () => {
+        const gen_worker = () => {
+          console.log("gen_worker");
+          const url_ptr = Atomics.load(signature_input_view, 1);
+          const url_len = Atomics.load(signature_input_view, 2);
+          const url_buff = this.allocator.get_memory(url_ptr, url_len);
+          this.allocator.free(url_ptr, url_len);
+          const url = new TextDecoder().decode(url_buff);
+          const is_module = Atomics.load(signature_input_view, 3) === 1;
+          return new Worker(url, {
+            type: is_module ? "module" : "classic",
           });
+        };
 
-          await promise;
+        const gen_obj = (): Record<string, unknown> => {
+          console.log("gen_obj");
+          const json_ptr = Atomics.load(signature_input_view, 4);
+          const json_len = Atomics.load(signature_input_view, 5);
+          const json_buff = this.allocator.get_memory(json_ptr, json_len);
+          this.allocator.free(json_ptr, json_len);
+          const json = new TextDecoder().decode(json_buff);
+          const out = JSON.parse(json);
+          if (!out || typeof out !== "object" || Array.isArray(out))
+            throw new Error("expected JSON object");
+          return out;
+        };
 
-          Atomics.store(signature_input_view, 0, worker_id);
+        const signature_input = Atomics.load(signature_input_view, 0);
+        switch (signature_input) {
+          // create new worker
+          case 1: {
+            const worker = gen_worker();
+            const obj = gen_obj();
 
-          break;
-        }
-        // create start
-        case 2: {
-          this.start_worker = gen_worker();
-          const obj = gen_obj();
+            const worker_id = this.assign_worker_id();
 
-          this.start_worker.onmessage = async (e) => {
-            const { msg } = e.data;
+            console.log(`new worker ${worker_id}`);
 
-            if (msg === "done") {
-              let n = 0;
-              for (const worker of this.workers) {
-                if (worker !== undefined) {
-                  console.warn(`wasi done but worker exists, terminate ${n}`);
-                  worker.terminate();
-                }
-                n++;
+            this.workers[worker_id] = worker;
+
+            const { promise, resolve } = Promise.withResolvers<void>();
+
+            worker.onmessage = async (e) => {
+              const { msg } = e.data;
+
+              if (msg === "ready") {
+                resolve();
               }
 
-              console.log("start worker done so terminate");
+              if (msg === "done") {
+                console.log(`worker ${worker_id} done so terminate`);
 
-              this.start_worker?.terminate();
-              this.start_worker = undefined;
-            }
+                this.workers[worker_id]?.terminate();
+                this.workers[worker_id] = undefined;
+              }
 
-            if (msg === "error") {
-              let n = 0;
-              for (const worker of this.workers) {
-                if (worker !== undefined) {
+              if (msg === "error") {
+                this.workers[worker_id]?.terminate();
+                this.workers[worker_id] = undefined;
+
+                let n = 0;
+                for (const worker of this.workers) {
+                  if (worker !== undefined) {
+                    console.warn(
+                      `wasi throw error but child process exists, terminate ${n}`,
+                    );
+                    worker.terminate();
+                  }
+                  n++;
+                }
+                if (this.start_worker !== undefined) {
                   console.warn(
-                    `wasi throw error but worker exists, terminate ${n}`,
+                    "wasi throw error but wasi exists, terminate wasi",
                   );
-                  worker.terminate();
+                  this.start_worker.terminate();
                 }
-                n++;
-              }
-              if (this.start_worker !== undefined) {
-                console.warn(
-                  "wasi throw error but wasi exists, terminate start worker",
+
+                this.workers = [undefined];
+                this.start_worker = undefined;
+
+                const error = e.data.error;
+
+                const notify_view = new Int32Array(this.lock, 8);
+
+                const serialized_error = Serializer.serialize(error);
+
+                await this.allocator.async_write(
+                  new TextEncoder().encode(JSON.stringify(serialized_error)),
+                  new Int32Array(this.lock),
+                  3,
                 );
-                this.start_worker.terminate();
+                const ptr = Atomics.load(notify_view, 0);
+                const len = Atomics.load(notify_view, 1);
+
+                // notify error = code 1
+                const old = Atomics.compareExchange(notify_view, 0, 0, 1);
+
+                if (old !== 0) {
+                  this.allocator.free(ptr, len);
+                  throw new Error("what happened?");
+                }
+
+                const num = Atomics.notify(notify_view, 0);
+
+                if (num === 0) {
+                  this.allocator.free(ptr, len);
+                  Atomics.store(notify_view, 0, 0);
+                  throw error;
+                }
+              }
+            };
+
+            worker.postMessage({
+              ...this.override_object,
+              ...obj,
+              worker_id,
+              worker_background_ref: this.ref(),
+            });
+
+            await promise;
+
+            Atomics.store(signature_input_view, 0, worker_id);
+
+            break;
+          }
+          // create start
+          case 2: {
+            this.start_worker = gen_worker();
+            const obj = gen_obj();
+
+            this.start_worker.onmessage = async (e) => {
+              const { msg } = e.data;
+
+              if (msg === "done") {
+                let n = 0;
+                for (const worker of this.workers) {
+                  if (worker !== undefined) {
+                    console.warn(`wasi done but worker exists, terminate ${n}`);
+                    worker.terminate();
+                  }
+                  n++;
+                }
+
+                console.log("start worker done so terminate");
+
+                this.start_worker?.terminate();
+                this.start_worker = undefined;
               }
 
-              this.workers = [undefined];
-              this.start_worker = undefined;
+              if (msg === "error") {
+                let n = 0;
+                for (const worker of this.workers) {
+                  if (worker !== undefined) {
+                    console.warn(
+                      `wasi throw error but worker exists, terminate ${n}`,
+                    );
+                    worker.terminate();
+                  }
+                  n++;
+                }
+                if (this.start_worker !== undefined) {
+                  console.warn(
+                    "wasi throw error but wasi exists, terminate start worker",
+                  );
+                  this.start_worker.terminate();
+                }
 
-              const error = e.data.error;
+                this.workers = [undefined];
+                this.start_worker = undefined;
 
-              const notify_view = new Int32Array(this.lock, 8);
+                const error = e.data.error;
 
-              const serialized_error = Serializer.serialize(error);
+                const notify_view = new Int32Array(this.lock, 8);
 
-              await this.allocator.async_write(
-                new TextEncoder().encode(JSON.stringify(serialized_error)),
-                new Int32Array(this.lock),
-                3,
-              );
-              const ptr = Atomics.load(notify_view, 0);
-              const len = Atomics.load(notify_view, 1);
+                const serialized_error = Serializer.serialize(error);
 
-              // notify error = code 1
-              const old = Atomics.compareExchange(notify_view, 0, 0, 1);
+                await this.allocator.async_write(
+                  new TextEncoder().encode(JSON.stringify(serialized_error)),
+                  new Int32Array(this.lock),
+                  3,
+                );
+                const ptr = Atomics.load(notify_view, 0);
+                const len = Atomics.load(notify_view, 1);
 
-              if (old !== 0) {
-                this.allocator.free(ptr, len);
-                throw new Error("what happened?");
+                // notify error = code 1
+                const old = Atomics.compareExchange(notify_view, 0, 0, 1);
+
+                if (old !== 0) {
+                  this.allocator.free(ptr, len);
+                  throw new Error("what happened?");
+                }
+
+                const num = Atomics.notify(notify_view, 0);
+
+                if (num === 0) {
+                  this.allocator.free(ptr, len);
+                  Atomics.store(notify_view, 0, 0);
+                  throw new Error(error);
+                }
               }
+            };
 
-              const num = Atomics.notify(notify_view, 0);
+            this.start_worker.postMessage({
+              ...this.override_object,
+              ...obj,
+              worker_background_ref: this.ref(),
+            });
 
-              if (num === 0) {
-                this.allocator.free(ptr, len);
-                Atomics.store(notify_view, 0, 0);
-                throw new Error(error);
-              }
-            }
-          };
-
-          this.start_worker.postMessage({
-            ...this.override_object,
-            ...obj,
-            worker_background_ref: this.ref(),
-          });
-
-          break;
+            break;
+          }
         }
-      }
+      });
 
       const old_call_lock = Atomics.exchange(lock_view, 1, 0);
       if (old_call_lock !== 1) {
