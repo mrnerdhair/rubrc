@@ -806,29 +806,32 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         this.lock_fds_new[fd_n].listen.byteOffset,
         1,
       ),
-      this.lock_fds,
-      this.fd_func_sig,
     );
     listener.reset();
     do {
-      await listener.listen(async () => {
-        try {
-          const func_number = Atomics.load(func_sig_view_u32, 0);
-          const func_name = FuncNames[func_number] as keyof typeof FuncNames;
-          const handler =
-            handlers[func_name] ??
-            (() => {
-              throw new Error(`Unknown function number: ${func_number}`);
-            });
-          const errno = await handler();
-          Atomics.store(func_sig_view_i32, errno_offset, errno);
-        } catch (e) {
-          const func_sig_view = new Int32Array(this.fd_func_sig);
-          Atomics.exchange(func_sig_view, 16, -1);
+      try {
+        await listener.listen(async () => {
+          try {
+            const func_number = Atomics.load(func_sig_view_u32, 0);
+            const func_name = FuncNames[func_number] as keyof typeof FuncNames;
+            const handler =
+              handlers[func_name] ??
+              (() => {
+                throw new Error(`Unknown function number: ${func_number}`);
+              });
+            const errno = await handler();
+            Atomics.store(func_sig_view_i32, errno_offset, errno);
+          } catch (e) {
+            const func_sig_view = new Int32Array(this.fd_func_sig);
+            Atomics.exchange(func_sig_view, 16, -1);
 
-          throw e;
-        }
-      });
+            throw e;
+          }
+        });
+      } catch (e) {
+        const func_sig_view = new Int32Array(this.fd_func_sig);
+        Atomics.exchange(func_sig_view, 16, -1);
+      }
     } while (this.fds[fd_n] !== undefined);
   }
 }

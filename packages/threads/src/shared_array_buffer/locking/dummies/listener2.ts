@@ -2,18 +2,10 @@ import { DummyListenerBase } from "./listenerbase";
 
 export class DummyListener2 extends DummyListenerBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
-  private readonly lock_fds: SharedArrayBuffer;
-  private readonly fd_func_sig: SharedArrayBuffer;
 
-  constructor(
-    lock_view: Int32Array<SharedArrayBuffer>,
-    lock_fds: SharedArrayBuffer,
-    fd_func_sig: SharedArrayBuffer,
-  ) {
+  constructor(lock_view: Int32Array<SharedArrayBuffer>) {
     super();
     this.lock_view = lock_view;
-    this.lock_fds = lock_fds;
-    this.fd_func_sig = fd_func_sig;
   }
 
   reset() {
@@ -57,14 +49,9 @@ export class DummyListener2 extends DummyListenerBase {
             console.warn(`notify number is not 1: ${n}`);
           }
         }
-
         return out;
       } catch (e) {
-        const lock_view = new Int32Array(this.lock_fds);
-        Atomics.exchange(lock_view, 0, 0);
-        const func_sig_view = new Int32Array(this.fd_func_sig);
-        Atomics.exchange(func_sig_view, 16, -1);
-
+        Atomics.exchange(this.lock_view, 0, 0);
         throw e;
       }
     }.call(this, callback);
