@@ -840,5 +840,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         Atomics.exchange(func_sig_view, 16, -1);
       }
     } while (this.fds[fd_n] !== undefined);
+    console.log(`listener ${listener.fd},${listener.id} stopped`);
   }
 }
