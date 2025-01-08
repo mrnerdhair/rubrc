@@ -80,7 +80,9 @@ export class WorkerBackground {
       done_listen,
     };
     this.locker = new Locker(this.locks.lock);
-    this.listener = new DummyListener3(new Int32Array(this.lock, 4, 1));
+    this.listener = new DummyListener3(
+      new Int32Array(this.locks.listen.buf, this.locks.listen.byteOffset, 1),
+    );
     this.done_caller = new DummyCaller3(
       new Int32Array(
         this.locks.done_call.buf,
