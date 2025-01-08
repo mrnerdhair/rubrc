@@ -5,6 +5,10 @@ export class DummyCaller3 {
     this.notify_view = notify_view;
   }
 
+  reset() {
+    Atomics.store(this.notify_view, 0, 0);
+  }
+
   call_and_wait_blocking(code: number): void {
     const old = Atomics.compareExchange(this.notify_view, 0, 0, code);
     if (old !== 0) {

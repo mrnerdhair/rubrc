@@ -7,6 +7,10 @@ export class DummyCaller4 {
     this.notify_view = notify_view;
   }
 
+  reset() {
+    Atomics.store(this.notify_view, 0, 0);
+  }
+
   call(code: number): void {
     const old = Atomics.compareExchange(this.notify_view, 0, 0, code);
 
