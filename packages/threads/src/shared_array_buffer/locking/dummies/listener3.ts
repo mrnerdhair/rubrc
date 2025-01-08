@@ -16,11 +16,7 @@ export class DummyListener3 extends DummyListenerBase {
     return function* (
       this: DummyListener3,
       callback: (code?: number) => T,
-    ): Generator<
-      T | Wait,
-      Awaited<T>,
-      Awaited<T> | string
-    > {
+    ): Generator<T | Wait, Awaited<T>, Awaited<T> | string> {
       try {
         const lock = yield this.wait(this.lock_view, 0, 0);
         if (lock === "timed-out") {
@@ -40,7 +36,12 @@ export class DummyListener3 extends DummyListenerBase {
           out = (yield callback(func_lock)) as Awaited<T>;
         } catch (error) {
           if (!(error instanceof Error && error.message === "unknown code")) {
-            const old = Atomics.compareExchange(this.lock_view, 0, func_lock, 0);
+            const old = Atomics.compareExchange(
+              this.lock_view,
+              0,
+              func_lock,
+              0,
+            );
             if (old !== 1) {
               console.error("what happened?");
             }
@@ -48,7 +49,12 @@ export class DummyListener3 extends DummyListenerBase {
           throw error;
         }
 
-        const old_call_lock = Atomics.compareExchange(this.lock_view, 0, func_lock, 0);
+        const old_call_lock = Atomics.compareExchange(
+          this.lock_view,
+          0,
+          func_lock,
+          0,
+        );
         if (old_call_lock !== 1) {
           throw new Error(
             `Call is already set: ${old_call_lock}\nfunc: \${func_name}\nfd: \${fd_n}`,
