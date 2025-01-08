@@ -33,7 +33,7 @@ export class Listener {
         LISTENER_LOCKED,
       );
       if (old === UNLOCKED) break;
-      console.warn("async listener locked, waiting");
+      console.log("listener locked, waiting");
       await Atomics.waitAsync(this.view, 0, old).value;
     }
     Atomics.notify(this.view, 0, 1);
@@ -47,7 +47,7 @@ export class Listener {
       Atomics.compareExchange(this.view, 0, CALL_READY, LISTENER_WORKING) !==
       CALL_READY
     ) {
-      throw new Error("async listener expected CALL_READY");
+      throw new Error("listener expected CALL_READY");
     }
     const value = Atomics.load(this.view, 1);
 
@@ -63,11 +63,11 @@ export class Listener {
         ) !== LISTENER_WORKING
       ) {
         // biome-ignore lint/correctness/noUnsafeFinally: a lock failure is a higher-priority error
-        throw new Error("failed to release async listener lock");
+        throw new Error("failed to release listener lock");
       }
       if (Atomics.notify(this.view, 0, 1) !== 1) {
         // biome-ignore lint/correctness/noUnsafeFinally: a caller failure is a higher-priority error
-        throw new Error("async listener expected to notify exactly 1 caller");
+        throw new Error("listener expected to notify exactly 1 caller");
       }
     }
   }
