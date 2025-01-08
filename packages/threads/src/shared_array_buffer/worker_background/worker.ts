@@ -323,7 +323,7 @@ export class WorkerBackground {
                 } catch (e) {
                   this.allocator.free(ptr, len);
                   if (!(e instanceof NoListener)) throw e;
-                  throw new Error(error);
+                  throw error;
                 }
               }
             };
