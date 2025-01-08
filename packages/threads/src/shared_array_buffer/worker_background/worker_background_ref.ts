@@ -78,7 +78,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking();
+      this.caller.call_and_wait_blocking(1);
 
       const id = Atomics.load(view, 0);
       return new WorkerRef(id);
@@ -99,7 +99,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       await this.allocator.async_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking();
+      this.caller.call_and_wait_blocking(1);
     });
   }
 
@@ -117,7 +117,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking();
+      this.caller.call_and_wait_blocking(1);
     });
   }
 
