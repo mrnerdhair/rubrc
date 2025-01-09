@@ -1,9 +1,8 @@
 import {
-  type AsyncCallerTarget,
-  new_async_caller_target,
-} from "./async_caller";
-import { type CallerTarget, new_caller_target } from "./caller";
-import type { ListenerTarget } from "./listener";
+  type Target as CallerTarget,
+  new_target as new_caller_target,
+} from "./caller";
+import type { Target as ListenerTarget } from "./listener";
 
 export {
   Locker,
@@ -11,27 +10,13 @@ export {
   new_locker_target,
   LockNotReady,
 } from "./locker";
-export { Caller, type CallerTarget, NoListener } from "./caller";
-export { Listener, type ListenerTarget } from "./listener";
-export {
-  AsyncCaller,
-  type AsyncCallerTarget,
-} from "./async_caller";
+export { Caller, type Target as CallerTarget } from "./caller";
+export { Listener, type Target as ListenerTarget } from "./listener";
 export { PromiseLocker } from "./promise_locker";
-export {
-  DummyCaller2,
-  DummyListener2,
-} from "./dummies";
 
-export function new_caller_listener_target(): [CallerTarget, ListenerTarget] {
-  const caller_target = new_caller_target();
-  return [caller_target, caller_target as unknown as ListenerTarget];
-}
-
-export function new_async_caller_listener_target(): [
-  AsyncCallerTarget,
-  ListenerTarget,
-] {
-  const caller_target = new_async_caller_target();
+export function new_caller_listener_target(
+  size = 0,
+): [CallerTarget, ListenerTarget] {
+  const caller_target = new_caller_target(size);
   return [caller_target, caller_target as unknown as ListenerTarget];
 }

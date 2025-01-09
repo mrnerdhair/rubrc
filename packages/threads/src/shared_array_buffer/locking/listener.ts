@@ -1,128 +1,72 @@
-import { type AtomicTarget, new_atomic_target } from "./target";
-import "./polyfill";
+import { ListenerBase } from "./listener_base";
+import type { WaitOnGen } from "./waiter_base";
 
-export const UNLOCKED = 0;
-export const LISTENER_LOCKED = 1;
-export const CALLER_WORKING = 2;
-export const CALL_READY = 3;
-export const LISTENER_WORKING = 5;
-export const CALL_FINISHED = 6;
+export enum ListenerState {
+  UNLOCKED = 0,
+  LISTENER_LOCKED = 1,
+  CALLER_WORKING = 2,
+  CALL_READY = 3,
+  LISTENER_WORKING = 5,
+  CALL_FINISHED = 6,
+}
 
-export class Listener {
-  protected readonly view: Int32Array;
+export class Listener extends ListenerBase {
+  private readonly lock_view: Int32Array<SharedArrayBuffer>;
+  private readonly data_view: DataView<SharedArrayBuffer>;
 
-  constructor({ buf, byteOffset }: ListenerTarget) {
-    this.view = new Int32Array(buf, byteOffset, 2);
+  constructor(target: Target) {
+    super();
+    this.lock_view = new Int32Array(target, 0, 1);
+    this.data_view = new DataView(
+      target,
+      1 * Int32Array.BYTES_PER_ELEMENT,
+      target.byteLength - 1 * Int32Array.BYTES_PER_ELEMENT,
+    );
   }
 
-  reset(): void {
-    const old = Atomics.exchange(this.view, 0, UNLOCKED);
-    if (old !== UNLOCKED) {
-      throw new Error(`listener reset actually did something: ${old}`);
+  reset() {
+    const old = Atomics.exchange(this.lock_view, 0, ListenerState.UNLOCKED);
+    if (old !== ListenerState.UNLOCKED) {
+      throw new Error(`listener reset did something: ${old}`);
     }
   }
 
-  async listen<T>(
-    callback: (value?: number) => T | PromiseLike<T>,
-  ): Promise<T> {
-    while (true) {
-      const old = Atomics.compareExchange(
-        this.view,
+  protected listen_inner<T>(
+    callback: (view: DataView<SharedArrayBuffer>) => T,
+  ) {
+    return function* (this: Listener): WaitOnGen<T> {
+      yield this.relock(
+        this.lock_view,
         0,
-        UNLOCKED,
-        LISTENER_LOCKED,
+        ListenerState.UNLOCKED,
+        ListenerState.LISTENER_LOCKED,
       );
-      if (old === UNLOCKED) break;
-      console.log("listener locked, waiting");
-      await Atomics.waitAsync(this.view, 0, old).value;
-    }
-    Atomics.notify(this.view, 0, 1);
-
-    while (true) {
-      const current = Atomics.load(this.view, 0);
-      if (current === CALL_READY) break;
-      await Atomics.waitAsync(this.view, 0, current).value;
-    }
-    if (
-      Atomics.compareExchange(this.view, 0, CALL_READY, LISTENER_WORKING) !==
-      CALL_READY
-    ) {
-      throw new Error("listener expected CALL_READY");
-    }
-    const value = Atomics.load(this.view, 1);
-
-    try {
-      return await callback(value);
-    } finally {
-      if (
-        Atomics.compareExchange(
-          this.view,
-          0,
-          LISTENER_WORKING,
-          CALL_FINISHED,
-        ) !== LISTENER_WORKING
-      ) {
-        // biome-ignore lint/correctness/noUnsafeFinally: a lock failure is a higher-priority error
-        throw new Error("failed to release listener lock");
-      }
-      if (Atomics.notify(this.view, 0, 1) !== 1) {
-        // biome-ignore lint/correctness/noUnsafeFinally: a caller failure is a higher-priority error
-        throw new Error("listener expected to notify exactly 1 caller");
-      }
-    }
-  }
-
-  listen_blocking<T>(callback: (value?: number) => T): T {
-    while (true) {
-      const old = Atomics.compareExchange(
-        this.view,
+      yield this.relock(
+        this.lock_view,
         0,
-        UNLOCKED,
-        LISTENER_LOCKED,
+        ListenerState.CALL_READY,
+        ListenerState.LISTENER_WORKING,
       );
-      if (old === UNLOCKED) break;
-      console.warn("listener locked, waiting");
-      Atomics.wait(this.view, 0, old);
-    }
-    Atomics.notify(this.view, 0, 1);
 
-    while (true) {
-      const current = Atomics.load(this.view, 0);
-      if (current === CALL_READY) break;
-      Atomics.wait(this.view, 0, current);
-    }
-    if (
-      Atomics.compareExchange(this.view, 0, CALL_READY, LISTENER_WORKING) !==
-      CALL_READY
-    ) {
-      throw new Error("listener expected CALL_READY");
-    }
-    const value = Atomics.load(this.view, 1);
-
-    try {
-      return callback(value);
-    } finally {
-      if (
-        Atomics.compareExchange(
-          this.view,
+      try {
+        return (yield callback(this.data_view)) as Awaited<T>;
+      } finally {
+        yield this.relock(
+          this.lock_view,
           0,
-          LISTENER_WORKING,
-          CALL_FINISHED,
-        ) !== LISTENER_WORKING
-      ) {
-        // biome-ignore lint/correctness/noUnsafeFinally: a lock failure is a higher-priority error
-        throw new Error("failed to release listener lock");
+          ListenerState.LISTENER_WORKING,
+          ListenerState.CALL_FINISHED,
+          true,
+        );
       }
-      if (Atomics.notify(this.view, 0, 1) !== 1) {
-        // biome-ignore lint/correctness/noUnsafeFinally: a caller failure is a higher-priority error
-        throw new Error("listener expected to notify exactly 1 caller");
-      }
-    }
+    }.call(this);
   }
 }
 
-declare const listenerTargetBrand: unique symbol;
-export type ListenerTarget = AtomicTarget & { [listenerTargetBrand]: never };
-export function new_listener_target(): ListenerTarget {
-  return new_atomic_target() as ListenerTarget;
+declare const targetBrand: unique symbol;
+export type Target = SharedArrayBuffer & { [targetBrand]: never };
+export function new_target(size = 0): Target {
+  return new SharedArrayBuffer(
+    size + 1 * Int32Array.BYTES_PER_ELEMENT,
+  ) as Target;
 }

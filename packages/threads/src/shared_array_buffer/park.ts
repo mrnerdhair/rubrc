@@ -4,7 +4,7 @@ import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
 import {
   type CallerTarget,
-  DummyListener2,
+  Listener,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -108,7 +108,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     listen: ListenerTarget;
   };
   private readonly locker: Locker;
-  private readonly listener: DummyListener2;
+  private readonly listener: Listener;
 
   // tell other processes that the file descriptor has been closed
   private fd_close_receiver: FdCloseSenderUseArrayBuffer;
@@ -166,13 +166,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       listen,
     };
     this.locker = new Locker(this.base_func_util_locks.lock);
-    this.listener = new DummyListener2(
-      new Int32Array(
-        this.base_func_util_locks.listen.buf,
-        this.base_func_util_locks.listen.byteOffset,
-        1,
-      ),
-    );
+    this.listener = new Listener(this.base_func_util_locks.listen);
   }
 
   /// Send this return by postMessage.
@@ -802,13 +796,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
     };
 
-    const listener = new DummyListener2(
-      new Int32Array(
-        this.lock_fds_new[fd_n].listen.buf,
-        this.lock_fds_new[fd_n].listen.byteOffset,
-        1,
-      ),
-    );
+    const listener = new Listener(this.lock_fds_new[fd_n].listen);
     listener.reset();
     do {
       try {

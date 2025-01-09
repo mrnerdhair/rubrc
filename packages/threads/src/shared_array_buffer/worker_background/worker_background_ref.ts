@@ -1,8 +1,8 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
+  Caller,
   type CallerTarget,
-  DummyCaller2,
-  DummyListener2,
+  Listener,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -22,9 +22,9 @@ export class WorkerBackgroundRef {
   };
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
-  private caller: DummyCaller2;
-  private done_caller: DummyCaller2;
-  private done_listener: DummyListener2;
+  private caller: Caller;
+  private done_caller: Caller;
+  private done_listener: Listener;
 
   constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -43,23 +43,9 @@ export class WorkerBackgroundRef {
     this.locks = locks;
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
-    this.caller = new DummyCaller2(
-      new Int32Array(this.locks.call.buf, this.locks.call.byteOffset, 1),
-    );
-    this.done_caller = new DummyCaller2(
-      new Int32Array(
-        this.locks.done_call.buf,
-        this.locks.done_call.byteOffset,
-        1,
-      ),
-    );
-    this.done_listener = new DummyListener2(
-      new Int32Array(
-        this.locks.done_listen.buf,
-        this.locks.done_listen.byteOffset,
-        1,
-      ),
-    );
+    this.caller = new Caller(this.locks.call);
+    this.done_caller = new Caller(this.locks.done_call);
+    this.done_listener = new Listener(this.locks.done_listen);
   }
 
   new_worker(
@@ -76,7 +62,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking((x) => x.setInt32(0, 1));
+      this.caller.call_and_wait_blocking();
 
       const id = Atomics.load(view, 0);
       return new WorkerRef(id);
@@ -97,7 +83,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       await this.allocator.async_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking((x) => x.setInt32(0, 1));
+      await this.caller.call_and_wait();
     });
   }
 
@@ -115,7 +101,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking((x) => x.setInt32(0, 1));
+      this.caller.call_and_wait_blocking();
     });
   }
 

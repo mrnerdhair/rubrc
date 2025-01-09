@@ -10,9 +10,9 @@ import * as Comlink from "comlink";
 import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
+  Caller,
   type CallerTarget,
-  DummyCaller2,
-  DummyListener2,
+  Listener,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -46,8 +46,8 @@ export class WorkerBackground {
   private signature_input: SharedArrayBuffer;
 
   private locker: Locker;
-  private listener: DummyListener2;
-  private done_caller: DummyCaller2;
+  private listener: Listener;
+  private done_caller: Caller;
 
   // worker_id starts from 1
   private workers: Array<Worker | undefined> = [undefined];
@@ -70,7 +70,9 @@ export class WorkerBackground {
     this.override_object = override_object;
     this.lock = lock ?? new SharedArrayBuffer(20);
     const [call, listen] = new_caller_listener_target();
-    const [done_call, done_listen] = new_caller_listener_target();
+    const [done_call, done_listen] = new_caller_listener_target(
+      1 * Int32Array.BYTES_PER_ELEMENT,
+    );
     this.locks = locks ?? {
       lock: new_locker_target(),
       call,
@@ -79,16 +81,8 @@ export class WorkerBackground {
       done_listen,
     };
     this.locker = new Locker(this.locks.lock);
-    this.listener = new DummyListener2(
-      new Int32Array(this.locks.listen.buf, this.locks.listen.byteOffset, 1),
-    );
-    this.done_caller = new DummyCaller2(
-      new Int32Array(
-        this.locks.done_call.buf,
-        this.locks.done_call.byteOffset,
-        1,
-      ),
-    );
+    this.listener = new Listener(this.locks.listen);
+    this.done_caller = new Caller(this.locks.done_call);
     this.allocator =
       allocator ??
       new AllocatorUseArrayBuffer({

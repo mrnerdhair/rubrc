@@ -10,8 +10,8 @@ import {
   type FdCloseSenderUseArrayBufferObject,
 } from "./fd_close_sender";
 import {
+  Caller,
   type CallerTarget,
-  DummyCaller2,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -57,7 +57,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   declare fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
   protected locker: Locker;
-  protected caller: DummyCaller2;
+  protected caller: Caller;
 
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -88,13 +88,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
     this.locker = new Locker(base_func_util_locks.lock);
-    this.caller = new DummyCaller2(
-      new Int32Array(
-        base_func_util_locks.call.buf,
-        base_func_util_locks.call.byteOffset,
-        1,
-      ),
-    );
+    this.caller = new Caller(base_func_util_locks.call);
   }
 
   get_fds_len(): number {
@@ -135,7 +129,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       const fds_array = new Uint32Array(fds);
       this.allocator.block_write(fds_array, view, 3);
       Atomics.store(view, 5, this.id);
-      this.caller.call_and_wait_blocking((x) => x.setInt32(0, 1));
+      this.caller.call_and_wait_blocking();
     });
   }
 
@@ -174,16 +168,8 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   }
 
   private call_fd_func(fd: number): number {
-    const caller = new DummyCaller2(
-      new Int32Array(
-        this.lock_fds_new[fd].call.buf,
-        this.lock_fds_new[fd].call.byteOffset,
-        1,
-      ),
-    );
-    caller.call_and_wait_blocking((data_view: DataView) =>
-      data_view.setInt32(0, 1),
-    );
+    const caller = new Caller(this.lock_fds_new[fd].call);
+    caller.call_and_wait_blocking();
     return this.get_error(fd);
   }
 

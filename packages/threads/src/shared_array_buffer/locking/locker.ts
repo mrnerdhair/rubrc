@@ -1,4 +1,3 @@
-import { type AtomicTarget, new_atomic_target } from "./target";
 import "./polyfill";
 
 export class Locker {
@@ -8,12 +7,12 @@ export class Locker {
   protected readonly dual_locked_value: number;
 
   constructor(
-    { buf, byteOffset }: LockerTarget,
+    target: LockerTarget,
     locked_value = 1,
     unlocked_value = 0,
     dual_locked_value = 2,
   ) {
-    this.view = new Int32Array(buf, byteOffset, 1);
+    this.view = new Int32Array(target, 0, 1);
     this.locked_value = locked_value;
     this.unlocked_value = unlocked_value;
     this.dual_locked_value = dual_locked_value;
@@ -112,21 +111,17 @@ export class Locker {
 
     // biome-ignore lint/style/noParameterAssign:
     first = new Locker(
-      {
-        buf: first.view.buffer,
-        byteOffset: first.view.byteOffset,
-      } as LockerTarget,
+      first.view.buffer as LockerTarget,
       first.dual_locked_value,
       first.unlocked_value,
+      first.dual_locked_value,
     );
     // biome-ignore lint/style/noParameterAssign:
     second = new Locker(
-      {
-        buf: first.view.buffer,
-        byteOffset: first.view.byteOffset,
-      } as LockerTarget,
+      second.view.buffer as LockerTarget,
       second.dual_locked_value,
       second.unlocked_value,
+      second.dual_locked_value,
     );
 
     while (true) {
@@ -154,20 +149,14 @@ export class Locker {
 
     // biome-ignore lint/style/noParameterAssign:
     first = new Locker(
-      {
-        buf: first.view.buffer,
-        byteOffset: first.view.byteOffset,
-      } as LockerTarget,
+      first.view.buffer as LockerTarget,
       first.dual_locked_value,
       first.unlocked_value,
       first.dual_locked_value,
     );
     // biome-ignore lint/style/noParameterAssign:
     second = new Locker(
-      {
-        buf: first.view.buffer,
-        byteOffset: first.view.byteOffset,
-      } as LockerTarget,
+      second.view.buffer as LockerTarget,
       second.dual_locked_value,
       second.unlocked_value,
       second.dual_locked_value,
@@ -192,10 +181,12 @@ export class LockNotReady {
   }
 }
 
-declare const lockerTargetBrand: unique symbol;
-export type LockerTarget = AtomicTarget & { [lockerTargetBrand]: never };
+declare const targetBrand: unique symbol;
+export type LockerTarget = SharedArrayBuffer & { [targetBrand]: never };
 export function new_locker_target(): LockerTarget {
-  return new_atomic_target() as LockerTarget;
+  return new SharedArrayBuffer(
+    1 * Int32Array.BYTES_PER_ELEMENT,
+  ) as LockerTarget;
 }
 
 // kludgy but cross-platform replacement for setImmediate

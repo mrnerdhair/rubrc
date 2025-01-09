@@ -1,5 +1,5 @@
 export type WaitOnGen<T, U = never> = Generator<
-  T | U | Wait | WaitOnGen<T | U | undefined>,
+  T | U | Wait | undefined | WaitOnGen<T | U | undefined>,
   Awaited<T>,
   T | U | string | undefined
 >;

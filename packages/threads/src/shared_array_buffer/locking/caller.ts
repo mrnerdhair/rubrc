@@ -1,94 +1,64 @@
-import {
-  CALLER_WORKING,
-  CALL_FINISHED,
-  CALL_READY,
-  LISTENER_LOCKED,
-  UNLOCKED,
-} from "./listener";
+import { CallerBase } from "./caller_base";
+import { ListenerState } from "./listener";
+import type { WaitOnGen } from "./waiter_base";
 
-import { type AtomicTarget, new_atomic_target } from "./target";
-import "./polyfill";
+export class Caller extends CallerBase {
+  private readonly lock_view: Int32Array<SharedArrayBuffer>;
+  private readonly data_view: DataView<SharedArrayBuffer>;
 
-export class Caller {
-  protected readonly view: Int32Array;
-
-  constructor({ buf, byteOffset }: CallerTarget) {
-    this.view = new Int32Array(buf, byteOffset, 2);
+  constructor(target: Target) {
+    super();
+    this.lock_view = new Int32Array(target, 0, 1);
+    this.data_view = new DataView(
+      target,
+      1 * Int32Array.BYTES_PER_ELEMENT,
+      target.byteLength - 1 * Int32Array.BYTES_PER_ELEMENT,
+    );
   }
 
-  reset(): void {
-    const old = Atomics.exchange(this.view, 0, UNLOCKED);
-    if (old !== UNLOCKED) {
-      throw new Error(`caller reset actually did something: ${old}`);
+  reset() {
+    const old = Atomics.exchange(this.lock_view, 0, ListenerState.UNLOCKED);
+    if (old !== ListenerState.UNLOCKED) {
+      throw new Error(`caller reset did something: ${old}`);
     }
   }
 
-  call(code?: number): void {
-    while (true) {
-      const old = Atomics.compareExchange(
-        this.view,
+  protected call_and_wait_inner<T>(
+    callback?: (view: DataView<SharedArrayBuffer>) => T,
+  ) {
+    return function* (this: Caller): WaitOnGen<T> {
+      yield this.relock(
+        this.lock_view,
         0,
-        LISTENER_LOCKED,
-        CALLER_WORKING,
+        ListenerState.LISTENER_LOCKED,
+        ListenerState.CALLER_WORKING,
       );
-      if (old === LISTENER_LOCKED) break;
-      console.warn("caller waiting for listener lock");
-      Atomics.wait(this.view, 0, old);
-    }
 
-    Atomics.store(this.view, 1, code ?? 0);
-    if (
-      Atomics.compareExchange(this.view, 0, CALLER_WORKING, CALL_READY) !==
-      CALLER_WORKING
-    ) {
-      throw new Error("caller couldn't set CALL_READY");
-    }
-    try {
-      const n = Atomics.notify(this.view, 0, 1);
-      if (n === 0) {
-        if (
-          Atomics.compareExchange(this.view, 0, CALL_READY, CALL_FINISHED) !==
-          CALL_READY
-        ) {
-          throw new Error(
-            "caller found no listeners and was unable to act as its own listener",
-          );
-        }
-        throw new NoListener();
-      }
-      if (n !== 1) {
-        throw new Error(
-          "caller expected to notify at most 1 listener of CALL_READY",
-        );
-      }
-    } finally {
-      while (true) {
-        const old = Atomics.compareExchange(
-          this.view,
-          0,
-          CALL_FINISHED,
-          UNLOCKED,
-        );
-        if (old === CALL_FINISHED) break;
-        console.warn("caller waiting for CALL_FINISHED to unlock lock");
-        Atomics.wait(this.view, 0, old);
-      }
-    }
-  }
+      const out = (yield callback?.(this.data_view)) as Awaited<T>;
 
-  call_and_wait_blocking(code?: number): void {
-    this.call(code);
+      yield this.relock(
+        this.lock_view,
+        0,
+        ListenerState.CALLER_WORKING,
+        ListenerState.CALL_READY,
+        true,
+      );
+      yield this.relock(
+        this.lock_view,
+        0,
+        ListenerState.CALL_FINISHED,
+        ListenerState.UNLOCKED,
+      );
+
+      return out;
+    }.call(this);
   }
 }
 
-export class NoListener {
-  toString(): string {
-    return "caller found no listeners";
-  }
-}
-
-declare const callerTargetBrand: unique symbol;
-export type CallerTarget = AtomicTarget & { [callerTargetBrand]: never };
-export function new_caller_target(): CallerTarget {
-  return new_atomic_target() as CallerTarget;
+declare const targetBrand: unique symbol;
+export type Target = SharedArrayBuffer & { [targetBrand]: never };
+export function new_target(size = 0): Target {
+  return new SharedArrayBuffer(
+    size + 1 * Int32Array.BYTES_PER_ELEMENT,
+  ) as Target;
 }
