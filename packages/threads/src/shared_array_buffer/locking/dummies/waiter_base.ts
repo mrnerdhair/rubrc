@@ -1,6 +1,8 @@
-export type WaitOnGen<T> = Generator<T | Wait, Awaited<T>, T | string>;
+export type WaitOnGen<T, U = never> = Generator<T | U | Wait | WaitOnGen<T | U | undefined>, Awaited<T>, T | U | string | undefined>;
 
 export class WaiterBase {
+  static readonly RECURSABLE: unique symbol = Symbol("WaiterBase::recursable");
+
   protected wait(
     view: Int32Array<ArrayBufferLike>,
     index: number,
@@ -31,51 +33,48 @@ export class WaiterBase {
     return new Wait(...args);
   }
 
-  async wait_on_async<T>(gen: WaitOnGen<T>): Promise<T> {
+  protected recursable<T extends WaitOnGen<void, void> & Partial<Record<typeof WaiterBase.RECURSABLE, unknown>>>(value: T): T {
+    value[WaiterBase.RECURSABLE] = true;
+    return value;
+  }
+
+  private static is_recursable<T, U = never>(x: unknown): x is WaitOnGen<T, U> {
+    return (typeof x === "object" || typeof x === "function") && x !== null && WaiterBase.RECURSABLE in x && !!x[WaiterBase.RECURSABLE];
+  }
+
+  async wait_on_async<T, U = never>(gen: WaitOnGen<T, U>): Promise<T> {
     let next = gen.next();
     while (!next.done) {
       const value = next.value;
-      let out: [true, Awaited<T> | string] | [false, unknown];
       try {
-        out = [
-          true,
-          await (() => {
-            if (value instanceof Wait) return value.waitAsync();
-            return value;
-          })(),
-        ];
+        if (value instanceof Wait) {
+          next = gen.next(await value.waitAsync());
+        } else if (WaiterBase.is_recursable<T | U | undefined, U>(value)) {
+          next = gen.next(await this.wait_on_async(value));
+        } else {
+          next = gen.next(await value);
+        }
       } catch (e) {
-        out = [false, e];
-      }
-      if (out[0]) {
-        next = gen.next(out[1]);
-      } else {
-        next = gen.throw(out[1]);
+        next = gen.throw(e);
       }
     }
     return next.value;
   }
 
-  wait_on<T>(gen: WaitOnGen<T>): T {
+  wait_on<T, U = never>(gen: WaitOnGen<T, U>): T {
     let next = gen.next();
     while (!next.done) {
       const value = next.value;
-      let out: [true, T | string] | [false, unknown];
       try {
-        out = [
-          true,
-          (() => {
-            if (value instanceof Wait) return value.wait();
-            return value;
-          })(),
-        ];
+        if (value instanceof Wait) {
+          next = gen.next(value.wait());
+        } else if (WaiterBase.is_recursable<T | U | undefined, U>(value)) {
+          next = gen.next(this.wait_on(value));
+        } else {
+          next = gen.next(value);
+        }
       } catch (e) {
-        out = [false, e];
-      }
-      if (out[0]) {
-        next = gen.next(out[1]);
-      } else {
-        next = gen.throw(out[1]);
+        next = gen.throw(e);
       }
     }
     return next.value;
