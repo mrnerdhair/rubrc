@@ -65,7 +65,7 @@ export class AllocatorUseArrayBuffer {
   // Writes without blocking threads when acquiring locks
   async async_write(
     data: Uint8Array | Uint32Array,
-    memory: Int32Array<SharedArrayBuffer>,
+    memory: Uint32Array | Int32Array,
     // ptr, len
     // Pass I32Array ret_ptr
     ret_ptr: number,
@@ -76,7 +76,7 @@ export class AllocatorUseArrayBuffer {
   // Blocking threads for writing when acquiring locks
   block_write(
     data: Uint8Array | Uint32Array,
-    memory: Int32Array<SharedArrayBuffer>,
+    memory: Uint32Array | Int32Array,
     // ptr, len
     ret_ptr: number,
   ): void {
@@ -86,7 +86,7 @@ export class AllocatorUseArrayBuffer {
   // Function to write after acquiring a lock
   private write_inner(
     data: Uint8Array | Uint32Array,
-    memory: Int32Array<SharedArrayBuffer>,
+    memory: Uint32Array | Int32Array,
     // ptr, len
     ret_ptr: number,
   ): void {
