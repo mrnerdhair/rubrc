@@ -23,7 +23,9 @@ export class DummyListener2 extends DummyListenerBase {
   reset() {
     const old = Atomics.exchange(this.lock_view, 0, UNLOCKED);
     if (old !== UNLOCKED) {
-      throw new Error(`listener ${this.fd},${this.id} reset did something: ${old}`);
+      throw new Error(
+        `listener ${this.fd},${this.id} reset did something: ${old}`,
+      );
     }
     console.log(`reset listener ${this.fd},${this.id}`);
   }
