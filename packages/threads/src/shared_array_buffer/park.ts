@@ -813,6 +813,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         this.lock_fds_new[fd_n].listen.byteOffset,
         1,
       ),
+      fd_n,
     );
     listener.reset();
     do {
