@@ -173,7 +173,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
     this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
 
-    const [call, listen] = new_caller_listener_target();
+    const [call, listen] = new_caller_listener_target(
+      4 * Int32Array.BYTES_PER_ELEMENT,
+    );
     this.base_func_util_locks = {
       lock: new_locker_target(),
       call,

@@ -26,7 +26,7 @@ export const WorkerBackgroundRefObjectConstructor =
   (): WorkerBackgroundRefObject => {
     const [call, listen] = new_caller_listener_target();
     const [done_call, done_listen] = new_caller_listener_target(
-      1 * Int32Array.BYTES_PER_ELEMENT,
+      3 * Int32Array.BYTES_PER_ELEMENT,
     );
     return {
       allocator: {
