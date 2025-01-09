@@ -11,8 +11,8 @@ import { setTransferHandlers } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   type CallerTarget,
-  DummyCaller4,
-  DummyListener3,
+  DummyCaller2,
+  DummyListener2,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -46,8 +46,8 @@ export class WorkerBackground {
   private signature_input: SharedArrayBuffer;
 
   private locker: Locker;
-  private listener: DummyListener3;
-  private done_caller: DummyCaller4;
+  private listener: DummyListener2;
+  private done_caller: DummyCaller2;
 
   // worker_id starts from 1
   private workers: Array<Worker | undefined> = [undefined];
@@ -79,10 +79,10 @@ export class WorkerBackground {
       done_listen,
     };
     this.locker = new Locker(this.locks.lock);
-    this.listener = new DummyListener3(
+    this.listener = new DummyListener2(
       new Int32Array(this.locks.listen.buf, this.locks.listen.byteOffset, 1),
     );
-    this.done_caller = new DummyCaller4(
+    this.done_caller = new DummyCaller2(
       new Int32Array(
         this.locks.done_call.buf,
         this.locks.done_call.byteOffset,
@@ -237,7 +237,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
-                  this.done_caller.call(1);
+                  this.done_caller.call_and_wait((x) => x.setInt32(0, 1));
                 } finally {
                   this.allocator.free(ptr, len);
                 }
@@ -317,7 +317,7 @@ export class WorkerBackground {
                 const len = Atomics.load(notify_view, 1);
 
                 try {
-                  this.done_caller.call(1);
+                  this.done_caller.call_and_wait((x) => x.setInt32(0, 1));
                 } finally {
                   this.allocator.free(ptr, len);
                 }

@@ -19,14 +19,8 @@ export {
 } from "./async_caller";
 export { PromiseLocker } from "./promise_locker";
 export {
-  DummyCaller1,
   DummyCaller2,
-  DummyCaller3,
-  DummyCaller4,
-  DummyListener1,
   DummyListener2,
-  DummyListener3,
-  DummyListener4,
 } from "./dummies";
 
 export function new_caller_listener_target(): [CallerTarget, ListenerTarget] {

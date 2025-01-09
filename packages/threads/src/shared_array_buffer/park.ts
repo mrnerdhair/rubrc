@@ -4,7 +4,6 @@ import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
 import {
   type CallerTarget,
-  DummyListener1,
   DummyListener2,
   type ListenerTarget,
   Locker,
@@ -109,7 +108,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     listen: ListenerTarget;
   };
   private readonly locker: Locker;
-  private readonly listener: DummyListener1;
+  private readonly listener: DummyListener2;
 
   // tell other processes that the file descriptor has been closed
   private fd_close_receiver: FdCloseSenderUseArrayBuffer;
@@ -167,8 +166,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       listen,
     };
     this.locker = new Locker(this.base_func_util_locks.lock);
-    // this.listener = new DummyListener1(new Int32Array(this.base_func_util, 4, 1));
-    this.listener = new DummyListener1(
+    this.listener = new DummyListener2(
       new Int32Array(
         this.base_func_util_locks.listen.buf,
         this.base_func_util_locks.listen.byteOffset,
@@ -207,10 +205,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       throw new Error("fd is too big. expand is not supported yet");
     }
     if (this.listen_fds[fd] !== undefined) {
-      console.warn("fd is already set yet", fd, this.listen_fds[fd]);
+      console.warn("fd is already set yet");
       if (this.listen_fds[fd] instanceof Promise) {
-        const foo = await this.listen_fds[fd];
-        console.warn("fd complete", fd, this.listen_fds[fd], foo);
+        await this.listen_fds[fd];
       }
     }
     this.listen_fds[fd] = this.listen_fd(fd);
@@ -224,10 +221,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   async notify_rm_fd(fd: number) {
     (async () => {
       if (this.listen_fds[fd] !== undefined) {
-        console.log(`fd ${fd} listener still running`);
         if (this.listen_fds[fd] instanceof Promise) {
           await this.listen_fds[fd];
-          console.log(`fd ${fd} listener now stopped`);
         }
         this.listen_fds[fd] = undefined;
       }
@@ -813,7 +808,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         this.lock_fds_new[fd_n].listen.byteOffset,
         1,
       ),
-      fd_n,
     );
     listener.reset();
     do {
@@ -841,6 +835,5 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         Atomics.exchange(func_sig_view, 16, -1);
       }
     } while (this.fds[fd_n] !== undefined);
-    console.log(`listener ${listener.fd},${listener.id} stopped`);
   }
 }

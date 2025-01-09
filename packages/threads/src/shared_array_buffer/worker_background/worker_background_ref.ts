@@ -1,9 +1,8 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   type CallerTarget,
-  DummyCaller3,
-  DummyCaller4,
-  DummyListener4,
+  DummyCaller2,
+  DummyListener2,
   type ListenerTarget,
   Locker,
   type LockerTarget,
@@ -23,9 +22,9 @@ export class WorkerBackgroundRef {
   };
   private signature_input: SharedArrayBuffer;
   private locker: Locker;
-  private caller: DummyCaller3;
-  private done_caller: DummyCaller4;
-  private done_listener: DummyListener4;
+  private caller: DummyCaller2;
+  private done_caller: DummyCaller2;
+  private done_listener: DummyListener2;
 
   constructor(
     allocator: AllocatorUseArrayBuffer,
@@ -44,17 +43,17 @@ export class WorkerBackgroundRef {
     this.locks = locks;
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
-    this.caller = new DummyCaller3(
+    this.caller = new DummyCaller2(
       new Int32Array(this.locks.call.buf, this.locks.call.byteOffset, 1),
     );
-    this.done_caller = new DummyCaller4(
+    this.done_caller = new DummyCaller2(
       new Int32Array(
         this.locks.done_call.buf,
         this.locks.done_call.byteOffset,
         1,
       ),
     );
-    this.done_listener = new DummyListener4(
+    this.done_listener = new DummyListener2(
       new Int32Array(
         this.locks.done_listen.buf,
         this.locks.done_listen.byteOffset,
@@ -77,7 +76,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking(1);
+      this.caller.call_and_wait_blocking((x) => x.setInt32(0, 1));
 
       const id = Atomics.load(view, 0);
       return new WorkerRef(id);
@@ -98,7 +97,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       await this.allocator.async_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking(1);
+      this.caller.call_and_wait_blocking((x) => x.setInt32(0, 1));
     });
   }
 
@@ -116,7 +115,7 @@ export class WorkerBackgroundRef {
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
       this.allocator.block_write(obj_buffer, view, 4);
-      this.caller.call_and_wait_blocking(1);
+      this.caller.call_and_wait_blocking((x) => x.setInt32(0, 1));
     });
   }
 
@@ -135,7 +134,7 @@ export class WorkerBackgroundRef {
     const notify_view = new Int32Array(this.lock, 8);
     Atomics.store(notify_view, 1, code);
 
-    this.done_caller.call(2);
+    this.done_caller.call_and_wait_blocking((view) => view.setInt32(0, 2));
   }
 
   async async_wait_done_or_error(): Promise<number> {
@@ -143,7 +142,8 @@ export class WorkerBackgroundRef {
     const listener = this.done_listener;
     listener.reset();
 
-    return await listener.listen(async (code?: number) => {
+    return await listener.listen((data_view: DataView) => {
+      const code = data_view.getInt32(0);
       switch (code) {
         // completed, fetch and return errno
         case 2: {
@@ -161,7 +161,7 @@ export class WorkerBackgroundRef {
           throw Serializer.deserialize(error_serialized);
         }
         default: {
-          throw new Error("unknown code");
+          throw new Error(`unknown code ${code}`);
         }
       }
     });
@@ -172,7 +172,8 @@ export class WorkerBackgroundRef {
     const listener = this.done_listener;
     listener.reset();
 
-    return listener.listen_blocking((code?: number) => {
+    return listener.listen_blocking((data_view: DataView) => {
+      const code = data_view.getInt32(0);
       switch (code) {
         // completed, fetch and return errno
         case 2: {
@@ -190,7 +191,7 @@ export class WorkerBackgroundRef {
           throw Serializer.deserialize(error_serialized);
         }
         default: {
-          throw new Error("unknown code");
+          throw new Error(`unknown code ${code}`);
         }
       }
     });
