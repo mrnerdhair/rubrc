@@ -1,5 +1,5 @@
-import type { WaitOnGen } from "./base";
-import { DummyListenerBase } from "./listenerbase";
+import type { WaitOnGen } from "./waiter_base";
+import { DummyListenerBase } from "./listener_base";
 
 export const UNLOCKED = 0;
 export const LISTENER_LOCKED = 1;

@@ -1,6 +1,6 @@
 export type WaitOnGen<T> = Generator<T | Wait, Awaited<T>, T | string>;
 
-export class DummyLockingBase {
+export class WaiterBase {
   protected wait(
     view: Int32Array<ArrayBufferLike>,
     index: number,

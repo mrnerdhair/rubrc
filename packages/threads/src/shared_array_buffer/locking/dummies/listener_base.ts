@@ -1,6 +1,6 @@
-import { DummyLockingBase, type WaitOnGen } from "./base";
+import { WaiterBase, type WaitOnGen } from "./waiter_base";
 
-export abstract class DummyListenerBase extends DummyLockingBase {
+export abstract class DummyListenerBase extends WaiterBase {
   abstract reset(): void;
 
   protected abstract listen_inner<T>(

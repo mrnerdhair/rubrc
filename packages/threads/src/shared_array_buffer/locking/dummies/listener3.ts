@@ -1,5 +1,5 @@
-import type { WaitOnGen } from "./base";
-import { DummyListenerBase } from "./listenerbase";
+import type { WaitOnGen } from "./waiter_base";
+import { DummyListenerBase } from "./listener_base";
 
 export class DummyListener3 extends DummyListenerBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
