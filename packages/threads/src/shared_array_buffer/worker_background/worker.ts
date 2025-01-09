@@ -16,7 +16,6 @@ import {
   type ListenerTarget,
   Locker,
   type LockerTarget,
-  NoListener,
   new_caller_listener_target,
   new_locker_target,
 } from "../locking";
@@ -239,10 +238,8 @@ export class WorkerBackground {
 
                 try {
                   this.done_caller.call(1);
-                } catch (e) {
+                } finally {
                   this.allocator.free(ptr, len);
-                  if (!(e instanceof NoListener)) throw e;
-                  throw error;
                 }
               }
             };
@@ -321,10 +318,8 @@ export class WorkerBackground {
 
                 try {
                   this.done_caller.call(1);
-                } catch (e) {
+                } finally {
                   this.allocator.free(ptr, len);
-                  if (!(e instanceof NoListener)) throw e;
-                  throw error;
                 }
               }
             };

@@ -7,7 +7,6 @@ import {
   type ListenerTarget,
   Locker,
   type LockerTarget,
-  NoListener,
 } from "../locking";
 import * as Serializer from "../serialize_error";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
@@ -136,12 +135,7 @@ export class WorkerBackgroundRef {
     const notify_view = new Int32Array(this.lock, 8);
     Atomics.store(notify_view, 1, code);
 
-    try {
-      this.done_caller.call(2);
-    } catch (e) {
-      if (!(e instanceof NoListener)) throw e;
-      this.done_caller.reset();
-    }
+    this.done_caller.call(2);
   }
 
   async async_wait_done_or_error(): Promise<number> {
