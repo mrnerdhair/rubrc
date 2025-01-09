@@ -1,3 +1,5 @@
+import { new_target as new_caller_target } from "./caller";
+import { ViewSet } from "./caller_base";
 import { ListenerBase } from "./listener_base";
 import type { WaitOnGen } from "./waiter_base";
 
@@ -12,16 +14,16 @@ export enum ListenerState {
 
 export class Listener extends ListenerBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
-  private readonly data_view: DataView<SharedArrayBuffer>;
+  private readonly data: ViewSet<SharedArrayBuffer>;
 
   constructor(target: Target) {
     super();
     this.lock_view = new Int32Array(target, 0, 1);
-    this.data_view = new DataView(
-      target,
-      1 * Int32Array.BYTES_PER_ELEMENT,
-      target.byteLength - 1 * Int32Array.BYTES_PER_ELEMENT,
-    );
+    const offset =
+      Math.ceil(
+        (1 * Int32Array.BYTES_PER_ELEMENT) / BigInt64Array.BYTES_PER_ELEMENT,
+      ) * BigInt64Array.BYTES_PER_ELEMENT;
+    this.data = new ViewSet(target, offset, target.byteLength - offset);
   }
 
   reset() {
@@ -31,9 +33,7 @@ export class Listener extends ListenerBase {
     }
   }
 
-  protected listen_inner<T>(
-    callback: (view: DataView<SharedArrayBuffer>) => T,
-  ) {
+  protected listen_inner<T>(callback: (data: ViewSet<SharedArrayBuffer>) => T) {
     return function* (this: Listener): WaitOnGen<T> {
       yield this.relock(
         this.lock_view,
@@ -49,7 +49,7 @@ export class Listener extends ListenerBase {
       );
 
       try {
-        return (yield callback(this.data_view)) as Awaited<T>;
+        return (yield callback(this.data)) as Awaited<T>;
       } finally {
         yield this.relock(
           this.lock_view,
@@ -66,7 +66,7 @@ export class Listener extends ListenerBase {
 declare const targetBrand: unique symbol;
 export type Target = SharedArrayBuffer & { [targetBrand]: never };
 export function new_target(size = 0): Target {
-  return new SharedArrayBuffer(
-    size + 1 * Int32Array.BYTES_PER_ELEMENT,
-  ) as Target;
+  return new_caller_target(
+    size,
+  ) satisfies SharedArrayBuffer as unknown as Target;
 }

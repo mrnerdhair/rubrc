@@ -161,7 +161,9 @@ export class WorkerBackground {
           //   Atomics.store(notify_view, 1, code);
           // }
           if (result !== WorkerBackgroundReturnCodes.threw) return;
-          this.done_caller.call_and_wait((x) => x.setInt32(0, result));
+          this.done_caller.call_and_wait((data) => {
+            data.i32[0] = result;
+          });
         });
 
         const signature_input = Atomics.load(signature_input_view, 0);

@@ -1,19 +1,19 @@
-import { CallerBase } from "./caller_base";
+import { CallerBase, ViewSet } from "./caller_base";
 import { ListenerState } from "./listener";
 import type { WaitOnGen } from "./waiter_base";
 
 export class Caller extends CallerBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
-  private readonly data_view: DataView<SharedArrayBuffer>;
+  private readonly data: ViewSet<SharedArrayBuffer>;
 
   constructor(target: Target) {
     super();
     this.lock_view = new Int32Array(target, 0, 1);
-    this.data_view = new DataView(
-      target,
-      1 * Int32Array.BYTES_PER_ELEMENT,
-      target.byteLength - 1 * Int32Array.BYTES_PER_ELEMENT,
-    );
+    const offset =
+      Math.ceil(
+        (1 * Int32Array.BYTES_PER_ELEMENT) / BigInt64Array.BYTES_PER_ELEMENT,
+      ) * BigInt64Array.BYTES_PER_ELEMENT;
+    this.data = new ViewSet(target, offset, target.byteLength - offset);
   }
 
   reset() {
@@ -24,7 +24,7 @@ export class Caller extends CallerBase {
   }
 
   protected call_and_wait_inner<T>(
-    callback?: (view: DataView<SharedArrayBuffer>) => T,
+    callback?: (data: ViewSet<SharedArrayBuffer>) => T,
   ) {
     return function* (this: Caller): WaitOnGen<T> {
       yield this.relock(
@@ -34,7 +34,8 @@ export class Caller extends CallerBase {
         ListenerState.CALLER_WORKING,
       );
 
-      const out = (yield callback?.(this.data_view)) as Awaited<T>;
+      this.data.u64.fill(0n);
+      const out = (yield callback?.(this.data)) as Awaited<T>;
 
       yield this.relock(
         this.lock_view,
@@ -58,7 +59,12 @@ export class Caller extends CallerBase {
 declare const targetBrand: unique symbol;
 export type Target = SharedArrayBuffer & { [targetBrand]: never };
 export function new_target(size = 0): Target {
-  return new SharedArrayBuffer(
-    size + 1 * Int32Array.BYTES_PER_ELEMENT,
-  ) as Target;
+  const headerLen = 1 * Int32Array.BYTES_PER_ELEMENT;
+  const headerLenPadded =
+    Math.ceil(headerLen / BigInt64Array.BYTES_PER_ELEMENT) *
+    BigInt64Array.BYTES_PER_ELEMENT;
+  const sizePadded =
+    Math.ceil(size / BigInt64Array.BYTES_PER_ELEMENT) *
+    BigInt64Array.BYTES_PER_ELEMENT;
+  return new SharedArrayBuffer(headerLenPadded + sizePadded) as Target;
 }

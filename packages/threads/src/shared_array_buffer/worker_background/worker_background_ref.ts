@@ -107,9 +107,9 @@ export class WorkerBackgroundRef {
     const notify_view = new Int32Array(this.lock, 8);
     Atomics.store(notify_view, 1, code);
 
-    this.done_caller.call_and_wait_blocking((view) =>
-      view.setInt32(0, WorkerBackgroundReturnCodes.completed),
-    );
+    this.done_caller.call_and_wait_blocking((data) => {
+      data.i32[0] = WorkerBackgroundReturnCodes.completed;
+    });
   }
 
   private async async_wait_done_or_error(): Promise<number> {
@@ -117,8 +117,8 @@ export class WorkerBackgroundRef {
     const listener = this.done_listener;
     listener.reset();
 
-    return await listener.listen((data_view: DataView) => {
-      const code = data_view.getInt32(0);
+    return await listener.listen((data) => {
+      const code = data.i32[0];
       switch (code) {
         // completed, fetch and return errno
         case WorkerBackgroundReturnCodes.completed: {
