@@ -16,7 +16,6 @@ import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
 export class WorkerBackgroundRef {
   private readonly allocator: AllocatorUseArrayBuffer;
-  private readonly lock: SharedArrayBuffer;
   private readonly locks: {
     lock: LockerTarget;
     call: CallerTarget;
@@ -32,7 +31,6 @@ export class WorkerBackgroundRef {
 
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
-    lock: SharedArrayBuffer,
     locks: {
       lock: LockerTarget;
       call: CallerTarget;
@@ -43,7 +41,6 @@ export class WorkerBackgroundRef {
     signature_input: SharedArrayBuffer,
   ) {
     this.allocator = allocator;
-    this.lock = lock;
     this.locks = locks;
     this.signature_input = signature_input;
     this.locker = new Locker(this.locks.lock);
@@ -97,23 +94,19 @@ export class WorkerBackgroundRef {
   ): Promise<WorkerBackgroundRef> {
     return new WorkerBackgroundRef(
       await AllocatorUseArrayBuffer.init(sl.allocator),
-      sl.lock,
       sl.locks,
       sl.signature_input,
     );
   }
 
   done_notify(code: number): void {
-    const notify_view = new Int32Array(this.lock, 8);
-    Atomics.store(notify_view, 1, code);
-
     this.done_caller.call_and_wait_blocking((data) => {
       data.i32[0] = WorkerBackgroundReturnCodes.completed;
+      data.i32[1] = code;
     });
   }
 
   private async async_wait_done_or_error(): Promise<number> {
-    const notify_view = new Int32Array(this.lock, 8);
     const listener = this.done_listener;
     listener.reset();
 
@@ -122,12 +115,12 @@ export class WorkerBackgroundRef {
       switch (code) {
         // completed, fetch and return errno
         case WorkerBackgroundReturnCodes.completed: {
-          return Atomics.load(notify_view, 1);
+          return data.i32[1];
         }
         // threw, fetch and rethrow error
         case WorkerBackgroundReturnCodes.threw: {
-          const ptr = Atomics.load(notify_view, 1);
-          const size = Atomics.load(notify_view, 2);
+          const ptr = data.i32[1];
+          const size = data.i32[2];
           const error_buffer = this.allocator.get_memory(ptr, size);
           const error_txt = new TextDecoder().decode(error_buffer);
           const error_serialized = JSON.parse(error_txt);

@@ -37,7 +37,6 @@ export type OverrideObject = {
 export class WorkerBackground {
   private readonly override_object: OverrideObject;
   private readonly allocator: AllocatorUseArrayBuffer;
-  private readonly lock: SharedArrayBuffer;
   private readonly locks: {
     lock: LockerTarget;
     call: CallerTarget;
@@ -58,7 +57,6 @@ export class WorkerBackground {
 
   protected constructor(
     override_object: OverrideObject,
-    lock: SharedArrayBuffer,
     locks: {
       lock: LockerTarget;
       call: CallerTarget;
@@ -70,7 +68,6 @@ export class WorkerBackground {
     signature_input: SharedArrayBuffer,
   ) {
     this.override_object = override_object;
-    this.lock = lock;
     this.locks = locks;
     this.locker = new Locker(this.locks.lock);
     this.listener = new Listener(this.locks.listen);
@@ -86,7 +83,6 @@ export class WorkerBackground {
   ): Promise<WorkerBackground> {
     return new WorkerBackground(
       override_object,
-      worker_background_ref_object.lock,
       worker_background_ref_object.locks,
       await AllocatorUseArrayBuffer.init(
         worker_background_ref_object.allocator,
@@ -108,7 +104,6 @@ export class WorkerBackground {
   ref(): WorkerBackgroundRefObject {
     return {
       allocator: this.allocator.get_object(),
-      lock: this.lock,
       locks: this.locks,
       signature_input: this.signature_input,
     } as WorkerBackgroundRefObject;
@@ -152,18 +147,30 @@ export class WorkerBackground {
         const { promise: donePromise, resolve: doneResolve } =
           Promise.withResolvers<
             | [WorkerBackgroundReturnCodes.completed, number]
-            | [WorkerBackgroundReturnCodes.threw]
+            | [WorkerBackgroundReturnCodes.threw, [number, number]]
           >();
 
-        donePromise.then(([result, _code]) => {
-          // if (code !== undefined) {
-          //   const notify_view = new Int32Array(this.lock, 8);
-          //   Atomics.store(notify_view, 1, code);
-          // }
-          if (result !== WorkerBackgroundReturnCodes.threw) return;
-          this.done_caller.call_and_wait((data) => {
-            data.i32[0] = result;
-          });
+        donePromise.then(async ([code, value]) => {
+          switch (code) {
+            case WorkerBackgroundReturnCodes.completed: {
+              // await this.done_caller.call_and_wait(async (data) => {
+              //   data.i32[0] = code;
+              //   data.i32[1] = value;
+              // });
+              break;
+            }
+            case WorkerBackgroundReturnCodes.threw: {
+              await this.done_caller.call_and_wait(async (data) => {
+                data.i32[0] = code;
+                data.i32[1] = value[0];
+                data.i32[2] = value[1];
+              });
+              break;
+            }
+            default: {
+              throw new Error(`unknown code ${code}`);
+            }
+          }
         });
 
         const signature_input = Atomics.load(signature_input_view, 0);
@@ -225,21 +232,21 @@ export class WorkerBackground {
 
                 const error = e.data.error;
 
-                const notify_view = new Int32Array(this.lock, 8);
-
                 const serialized_error = Serializer.serialize(error);
 
+                const ptr_len_buf = new Uint32Array(
+                  2 * Uint32Array.BYTES_PER_ELEMENT,
+                );
                 await this.allocator.async_write(
                   new TextEncoder().encode(JSON.stringify(serialized_error)),
-                  new Int32Array(this.lock),
-                  3,
+                  ptr_len_buf,
+                  0,
                 );
-                const ptr = Atomics.load(notify_view, 0);
-                const len = Atomics.load(notify_view, 1);
+                const [ptr, len] = ptr_len_buf;
 
                 try {
                   console.error(error);
-                  doneResolve([WorkerBackgroundReturnCodes.threw]);
+                  doneResolve([WorkerBackgroundReturnCodes.threw, [ptr, len]]);
                 } catch (e) {
                   this.allocator.free(ptr, len);
                 }
@@ -308,21 +315,21 @@ export class WorkerBackground {
 
                 const error = e.data.error;
 
-                const notify_view = new Int32Array(this.lock, 8);
-
                 const serialized_error = Serializer.serialize(error);
 
+                const ptr_len_buf = new Uint32Array(
+                  2 * Uint32Array.BYTES_PER_ELEMENT,
+                );
                 await this.allocator.async_write(
                   new TextEncoder().encode(JSON.stringify(serialized_error)),
-                  new Int32Array(this.lock),
-                  3,
+                  ptr_len_buf,
+                  0,
                 );
-                const ptr = Atomics.load(notify_view, 0);
-                const len = Atomics.load(notify_view, 1);
+                const [ptr, len] = ptr_len_buf;
 
                 try {
                   console.error(error);
-                  doneResolve([WorkerBackgroundReturnCodes.threw]);
+                  doneResolve([WorkerBackgroundReturnCodes.threw, [ptr, len]]);
                 } catch (e) {
                   this.allocator.free(ptr, len);
                 }
