@@ -26,7 +26,6 @@ export type WASIFarmRefUseArrayBufferObject = {
   }>;
   fds_len_and_num: SharedArrayBuffer;
   fd_func_sig: SharedArrayBuffer;
-  base_func_util: SharedArrayBuffer;
   base_func_util_locks: {
     lock: LockerTarget;
     call: CallerTarget;
@@ -53,7 +52,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // byte 2: all wasi_farm_ref num
   private readonly fds_len_and_num: SharedArrayBuffer;
   private readonly fd_func_sig: SharedArrayBuffer;
-  private readonly base_func_util: SharedArrayBuffer;
 
   private readonly locker: Locker;
   private readonly caller: Caller;
@@ -68,7 +66,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     }>,
     fds_len_and_num: SharedArrayBuffer,
     fd_func_sig: SharedArrayBuffer,
-    base_func_util: SharedArrayBuffer,
     base_func_util_locks: {
       lock: LockerTarget;
       call: CallerTarget;
@@ -83,7 +80,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     this.allocator = allocator;
     this.lock_fds = lock_fds;
     this.fd_func_sig = fd_func_sig;
-    this.base_func_util = base_func_util;
     this.fds_len_and_num = fds_len_and_num;
     this.locker = new Locker(base_func_util_locks.lock);
     this.caller = new Caller(base_func_util_locks.call);
@@ -102,7 +98,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
       sl.lock_fds,
       sl.fds_len_and_num,
       sl.fd_func_sig,
-      sl.base_func_util,
       sl.base_func_util_locks,
       await FdCloseSenderUseArrayBuffer.init(sl.fd_close_receiver),
       sl.stdin,
@@ -114,24 +109,24 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
 
   // set park_fds_map
   set_park_fds_map(fds: Array<number>): void {
+    const fds_array = new Uint32Array(fds);
     this.locker.lock_blocking(() => {
-      const view = new Int32Array(this.base_func_util);
-      Atomics.store(view, 2, WASIFarmParkFuncNames.set_fds_map);
-      const fds_array = new Uint32Array(fds);
-      this.allocator.block_write(fds_array, view, 3);
-      Atomics.store(view, 5, this.id);
-      this.caller.call_and_wait_blocking();
+      this.caller.call_and_wait_blocking((data) => {
+        data.i32[0] = WASIFarmParkFuncNames.set_fds_map;
+        data.i32[1] = this.id;
+        this.allocator.block_write(fds_array, data.i32, 2);
+      });
     });
   }
 
   async set_park_fds_map_async(fds: Array<number>): Promise<void> {
+    const fds_array = new Uint32Array(fds);
     await this.locker.lock(async () => {
-      const view = new Int32Array(this.base_func_util);
-      Atomics.store(view, 2, WASIFarmParkFuncNames.set_fds_map);
-      const fds_array = new Uint32Array(fds);
-      await this.allocator.async_write(fds_array, view, 3);
-      Atomics.store(view, 5, this.id);
-      await this.caller.call_and_wait();
+      await this.caller.call_and_wait(async (data) => {
+        data.i32[0] = WASIFarmParkFuncNames.set_fds_map;
+        data.i32[1] = this.id;
+        await this.allocator.async_write(fds_array, data.i32, 2);
+      });
     });
   }
 

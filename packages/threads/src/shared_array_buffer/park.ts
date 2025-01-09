@@ -105,8 +105,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // In other words, one size is 76 bytes
   private readonly fd_func_sig: SharedArrayBuffer;
 
-  // listen base lock and call etc
-  private readonly base_func_util: Int32Array<SharedArrayBuffer>;
   private readonly base_func_util_locks: {
     lock: LockerTarget;
     call: CallerTarget;
@@ -174,7 +172,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     Atomics.store(view, 1, 0);
 
     this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
-    this.base_func_util = new Int32Array(new SharedArrayBuffer(24));
 
     const [call, listen] = new_caller_listener_target();
     this.base_func_util_locks = {
@@ -193,7 +190,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       lock_fds: this.lock_fds,
       fds_len_and_num: this.fds_len_and_num,
       fd_func_sig: this.fd_func_sig,
-      base_func_util: this.base_func_util.buffer,
       base_func_util_locks: this.base_func_util_locks,
       fd_close_receiver: this.fd_close_receiver.get_ref(),
       stdin: this.stdin,
@@ -272,13 +268,19 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     const listener = this.listener;
     listener.reset();
     while (!aborter.aborted) {
-      await listener.listen(async () => {
-        const func_number = Atomics.load(this.base_func_util, 2);
+      await listener.listen(async (data) => {
+        const func_number = data.i32[0];
         switch (func_number) {
           case WASIFarmParkFuncNames.set_fds_map: {
-            const ptr = Atomics.load(this.base_func_util, 3);
-            const len = Atomics.load(this.base_func_util, 4);
-            this.set_fds_map(ptr, len);
+            const wasi_farm_ref_id = data.i32[1];
+            const ptr = data.i32[2];
+            const len = data.i32[3];
+            const fd_buf = new Uint32Array(this.allocator.get_memory(ptr, len));
+            try {
+              this.set_fds_map(wasi_farm_ref_id, fd_buf);
+            } finally {
+              this.allocator.free(ptr, len);
+            }
             break;
           }
           default: {
@@ -289,21 +291,13 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     }
   }
 
-  private set_fds_map(ptr: number, len: number) {
-    const data = new Uint32Array(this.allocator.get_memory(ptr, len));
-    try {
-      const wasi_farm_ref_id = Atomics.load(this.base_func_util, 5);
-
-      for (let i = 0; i < len / 4; i++) {
-        const fd = data[i];
-        if (this.fds_map[fd] === undefined) {
-          this.fds_map[fd] = [];
-          throw new Error("listen_base fd is not defined");
-        }
-        this.fds_map[fd].push(wasi_farm_ref_id);
+  private set_fds_map(wasi_farm_ref_id: number, fd_buf: Uint32Array) {
+    for (const fd of fd_buf) {
+      if (this.fds_map[fd] === undefined) {
+        this.fds_map[fd] = [];
+        throw new Error("listen_base fd is not defined");
       }
-    } finally {
-      this.allocator.free(ptr, len);
+      this.fds_map[fd].push(wasi_farm_ref_id);
     }
   }
 
