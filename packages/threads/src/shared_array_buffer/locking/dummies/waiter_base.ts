@@ -1,4 +1,8 @@
-export type WaitOnGen<T, U = never> = Generator<T | U | Wait | WaitOnGen<T | U | undefined>, Awaited<T>, T | U | string | undefined>;
+export type WaitOnGen<T, U = never> = Generator<
+  T | U | Wait | WaitOnGen<T | U | undefined>,
+  Awaited<T>,
+  T | U | string | undefined
+>;
 
 export class WaiterBase {
   static readonly RECURSABLE: unique symbol = Symbol("WaiterBase::recursable");
@@ -33,13 +37,21 @@ export class WaiterBase {
     return new Wait(...args);
   }
 
-  protected recursable<T extends WaitOnGen<void, void> & Partial<Record<typeof WaiterBase.RECURSABLE, unknown>>>(value: T): T {
+  protected recursable<
+    T extends WaitOnGen<void, void> &
+      Partial<Record<typeof WaiterBase.RECURSABLE, unknown>>,
+  >(value: T): T {
     value[WaiterBase.RECURSABLE] = true;
     return value;
   }
 
   private static is_recursable<T, U = never>(x: unknown): x is WaitOnGen<T, U> {
-    return (typeof x === "object" || typeof x === "function") && x !== null && WaiterBase.RECURSABLE in x && !!x[WaiterBase.RECURSABLE];
+    return (
+      (typeof x === "object" || typeof x === "function") &&
+      x !== null &&
+      WaiterBase.RECURSABLE in x &&
+      !!x[WaiterBase.RECURSABLE]
+    );
   }
 
   async wait_on_async<T, U = never>(gen: WaitOnGen<T, U>): Promise<T> {
