@@ -1,4 +1,5 @@
-import { DummyListenerBase, type Wait } from "./listenerbase";
+import type { WaitOnGen } from "./base";
+import { DummyListenerBase } from "./listenerbase";
 
 export class DummyListener1 extends DummyListenerBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
@@ -16,7 +17,7 @@ export class DummyListener1 extends DummyListenerBase {
     return function* (
       this: DummyListener1,
       callback: (code?: number) => T,
-    ): Generator<T | Wait, Awaited<T>, Awaited<T> | string> {
+    ): WaitOnGen<T> {
       try {
         const lock = yield this.wait(this.lock_view, 0, 0);
         if (lock === "timed-out") {

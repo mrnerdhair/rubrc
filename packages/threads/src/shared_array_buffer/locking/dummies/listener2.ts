@@ -1,4 +1,5 @@
-import { DummyListenerBase, type Wait } from "./listenerbase";
+import type { WaitOnGen } from "./base";
+import { DummyListenerBase } from "./listenerbase";
 
 export const UNLOCKED = 0;
 export const LISTENER_LOCKED = 1;
@@ -34,7 +35,7 @@ export class DummyListener2 extends DummyListenerBase {
     return function* (
       this: DummyListener2,
       callback: (code?: number) => T,
-    ): Generator<T | Wait, Awaited<T>, Awaited<T> | string> {
+    ): WaitOnGen<T> {
       console.log(
         `listener ${this.fd},${this.id} taking listener lock`,
       );
