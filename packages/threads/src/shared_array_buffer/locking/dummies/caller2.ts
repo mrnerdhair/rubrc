@@ -1,4 +1,4 @@
-import { DummyCallerBase } from "./caller_base";
+import { CallerBase } from "./caller_base";
 import type { WaitOnGen } from "./waiter_base";
 
 export const UNLOCKED = 0;
@@ -8,38 +8,38 @@ export const CALL_READY = 3;
 export const LISTENER_WORKING = 5;
 export const CALL_FINISHED = 6;
 
-export class DummyCaller2 extends DummyCallerBase {
-  private readonly notify_view: Int32Array<SharedArrayBuffer>;
+export class DummyCaller2 extends CallerBase {
+  private readonly lock_view: Int32Array<SharedArrayBuffer>;
+  private readonly data_view: DataView<SharedArrayBuffer>;
 
-  constructor(notify_view: Int32Array<SharedArrayBuffer>) {
+  constructor(view: Int32Array<SharedArrayBuffer>) {
     super();
-    this.notify_view = new Int32Array(notify_view.buffer, 0, 3);
+    this.lock_view = new Int32Array(view.buffer, view.byteOffset, 1);
+    this.data_view = new DataView(
+      view.buffer,
+      view.byteOffset + 1 * Int32Array.BYTES_PER_ELEMENT,
+    );
   }
 
   reset() {
-    const old = Atomics.exchange(this.notify_view, 0, UNLOCKED);
+    const old = Atomics.exchange(this.lock_view, 0, UNLOCKED);
     if (old !== UNLOCKED) {
-      throw new Error(
-        `caller reset did something: ${old}`,
-      );
+      throw new Error(`caller reset did something: ${old}`);
     }
   }
 
-  protected call_and_wait_inner(code: number) {
-    return function* (this: DummyCaller2): WaitOnGen<void> {
-      const call_id = Math.floor(Math.random() * (2 ** 31 - 1));
+  protected call_and_wait_inner<T>(
+    callback: (view: DataView<SharedArrayBuffer>) => T,
+  ) {
+    return function* (this: DummyCaller2): WaitOnGen<T> {
+      yield this.relock(this.lock_view, 0, LISTENER_LOCKED, CALLER_WORKING);
 
-      yield this.relock(this.notify_view, 0, LISTENER_LOCKED, CALLER_WORKING);
+      const out = (yield callback(this.data_view)) as Awaited<T>;
 
-      Atomics.store(this.notify_view, 1, code);
-      Atomics.store(this.notify_view, 2, call_id);
+      yield this.relock(this.lock_view, 0, CALLER_WORKING, CALL_READY, true);
+      yield this.relock(this.lock_view, 0, CALL_FINISHED, UNLOCKED);
 
-      console.log(`caller locked, sending call_id ${call_id}`);
-
-      yield this.relock(this.notify_view, 0, CALLER_WORKING, CALL_READY, true);
-      yield this.relock(this.notify_view, 0, CALL_FINISHED, UNLOCKED);
-
-      console.log(`caller done with call_id ${call_id}`);
+      return out;
     }.call(this);
   }
 }

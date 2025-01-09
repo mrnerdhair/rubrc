@@ -1,23 +1,27 @@
+import { ListenerBase } from "./listener_base";
 import type { WaitOnGen } from "./waiter_base";
-import { DummyListenerBase } from "./listener_base";
 
-export class DummyListener3 extends DummyListenerBase {
+export class DummyListener3 extends ListenerBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
+  private readonly data_view: DataView<SharedArrayBuffer>;
 
-  constructor(lock_view: Int32Array<SharedArrayBuffer>) {
+  constructor(view: Int32Array<SharedArrayBuffer>) {
     super();
-    this.lock_view = lock_view;
+    this.lock_view = new Int32Array(view.buffer, view.byteOffset, 1);
+    this.data_view = new DataView(
+      view.buffer,
+      view.byteOffset + 1 * Int32Array.BYTES_PER_ELEMENT,
+    );
   }
 
   reset() {
     Atomics.store(this.lock_view, 0, 0);
   }
 
-  protected listen_inner<T>(callback: (code?: number) => T) {
-    return function* (
-      this: DummyListener3,
-      callback: (code?: number) => T,
-    ): WaitOnGen<T> {
+  protected listen_inner<T>(
+    callback: (data_view: DataView<SharedArrayBuffer>) => T,
+  ) {
+    return function* (this: DummyListener3): WaitOnGen<T> {
       try {
         const lock = yield this.wait(this.lock_view, 0, 0);
         if (lock === "timed-out") {
@@ -34,7 +38,7 @@ export class DummyListener3 extends DummyListenerBase {
 
         let out: Awaited<T>;
         try {
-          out = (yield callback(func_lock)) as Awaited<T>;
+          out = (yield callback(this.data_view)) as Awaited<T>;
         } catch (error) {
           if (!(error instanceof Error && error.message === "unknown code")) {
             const old = Atomics.compareExchange(
@@ -77,6 +81,6 @@ export class DummyListener3 extends DummyListenerBase {
         Atomics.notify(this.lock_view, 0, 1);
         throw e;
       }
-    }.call(this, callback);
+    }.call(this);
   }
 }
