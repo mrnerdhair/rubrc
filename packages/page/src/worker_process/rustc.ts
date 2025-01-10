@@ -7,7 +7,6 @@ import {
 import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
 import * as Comlink from "comlink";
 import { type Terminal, setTransferHandlers } from "rubrc-util";
-import thread_spawn_worker_url from "./thread_spawn.ts?worker&url";
 
 export class RustcWorker {
   private readonly terminal: Terminal;
@@ -37,7 +36,6 @@ export class RustcWorker {
       {
         // debug: true,
         can_thread_spawn: true,
-        thread_spawn_worker_url,
         thread_spawn_wasm: compiler,
       },
     );

@@ -120,13 +120,8 @@ export class WorkerBackground {
       await listener.listen(async () => {
         const gen_worker = () => {
           console.log("gen_worker");
-          const url_ptr = Atomics.load(signature_input_view, 1);
-          const url_len = Atomics.load(signature_input_view, 2);
-          const url_buff = this.allocator.get_memory(url_ptr, url_len);
-          this.allocator.free(url_ptr, url_len);
-          const url = new TextDecoder().decode(url_buff);
           const is_module = Atomics.load(signature_input_view, 3) === 1;
-          return new Worker(url, {
+          return new Worker(worker_url, {
             type: is_module ? "module" : "classic",
           });
         };

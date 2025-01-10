@@ -7,7 +7,6 @@ import {
 import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import * as Comlink from "comlink";
 import { type WasiP1Cmd, setTransferHandlers } from "rubrc-util";
-import thread_spawn_worker_url from "./thread_spawn.ts?worker&url";
 
 export class LlvmWorker {
   private readonly wasi: WASIFarmAnimal;
@@ -44,7 +43,6 @@ export class LlvmWorker {
       {
         // debug: true,
         can_thread_spawn: true,
-        thread_spawn_worker_url,
         thread_spawn_wasm: linker_wasm,
       },
     );

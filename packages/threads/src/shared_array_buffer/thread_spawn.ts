@@ -32,7 +32,6 @@ setTransferHandlers();
 export type ThreadSpawnerObject = {
   share_memory?: WebAssembly.Memory;
   wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
-  worker_url: string;
   MIN_STACK?: number;
   worker_background_ref_object?: WorkerBackgroundRefObject;
   thread_spawn_wasm?: WebAssembly.Module;
@@ -41,7 +40,6 @@ export type ThreadSpawnerObject = {
 
 export class ThreadSpawner {
   private share_memory: WebAssembly.Memory;
-  private worker_url: string;
   private worker_background_ref: WorkerBackgroundRef;
   // inst_default_buffer_kept: WebAssembly.Memory;
 
@@ -51,7 +49,6 @@ export class ThreadSpawner {
   // https://github.com/rustwasm/wasm-pack/issues/479
 
   static async init({
-    worker_url,
     wasi_farm_refs_object,
     share_memory,
     MIN_STACK,
@@ -95,7 +92,6 @@ export class ThreadSpawner {
     });
 
     return new ThreadSpawner({
-      worker_url,
       share_memory,
       // inst_default_buffer_kept,
       worker_background_worker: await worker_background_worker_init?.(
@@ -103,7 +99,6 @@ export class ThreadSpawner {
           sl_object: {
             share_memory,
             wasi_farm_refs_object,
-            worker_url,
             worker_background_ref_object,
             // inst_default_buffer_kept,
           },
@@ -116,20 +111,16 @@ export class ThreadSpawner {
   }
 
   protected constructor({
-    worker_url,
     share_memory,
     // inst_default_buffer_kept,
     worker_background_worker,
     worker_background_ref,
   }: {
-    worker_url: string;
     share_memory: WebAssembly.Memory;
     // inst_default_buffer_kept: WebAssembly.Memory,
     worker_background_worker: WorkerBackground | undefined;
     worker_background_ref: WorkerBackgroundRef;
   }) {
-    this.worker_url = worker_url;
-
     this.share_memory = share_memory;
     // this.inst_default_buffer_kept = inst_default_buffer_kept;
     this.worker_background_worker = worker_background_worker;
@@ -143,7 +134,6 @@ export class ThreadSpawner {
     fd_map: Array<[number, number] | undefined>,
   ): number {
     const worker = this.worker_background_ref.new_worker(
-      this.worker_url,
       { type: "module" },
       {
         this_is_thread_spawn: true,
@@ -177,7 +167,6 @@ export class ThreadSpawner {
     }
 
     return await this.worker_background_ref.async_start_on_thread(
-      this.worker_url,
       { type: "module" },
       {
         this_is_thread_spawn: true,

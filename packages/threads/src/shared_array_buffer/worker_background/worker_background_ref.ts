@@ -12,6 +12,7 @@ import {
   WorkerBackgroundFuncNames,
   WorkerBackgroundReturnCodes,
 } from "../util";
+import worker_url from "./thread_spawn_worker.ts?worker&url";
 import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
 
 export class WorkerBackgroundRef {
@@ -49,16 +50,10 @@ export class WorkerBackgroundRef {
     this.done_listener = new Listener(this.locks.done_listen);
   }
 
-  new_worker(
-    url: string,
-    options: WorkerOptions,
-    post_obj: unknown,
-  ): WorkerRef {
+  new_worker(options: WorkerOptions, post_obj: unknown): WorkerRef {
     return this.locker.lock_blocking(() => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, WorkerBackgroundFuncNames.create_new_worker);
-      const url_buffer = new TextEncoder().encode(url);
-      this.allocator.block_write(url_buffer, view, 1);
       Atomics.store(view, 3, options.type === "module" ? 1 : 0);
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
@@ -70,16 +65,10 @@ export class WorkerBackgroundRef {
     });
   }
 
-  async async_start_on_thread(
-    url: string,
-    options: WorkerOptions,
-    post_obj: unknown,
-  ) {
+  async async_start_on_thread(options: WorkerOptions, post_obj: unknown) {
     await this.locker.lock(async () => {
       const view = new Int32Array(this.signature_input);
       Atomics.store(view, 0, WorkerBackgroundFuncNames.create_start);
-      const url_buffer = new TextEncoder().encode(url);
-      await this.allocator.async_write(url_buffer, view, 1);
       Atomics.store(view, 3, options.type === "module" ? 1 : 0);
       const obj_json = JSON.stringify(post_obj);
       const obj_buffer = new TextEncoder().encode(obj_json);
