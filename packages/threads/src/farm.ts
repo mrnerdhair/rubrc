@@ -6,19 +6,24 @@ import {
 } from "./shared_array_buffer/index";
 
 export class WASIFarm {
-  private fds: Array<Fd>;
   private park: WASIFarmPark;
-  readonly abort = new AbortController();
+  readonly abort: AbortController;
 
-  constructor(
-    stdin?: Fd,
-    stdout?: Fd,
-    stderr?: Fd,
-    fds: Array<Fd> = [],
-    options: {
+  static async init({
+    stdin,
+    stdout,
+    stderr,
+    fds,
+    options,
+  }: {
+    stdin?: Fd;
+    stdout?: Fd;
+    stderr?: Fd;
+    fds?: Array<Fd>;
+    options?: {
       allocator_size?: number;
-    } = {},
-  ) {
+    };
+  }): Promise<WASIFarm> {
     const new_fds = [];
     let stdin_ = undefined;
     let stdout_ = undefined;
@@ -35,14 +40,12 @@ export class WASIFarm {
       new_fds.push(stderr);
       stderr_ = new_fds.length - 1;
     }
-    new_fds.push(...fds);
+    new_fds.push(...(fds ?? []));
 
     const default_allow_fds = [];
     for (let i = 0; i < new_fds.length; i++) {
       default_allow_fds.push(i);
     }
-
-    this.fds = new_fds;
 
     try {
       new SharedArrayBuffer(4);
@@ -50,15 +53,33 @@ export class WASIFarm {
       throw new Error("Non SharedArrayBuffer is not supported yet");
     }
 
-    this.park = new WASIFarmParkUseArrayBuffer(
-      this.fds,
+    const park = new WASIFarmParkUseArrayBuffer(
+      new_fds,
       stdin_,
       stdout_,
       stderr_,
       default_allow_fds,
       options?.allocator_size,
     );
-    this.park.listen(this.abort.signal);
+
+    const abort = new AbortController();
+    park.listen(abort.signal);
+
+    return new WASIFarm({
+      park,
+      abort,
+    });
+  }
+
+  protected constructor({
+    park,
+    abort,
+  }: {
+    park: WASIFarmParkUseArrayBuffer;
+    abort: AbortController;
+  }) {
+    this.park = park;
+    this.abort = abort;
   }
 
   get_ref(): WASIFarmRefUseArrayBufferObject {

@@ -62,7 +62,9 @@ export const SetupMyTerminal = (props: {
 
   (async () => {
     props.terminal_callback(write_terminal);
-    props.terminal_wasi_ref_callback(get_ref(await xterm, write_terminal));
+    props.terminal_wasi_ref_callback(
+      await get_ref(await xterm, write_terminal),
+    );
   })();
 
   const handleMount = (terminal: Terminal) => {
@@ -129,10 +131,10 @@ export const SetupMyTerminal = (props: {
   );
 };
 
-const get_ref = (
+const get_ref = async (
   term: Terminal,
   other_term: OtherTerminal,
-): WASIFarmRefUseArrayBufferObject => {
+): Promise<WASIFarmRefUseArrayBufferObject> => {
   class XtermStdio extends Fd {
     term: Terminal;
 
@@ -204,12 +206,12 @@ const get_ref = (
     ]),
   );
 
-  const farm = new WASIFarm(
-    new XtermStdio(term),
-    new XtermStdio(term),
-    new XtermStderr(term),
-    [root_dir],
-  );
+  const farm = await WASIFarm.init({
+    stdin: new XtermStdio(term),
+    stdout: new XtermStdio(term),
+    stderr: new XtermStderr(term),
+    fds: [root_dir],
+  });
 
   return farm.get_ref();
 };

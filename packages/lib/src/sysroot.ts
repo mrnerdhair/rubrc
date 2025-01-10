@@ -82,8 +82,11 @@ export const load_additional_sysroot = async (triple: string) => {
 
 export const get_default_sysroot_wasi_farm = async (): Promise<WASIFarm> => {
   const fds = [await load_default_sysroot()];
-  const farm = new WASIFarm(undefined, undefined, undefined, fds, {
-    allocator_size: 1024 * 1024 * 1024,
+  const farm = await WASIFarm.init({
+    fds,
+    options: {
+      allocator_size: 1024 * 1024 * 1024,
+    },
   });
   return farm;
 };
