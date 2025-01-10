@@ -60,7 +60,7 @@ export class ThreadSpawner {
     MIN_STACK ??= 16777216;
     const worker_background_worker_init = worker_background_ref_object
       ? undefined
-      : Comlink.wrap<WorkerBackgroundInit>(new WorkerBackgroundCtor());
+      : workerBackgroundInit;
     worker_background_ref_object ??= WorkerBackgroundRefObjectConstructor();
     const worker_background_ref = await WorkerBackgroundRef.init(
       worker_background_ref_object,
