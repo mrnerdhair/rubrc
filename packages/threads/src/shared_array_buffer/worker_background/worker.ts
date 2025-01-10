@@ -45,7 +45,6 @@ export class WorkerBackground {
     done_call: CallerTarget;
     done_listen: ListenerTarget;
   };
-  private readonly signature_input: SharedArrayBuffer;
 
   private locker: Locker;
   private listener: Listener;
@@ -66,7 +65,6 @@ export class WorkerBackground {
       done_listen: ListenerTarget;
     },
     allocator: AllocatorUseArrayBuffer,
-    signature_input: SharedArrayBuffer,
   ) {
     this.override_object = override_object;
     this.locks = locks;
@@ -74,7 +72,6 @@ export class WorkerBackground {
     this.listener = new Listener(this.locks.listen);
     this.done_caller = new Caller(this.locks.done_call);
     this.allocator = allocator;
-    this.signature_input = signature_input;
     this.listen();
   }
 
@@ -88,7 +85,6 @@ export class WorkerBackground {
       await AllocatorUseArrayBuffer.init(
         worker_background_ref_object.allocator,
       ),
-      worker_background_ref_object.signature_input,
     );
   }
 
@@ -106,22 +102,19 @@ export class WorkerBackground {
     return {
       allocator: this.allocator.get_object(),
       locks: this.locks,
-      signature_input: this.signature_input,
     } as WorkerBackgroundRefObject;
   }
 
   async listen(): Promise<void> {
     this.locker.reset();
 
-    const signature_input_view = new Int32Array(this.signature_input);
-
     const listener = this.listener;
     listener.reset();
     while (true) {
-      await listener.listen(async () => {
+      await listener.listen(async (data) => {
         const gen_worker = () => {
           console.log("gen_worker");
-          const is_module = Atomics.load(signature_input_view, 3) === 1;
+          const is_module = data.i32[1] === 1;
           return new Worker(worker_url, {
             type: is_module ? "module" : "classic",
           });
@@ -129,8 +122,8 @@ export class WorkerBackground {
 
         const gen_obj = (): Record<string, unknown> => {
           console.log("gen_obj");
-          const json_ptr = Atomics.load(signature_input_view, 4);
-          const json_len = Atomics.load(signature_input_view, 5);
+          const json_ptr = data.i32[2];
+          const json_len = data.i32[3];
           const json_buff = this.allocator.get_memory(json_ptr, json_len);
           this.allocator.free(json_ptr, json_len);
           const json = new TextDecoder().decode(json_buff);
@@ -169,7 +162,7 @@ export class WorkerBackground {
           }
         });
 
-        const signature_input = Atomics.load(signature_input_view, 0);
+        const signature_input = data.i32[0];
         switch (signature_input) {
           case WorkerBackgroundFuncNames.create_new_worker: {
             const worker = gen_worker();
@@ -258,7 +251,7 @@ export class WorkerBackground {
 
             await readyPromise;
 
-            Atomics.store(signature_input_view, 0, worker_id);
+            data.i32[0] = worker_id;
 
             break;
           }

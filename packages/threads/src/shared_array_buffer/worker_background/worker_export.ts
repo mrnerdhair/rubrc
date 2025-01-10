@@ -17,13 +17,14 @@ export type WorkerBackgroundRefObject = {
     done_call: CallerTarget;
     done_listen: ListenerTarget;
   };
-  signature_input: SharedArrayBuffer;
   [workerBackgroundRefObjectBrand]: never;
 };
 
 export const WorkerBackgroundRefObjectConstructor =
   (): WorkerBackgroundRefObject => {
-    const [call, listen] = new_caller_listener_target();
+    const [call, listen] = new_caller_listener_target(
+      4 * Int32Array.BYTES_PER_ELEMENT,
+    );
     const [done_call, done_listen] = new_caller_listener_target(
       3 * Int32Array.BYTES_PER_ELEMENT,
     );
@@ -39,7 +40,6 @@ export const WorkerBackgroundRefObjectConstructor =
         done_call,
         done_listen,
       },
-      signature_input: new SharedArrayBuffer(24),
     } as WorkerBackgroundRefObject;
   };
 
