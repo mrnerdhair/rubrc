@@ -227,7 +227,7 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options?: {
       can_thread_spawn?: false;
-      hand_override_fd_map?: Array<[number, number]>;
+      hand_override_fd_map?: Array<[number, number] | undefined>;
     },
     override_fd_maps?: Array<number[]>,
   ): Promise<WASIFarmAnimal>;
@@ -237,7 +237,7 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options: {
       can_thread_spawn: true;
-      hand_override_fd_map?: Array<[number, number]>;
+      hand_override_fd_map?: Array<[number, number] | undefined>;
     },
     override_fd_maps: Array<number[]> | undefined,
     thread_spawner: ThreadSpawner,
@@ -249,7 +249,7 @@ export class WASIFarmAnimal {
     options: {
       can_thread_spawn: true;
       module: WebAssembly.Module;
-      hand_override_fd_map?: Array<[number, number]>;
+      hand_override_fd_map?: Array<[number, number] | undefined>;
     },
     override_fd_maps?: Array<number[]>,
   ): Promise<WASIFarmAnimal>;
@@ -260,7 +260,7 @@ export class WASIFarmAnimal {
     options: {
       can_thread_spawn?: boolean;
       module?: WebAssembly.Module;
-      hand_override_fd_map?: Array<[number, number]>;
+      hand_override_fd_map?: Array<[number, number] | undefined>;
     } = {},
     override_fd_maps?: Array<number[]>,
     thread_spawner?: ThreadSpawner,
@@ -315,7 +315,7 @@ export class WASIFarmAnimal {
     can_thread_spawn: boolean;
     thread_spawner: ThreadSpawner | undefined;
     mapping_fds: Array<[number, number] | undefined>;
-    hand_override_fd_map: Array<[number, number]> | undefined;
+    hand_override_fd_map: Array<[number, number] | undefined> | undefined;
     args: Array<string>;
     env: Array<string>;
   }) {
