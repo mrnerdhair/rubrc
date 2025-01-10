@@ -53,7 +53,7 @@ export class WASIFarm {
       throw new Error("Non SharedArrayBuffer is not supported yet");
     }
 
-    const park = new WASIFarmParkUseArrayBuffer(
+    const park = await WASIFarmParkUseArrayBuffer.init(
       new_fds,
       stdin_,
       stdout_,

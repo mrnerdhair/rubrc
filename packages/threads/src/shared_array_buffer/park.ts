@@ -127,7 +127,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // so it is not necessary to keep shared_array_buffer
   // this class is not used by user,
   // to avoid mistakes, all constructors are now required to be passed in.
-  constructor(
+  static async init(
     fds: Array<Fd>,
     // stdin fd number
     stdin: number | undefined,
@@ -138,23 +138,16 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     // wasi_farm_ref default allow fds
     default_allow_fds: Array<number>,
     allocator_size?: number,
-  ) {
-    super();
-    this.fds = fds;
-    this.fds_map = fds.map(() => []);
-    this.stdin = stdin;
-    this.stdout = stdout;
-    this.stderr = stderr;
-    this.default_allow_fds = default_allow_fds;
+  ): Promise<WASIFarmParkUseArrayBuffer> {
+    const fds_map = fds.map(() => []);
 
-    if (allocator_size === undefined) {
-      this.allocator = new AllocatorUseArrayBuffer();
-    } else {
-      this.allocator = new AllocatorUseArrayBuffer({
-        share_arrays_memory: new SharedArrayBuffer(allocator_size),
-      });
-    }
-    this.lock_fds = new Array(MAX_FDS_LEN).fill(undefined).map(() => {
+    const allocator = new AllocatorUseArrayBuffer({
+      share_arrays_memory:
+        allocator_size !== undefined
+          ? new SharedArrayBuffer(allocator_size)
+          : undefined,
+    });
+    const lock_fds = new Array(MAX_FDS_LEN).fill(undefined).map(() => {
       const [call, listen] = new_caller_listener_target();
       return {
         lock: new_locker_target(),
@@ -162,27 +155,107 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         listen,
       };
     });
-    this.fd_func_sig = new SharedArrayBuffer(
+    const fd_func_sig = new SharedArrayBuffer(
       fd_func_sig_u32_size * 4 * MAX_FDS_LEN,
     );
-    this.fds_len_and_num = new SharedArrayBuffer(8);
+    const fds_len_and_num = new SharedArrayBuffer(8);
 
-    const view = new Int32Array(this.fds_len_and_num);
+    const view = new Int32Array(fds_len_and_num);
     Atomics.store(view, 0, fds.length);
     Atomics.store(view, 1, 0);
 
-    this.fd_close_receiver = new FdCloseSenderUseArrayBuffer();
+    const fd_close_receiver = new FdCloseSenderUseArrayBuffer();
 
     const [call, listen] = new_caller_listener_target(
       4 * Int32Array.BYTES_PER_ELEMENT,
     );
-    this.base_func_util_locks = {
+    const base_func_util_locks = {
       lock: new_locker_target(),
       call,
       listen,
     };
-    this.locker = new Locker(this.base_func_util_locks.lock);
-    this.listener = new Listener(this.base_func_util_locks.listen);
+    const locker = new Locker(base_func_util_locks.lock);
+    const listener = new Listener(base_func_util_locks.listen);
+
+    return new WASIFarmParkUseArrayBuffer({
+      fds,
+      stdin,
+      stdout,
+      stderr,
+      default_allow_fds,
+      allocator_size,
+      fds_map,
+      allocator,
+      lock_fds,
+      fd_func_sig,
+      fds_len_and_num,
+      fd_close_receiver,
+      base_func_util_locks,
+      locker,
+      listener,
+    });
+  }
+
+  protected constructor({
+    fds,
+    stdin,
+    stdout,
+    stderr,
+    default_allow_fds,
+    fds_map,
+    allocator,
+    lock_fds,
+    fd_func_sig,
+    fds_len_and_num,
+    fd_close_receiver,
+    base_func_util_locks,
+    locker,
+    listener,
+  }: {
+    fds: Array<Fd>;
+    // stdin fd number
+    stdin: number | undefined;
+    // stdout fd number
+    stdout: number | undefined;
+    // stderr fd number
+    stderr: number | undefined;
+    // wasi_farm_ref default allow fds
+    default_allow_fds: Array<number>;
+    allocator_size?: number;
+    fds_map: Array<number[]>;
+    allocator: AllocatorUseArrayBuffer;
+    lock_fds: Array<{
+      lock: LockerTarget;
+      call: CallerTarget;
+      listen: ListenerTarget;
+    }>;
+    fd_func_sig: SharedArrayBuffer;
+    fds_len_and_num: SharedArrayBuffer;
+    fd_close_receiver: FdCloseSenderUseArrayBuffer;
+    base_func_util_locks: {
+      lock: LockerTarget;
+      call: CallerTarget;
+      listen: ListenerTarget;
+    };
+    locker: Locker;
+    listener: Listener;
+  }) {
+    super();
+    this.fds = fds;
+    this.fds_map = fds.map(() => []);
+    this.stdin = stdin;
+    this.stdout = stdout;
+    this.stderr = stderr;
+    this.default_allow_fds = default_allow_fds;
+    this.fds_map = fds_map;
+    this.allocator = allocator;
+    this.lock_fds = lock_fds;
+    this.fd_func_sig = fd_func_sig;
+    this.fds_len_and_num = fds_len_and_num;
+    this.fd_close_receiver = fd_close_receiver;
+    this.base_func_util_locks = base_func_util_locks;
+    this.locker = locker;
+    this.listener = listener;
   }
 
   /// Send this return by postMessage.
