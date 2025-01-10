@@ -1,4 +1,4 @@
-import { Locker, type LockerTarget, new_locker_target } from "./locking";
+import { Locker, type LockerTarget } from "./locking";
 
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
@@ -32,14 +32,15 @@ export class AllocatorUseArrayBuffer {
 
   // Since postMessage makes the class an object,
   // it must be able to receive and assign a SharedArrayBuffer.
-  constructor(opts?: {
-    share_arrays_memory?: SharedArrayBuffer;
-    share_arrays_memory_lock?: LockerTarget;
+  protected constructor({
+    share_arrays_memory,
+    share_arrays_memory_lock,
+  }: {
+    share_arrays_memory: SharedArrayBuffer;
+    share_arrays_memory_lock: LockerTarget;
   }) {
-    this.share_arrays_memory =
-      opts?.share_arrays_memory ?? new SharedArrayBuffer(10 * 1024 * 1024);
-    this.share_arrays_memory_lock =
-      opts?.share_arrays_memory_lock ?? new_locker_target();
+    this.share_arrays_memory = share_arrays_memory;
+    this.share_arrays_memory_lock = share_arrays_memory_lock;
     const view = new Int32Array(this.share_arrays_memory);
     Atomics.store(view, 0, 0);
     Atomics.store(view, 1, 0);

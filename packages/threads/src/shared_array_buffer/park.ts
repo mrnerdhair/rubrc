@@ -141,11 +141,11 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   ): Promise<WASIFarmParkUseArrayBuffer> {
     const fds_map = fds.map(() => []);
 
-    const allocator = new AllocatorUseArrayBuffer({
-      share_arrays_memory:
-        allocator_size !== undefined
-          ? new SharedArrayBuffer(allocator_size)
-          : undefined,
+    const allocator = await AllocatorUseArrayBuffer.init({
+      share_arrays_memory: new SharedArrayBuffer(
+        allocator_size ?? 10 * 1024 * 1024,
+      ),
+      share_arrays_memory_lock: new_locker_target(),
     });
     const lock_fds = new Array(MAX_FDS_LEN).fill(undefined).map(() => {
       const [call, listen] = new_caller_listener_target();
