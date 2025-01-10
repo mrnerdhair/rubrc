@@ -46,7 +46,12 @@ export class WorkerBackgroundRef {
     this.done_listener = new Listener(this.locks.done_listen);
   }
 
-  new_worker(post_obj: unknown): WorkerRef {
+  new_worker(post_obj: {
+    start_arg: number;
+    args: Array<string>;
+    env: Array<string>;
+    fd_map: Array<[number, number] | undefined>;
+  }): WorkerRef {
     return this.locker.lock_blocking(() => {
       const id = this.caller.call_and_wait_blocking(
         (data) => {
@@ -66,7 +71,11 @@ export class WorkerBackgroundRef {
     });
   }
 
-  async async_start_on_thread(post_obj: unknown) {
+  async async_start_on_thread(post_obj: {
+    args: Array<string>;
+    env: Array<string>;
+    fd_map: Array<[number, number] | undefined>;
+  }) {
     await this.locker.lock(async () => {
       await this.caller.call_and_wait((data) => {
         data.i32[0] = WorkerBackgroundFuncNames.create_start;

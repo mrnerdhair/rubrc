@@ -7,7 +7,13 @@
 // The request is made using BroadcastChannel.
 
 import * as Comlink from "comlink";
-import { setTransferHandlers } from "rubrc-util";
+import {
+  assume,
+  setTransferHandlers,
+  wrappedWorkerInit,
+  wrappedWorkerTerminate,
+} from "rubrc-util";
+import type { WrappedWorker } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   Caller,
@@ -23,8 +29,16 @@ import {
   WorkerBackgroundFuncNames,
   WorkerBackgroundReturnCodes,
 } from "../util";
-import worker_url from "./thread_spawn_worker.ts?worker&url";
+import type {
+  ThreadSpawnWorker,
+  ThreadSpawnWorkerInit,
+} from "./thread_spawn_worker.ts";
+import ThreadSpawnWorkerCtor from "./thread_spawn_worker.ts?worker";
 import type { WorkerBackgroundRefObject } from "./worker_export";
+
+const threadSpawnWorkerInit = wrappedWorkerInit<ThreadSpawnWorkerInit>(
+  ThreadSpawnWorkerCtor,
+);
 
 // Note that postMessage, etc.
 // cannot be used in a blocking environment such as during wasm execution.
@@ -51,9 +65,11 @@ export class WorkerBackground {
   private done_caller: Caller;
 
   // worker_id starts from 1
-  private readonly workers: Array<Worker | undefined> = [undefined];
+  private readonly workers: Array<
+    WrappedWorker<ThreadSpawnWorker> | undefined
+  > = [undefined];
 
-  private start_worker?: Worker;
+  private start_worker?: WrappedWorker<ThreadSpawnWorker>;
 
   protected constructor(
     override_object: OverrideObject,
@@ -112,58 +128,69 @@ export class WorkerBackground {
     listener.reset();
     while (true) {
       await listener.listen(async (data) => {
-        const gen_worker = () => {
-          console.log("gen_worker");
-          return new Worker(worker_url);
-        };
+        const signature_input = data.i32[0];
+        const json_ptr = data.i32[1];
+        const json_len = data.i32[2];
+        const json_buff = this.allocator.get_memory(json_ptr, json_len);
+        this.allocator.free(json_ptr, json_len);
+        const json = new TextDecoder().decode(json_buff);
+        const obj = JSON.parse(json);
+        if (!obj || typeof obj !== "object" || Array.isArray(obj))
+          throw new Error("expected JSON object");
+        assume<{
+          args: Array<string>;
+          env: Array<string>;
+          fd_map: Array<[number, number] | undefined>;
+        }>(obj);
 
-        const gen_obj = (): Record<string, unknown> => {
-          console.log("gen_obj");
-          const json_ptr = data.i32[1];
-          const json_len = data.i32[2];
-          const json_buff = this.allocator.get_memory(json_ptr, json_len);
-          this.allocator.free(json_ptr, json_len);
-          const json = new TextDecoder().decode(json_buff);
-          const out = JSON.parse(json);
-          if (!out || typeof out !== "object" || Array.isArray(out))
-            throw new Error("expected JSON object");
-          return out;
+        const gen_worker = async () => {
+          return await threadSpawnWorkerInit({
+            ...this.override_object,
+            ...obj,
+            worker_background_ref: this.ref(),
+          });
         };
 
         const { promise: donePromise, resolve: doneResolve } =
-          Promise.withResolvers<
-            | [WorkerBackgroundReturnCodes.completed, number]
-            | [WorkerBackgroundReturnCodes.threw, [number, number]]
-          >();
+          Promise.withResolvers<number>();
 
-        donePromise.then(async ([code, value]) => {
-          switch (code) {
-            case WorkerBackgroundReturnCodes.completed: {
-              // await this.done_caller.call_and_wait(async (data) => {
-              //   data.i32[0] = code;
-              //   data.i32[1] = value;
-              // });
-              break;
-            }
-            case WorkerBackgroundReturnCodes.threw: {
-              await this.done_caller.call_and_wait(async (data) => {
-                data.i32[0] = code;
-                data.i32[1] = value[0];
-                data.i32[2] = value[1];
-              });
-              break;
-            }
-            default: {
-              throw new Error(`unknown code ${code}`);
-            }
-          }
-        });
+        donePromise.then(
+          async (value) => {
+            // await this.done_caller.call_and_wait(async (data) => {
+            //   data.i32[0] = WorkerBackgroundReturnCodes.completed;
+            //   data.i32[1] = value;
+            // });
+          },
+          async (error) => {
+            console.error(error);
+            if (!(error instanceof Error)) throw error;
+            const serialized_error = Serializer.serialize(error);
 
-        const signature_input = data.i32[0];
+            const ptr_len_buf = new Uint32Array(
+              2 * Uint32Array.BYTES_PER_ELEMENT,
+            );
+            await this.allocator.async_write(
+              new TextEncoder().encode(JSON.stringify(serialized_error)),
+              ptr_len_buf,
+              0,
+            );
+            const [ptr, len] = ptr_len_buf;
+
+            await this.done_caller.call_and_wait(async (data) => {
+              data.i32[0] = WorkerBackgroundReturnCodes.threw;
+              data.i32[1] = ptr;
+              data.i32[2] = len;
+            });
+          },
+        );
+
         switch (signature_input) {
           case WorkerBackgroundFuncNames.create_new_worker: {
-            const worker = gen_worker();
-            const obj = gen_obj();
+            assume<{
+              start_arg: number;
+            }>(obj);
+
+            const worker = await gen_worker();
 
             const worker_id = this.assign_worker_id();
 
@@ -174,77 +201,50 @@ export class WorkerBackground {
             const { promise: readyPromise, resolve: readyResolve } =
               Promise.withResolvers<void>();
 
-            worker.onmessage = async (e) => {
-              const { msg, code } = e.data;
-
-              if (msg === "ready") {
-                readyResolve();
-              }
-
-              if (msg === "done") {
-                console.log(`worker ${worker_id} done so terminate`);
-
-                this.workers[worker_id]?.terminate();
-                this.workers[worker_id] = undefined;
-
-                doneResolve([WorkerBackgroundReturnCodes.completed, code]);
-              }
-
-              if (msg === "error") {
-                console.warn(`worker ${worker_id} error so terminate`);
-                this.workers[worker_id]?.terminate();
-                this.workers[worker_id] = undefined;
-
-                let n = 0;
-                for (const worker of this.workers) {
-                  if (worker !== undefined) {
-                    console.warn(
-                      `wasi throw error but child process exists, terminate ${n}`,
-                    );
-                    worker.terminate();
-                  }
-                  n++;
-                }
-                if (this.start_worker !== undefined) {
-                  console.warn(
-                    "wasi throw error but wasi exists, terminate wasi",
-                  );
-                  this.start_worker.terminate();
-                }
-
-                this.workers.length = 0;
-                this.workers.push(undefined);
-                this.start_worker = undefined;
-
-                const error = e.data.error;
-
-                const serialized_error = Serializer.serialize(error);
-
-                const ptr_len_buf = new Uint32Array(
-                  2 * Uint32Array.BYTES_PER_ELEMENT,
-                );
-                await this.allocator.async_write(
-                  new TextEncoder().encode(JSON.stringify(serialized_error)),
-                  ptr_len_buf,
-                  0,
-                );
-                const [ptr, len] = ptr_len_buf;
-
+            doneResolve(
+              (async () => {
                 try {
-                  console.error(error);
-                  doneResolve([WorkerBackgroundReturnCodes.threw, [ptr, len]]);
-                } catch (e) {
-                  this.allocator.free(ptr, len);
-                }
-              }
-            };
+                  const out = await worker.thread_start(
+                    worker_id,
+                    obj.start_arg,
+                    readyResolve,
+                  );
 
-            worker.postMessage({
-              ...this.override_object,
-              ...obj,
-              worker_id,
-              worker_background_ref: this.ref(),
-            });
+                  console.log(`worker ${worker_id} done so terminate`);
+                  wrappedWorkerTerminate(this.workers[worker_id]);
+                  this.workers[worker_id] = undefined;
+
+                  return out;
+                } catch (e) {
+                  console.warn(`worker ${worker_id} error so terminate`);
+                  wrappedWorkerTerminate(this.workers[worker_id]);
+                  this.workers[worker_id] = undefined;
+
+                  let n = 0;
+                  for (const worker of this.workers) {
+                    if (worker !== undefined) {
+                      console.warn(
+                        `wasi throw error but child process exists, terminate ${n}`,
+                      );
+                      wrappedWorkerTerminate(worker);
+                    }
+                    n++;
+                  }
+                  if (this.start_worker !== undefined) {
+                    console.warn(
+                      "wasi throw error but wasi exists, terminate wasi",
+                    );
+                    wrappedWorkerTerminate(this.start_worker);
+                  }
+
+                  this.workers.length = 0;
+                  this.workers.push(undefined);
+                  this.start_worker = undefined;
+
+                  throw e;
+                }
+              })(),
+            );
 
             await readyPromise;
 
@@ -253,80 +253,52 @@ export class WorkerBackground {
             break;
           }
           case WorkerBackgroundFuncNames.create_start: {
-            this.start_worker = gen_worker();
-            const obj = gen_obj();
+            const worker = await gen_worker();
+            this.start_worker = worker;
 
-            this.start_worker.onmessage = async (e) => {
-              const { msg, code } = e.data;
-
-              if (msg === "done") {
-                let n = 0;
-                for (const worker of this.workers) {
-                  if (worker !== undefined) {
-                    console.warn(`wasi done but worker exists, terminate ${n}`);
-                    worker.terminate();
-                  }
-                  n++;
-                }
-
-                console.log("start worker done so terminate");
-
-                this.start_worker?.terminate();
-                this.start_worker = undefined;
-
-                doneResolve([WorkerBackgroundReturnCodes.completed, code]);
-              }
-
-              if (msg === "error") {
-                let n = 0;
-                for (const worker of this.workers) {
-                  if (worker !== undefined) {
-                    console.warn(
-                      `wasi throw error but worker exists, terminate ${n}`,
-                    );
-                    worker.terminate();
-                  }
-                  n++;
-                }
-                if (this.start_worker !== undefined) {
-                  console.warn(
-                    "wasi throw error but wasi exists, terminate start worker",
-                  );
-                  this.start_worker.terminate();
-                }
-
-                this.workers.length = 0;
-                this.workers.push(undefined);
-                this.start_worker = undefined;
-
-                const error = e.data.error;
-
-                const serialized_error = Serializer.serialize(error);
-
-                const ptr_len_buf = new Uint32Array(
-                  2 * Uint32Array.BYTES_PER_ELEMENT,
-                );
-                await this.allocator.async_write(
-                  new TextEncoder().encode(JSON.stringify(serialized_error)),
-                  ptr_len_buf,
-                  0,
-                );
-                const [ptr, len] = ptr_len_buf;
-
+            doneResolve(
+              (async () => {
                 try {
-                  console.error(error);
-                  doneResolve([WorkerBackgroundReturnCodes.threw, [ptr, len]]);
-                } catch (e) {
-                  this.allocator.free(ptr, len);
-                }
-              }
-            };
+                  const out = await worker.start();
 
-            this.start_worker.postMessage({
-              ...this.override_object,
-              ...obj,
-              worker_background_ref: this.ref(),
-            });
+                  for (const [worker, n] of this.workers
+                    .filter((x) => !!x)
+                    .map((x, i) => [x, i] as const)) {
+                    console.warn(`wasi done but worker exists, terminate ${n}`);
+                    wrappedWorkerTerminate(worker);
+                  }
+
+                  console.log("start worker done so terminate");
+                  wrappedWorkerTerminate(this.start_worker);
+                  this.start_worker = undefined;
+
+                  return out;
+                } catch (e) {
+                  let n = 0;
+                  for (const worker of this.workers) {
+                    if (worker !== undefined) {
+                      console.warn(
+                        `wasi throw error but worker exists, terminate ${n}`,
+                      );
+                      wrappedWorkerTerminate(worker);
+                    }
+                    n++;
+                  }
+                  if (this.start_worker !== undefined) {
+                    console.warn(
+                      "wasi throw error but wasi exists, terminate start worker",
+                    );
+                    wrappedWorkerTerminate(this.start_worker);
+                  }
+
+                  this.workers.length = 0;
+                  this.workers.push(undefined);
+                  this.start_worker = undefined;
+
+                  throw e;
+                }
+              })(),
+            );
 
             break;
           }

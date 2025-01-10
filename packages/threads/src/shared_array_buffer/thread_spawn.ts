@@ -100,6 +100,7 @@ export class ThreadSpawner {
             wasi_farm_refs_object,
             worker_background_ref_object,
             // inst_default_buffer_kept,
+            module,
           },
           module,
         },
@@ -133,7 +134,6 @@ export class ThreadSpawner {
     fd_map: Array<[number, number] | undefined>,
   ): number {
     const worker = this.worker_background_ref.new_worker({
-      this_is_thread_spawn: true,
       start_arg,
       args,
       env,
@@ -163,8 +163,6 @@ export class ThreadSpawner {
     }
 
     return await this.worker_background_ref.async_start_on_thread({
-      this_is_thread_spawn: true,
-      this_is_start: true,
       args,
       env,
       fd_map,
