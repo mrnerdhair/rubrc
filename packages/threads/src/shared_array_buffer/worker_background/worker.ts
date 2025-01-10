@@ -45,7 +45,7 @@ const threadSpawnWorkerInit = wrappedWorkerInit<ThreadSpawnWorkerInit>(
 // (at least as far as I have tried)
 
 export type OverrideObject = {
-  sl_object: ThreadSpawnerObject;
+  sl_object: ThreadSpawnerObject & { share_memory: object };
   module: WebAssembly.Module;
 };
 
