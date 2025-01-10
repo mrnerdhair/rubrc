@@ -68,8 +68,8 @@ export class WorkerBackgroundRef {
   }
 
   async async_start_on_thread(options: WorkerOptions, post_obj: unknown) {
-    this.locker.lock(() => {
-      this.caller.call_and_wait((data) => {
+    await this.locker.lock(async () => {
+      await this.caller.call_and_wait((data) => {
         data.i32[0] = WorkerBackgroundFuncNames.create_start;
         data.i32[1] = options.type === "module" ? 1 : 0;
 
