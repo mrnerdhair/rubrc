@@ -60,7 +60,6 @@ export class ThreadSpawnWorker {
         env,
         {
           can_thread_spawn: true,
-          hand_override_fd_map: fd_map,
         },
         override_fd_map,
         thread_spawner,

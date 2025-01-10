@@ -227,7 +227,6 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options?: {
       can_thread_spawn?: false;
-      hand_override_fd_map?: Array<[number, number] | undefined>;
     },
     override_fd_maps?: Array<number[]>,
   ): Promise<WASIFarmAnimal>;
@@ -237,7 +236,6 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options: {
       can_thread_spawn: true;
-      hand_override_fd_map?: Array<[number, number] | undefined>;
     },
     override_fd_maps: Array<number[]> | undefined,
     thread_spawner: ThreadSpawner,
@@ -249,7 +247,6 @@ export class WASIFarmAnimal {
     options: {
       can_thread_spawn: true;
       module: WebAssembly.Module;
-      hand_override_fd_map?: Array<[number, number] | undefined>;
     },
     override_fd_maps?: Array<number[]>,
   ): Promise<WASIFarmAnimal>;
@@ -260,7 +257,6 @@ export class WASIFarmAnimal {
     options: {
       can_thread_spawn?: boolean;
       module?: WebAssembly.Module;
-      hand_override_fd_map?: Array<[number, number] | undefined>;
     } = {},
     override_fd_maps?: Array<number[]>,
     thread_spawner?: ThreadSpawner,
@@ -296,7 +292,6 @@ export class WASIFarmAnimal {
         wasi_farm_refs_out,
         override_fd_maps,
       ),
-      hand_override_fd_map: options.hand_override_fd_map,
       args,
       env,
     });
@@ -307,7 +302,6 @@ export class WASIFarmAnimal {
     can_thread_spawn,
     thread_spawner,
     mapping_fds,
-    hand_override_fd_map,
     args,
     env,
   }: {
@@ -315,7 +309,6 @@ export class WASIFarmAnimal {
     can_thread_spawn: boolean;
     thread_spawner: ThreadSpawner | undefined;
     mapping_fds: Array<[number, number] | undefined>;
-    hand_override_fd_map: Array<[number, number] | undefined> | undefined;
     args: Array<string>;
     env: Array<string>;
   }) {
@@ -323,7 +316,6 @@ export class WASIFarmAnimal {
     this.thread_spawner = thread_spawner;
     this.can_thread_spawn = can_thread_spawn;
     this.fd_map = mapping_fds;
-    this.fd_map = hand_override_fd_map ?? this.fd_map;
     this.args = args;
     this.env = env;
     this.wasiImport = WASIFarmAnimal.makeWasiImport(this);
