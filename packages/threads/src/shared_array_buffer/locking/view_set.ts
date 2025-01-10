@@ -1,6 +1,3 @@
-import { LockingBase } from "./locking_base";
-import type { WaitOnGen } from "./waiter_base";
-
 export class ViewSet<T extends ArrayBufferLike = ArrayBufferLike> {
   readonly buffer: T;
   readonly byteOffset: number;
@@ -60,25 +57,5 @@ export class ViewSet<T extends ArrayBufferLike = ArrayBufferLike> {
       byteOffset,
       byteLength / BigUint64Array.BYTES_PER_ELEMENT,
     );
-  }
-}
-
-export abstract class CallerBase extends LockingBase {
-  abstract reset(): void;
-
-  protected abstract call_and_wait_inner<T>(
-    callback?: (data: ViewSet<SharedArrayBuffer>) => T,
-  ): WaitOnGen<T>;
-
-  async call_and_wait<T>(
-    callback?: (data: ViewSet<SharedArrayBuffer>) => T,
-  ): Promise<T> {
-    return await this.wait_on_async(this.call_and_wait_inner(callback));
-  }
-
-  call_and_wait_blocking<T>(
-    callback?: (data: ViewSet<SharedArrayBuffer>) => T,
-  ): T {
-    return this.wait_on(this.call_and_wait_inner(callback));
   }
 }

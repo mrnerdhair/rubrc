@@ -1,8 +1,9 @@
-import { CallerBase, ViewSet } from "./caller_base";
 import { ListenerState } from "./listener";
+import { LockingBase } from "./locking_base";
+import { ViewSet } from "./view_set";
 import type { WaitOnGen } from "./waiter_base";
 
-export class Caller extends CallerBase {
+export class Caller extends LockingBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
   private readonly data: ViewSet<SharedArrayBuffer>;
 
@@ -23,10 +24,11 @@ export class Caller extends CallerBase {
     }
   }
 
-  protected call_and_wait_inner<T>(
-    callback?: (data: ViewSet<SharedArrayBuffer>) => T,
+  private call_and_wait_inner<T, U>(
+    start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
+    finished_callback?: (data: ViewSet<SharedArrayBuffer>, chain: U) => T,
   ) {
-    return function* (this: Caller): WaitOnGen<T> {
+    return function* (this: Caller): WaitOnGen<T, U> {
       yield this.relock(
         this.lock_view,
         0,
@@ -35,7 +37,9 @@ export class Caller extends CallerBase {
       );
 
       this.data.u64.fill(0n);
-      const out = (yield callback?.(this.data)) as Awaited<T>;
+      const start_result = (yield this.recursable(
+        start_callback?.(this.data),
+      )) as Awaited<U>;
 
       yield this.relock(
         this.lock_view,
@@ -44,6 +48,10 @@ export class Caller extends CallerBase {
         ListenerState.CALL_READY,
         true,
       );
+
+      const out = (yield this.recursable(
+        finished_callback?.(this.data, start_result),
+      )) as Awaited<T>;
       yield this.relock(
         this.lock_view,
         0,
@@ -53,6 +61,24 @@ export class Caller extends CallerBase {
 
       return out;
     }.call(this);
+  }
+
+  async call_and_wait<T, U>(
+    start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
+    finished_callback?: (data: ViewSet<SharedArrayBuffer>, chain: U) => T,
+  ): Promise<T> {
+    return await this.wait_on_async(
+      this.call_and_wait_inner(start_callback, finished_callback),
+    );
+  }
+
+  call_and_wait_blocking<T, U>(
+    start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
+    finished_callback?: (data: ViewSet<SharedArrayBuffer>, chain: U) => T,
+  ): T {
+    return this.wait_on(
+      this.call_and_wait_inner(start_callback, finished_callback),
+    );
   }
 }
 

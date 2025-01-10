@@ -1,6 +1,6 @@
 import { new_target as new_caller_target } from "./caller";
-import { ViewSet } from "./caller_base";
-import { ListenerBase } from "./listener_base";
+import { LockingBase } from "./locking_base";
+import { ViewSet } from "./view_set";
 import type { WaitOnGen } from "./waiter_base";
 
 export enum ListenerState {
@@ -12,7 +12,7 @@ export enum ListenerState {
   CALL_FINISHED = 6,
 }
 
-export class Listener extends ListenerBase {
+export class Listener extends LockingBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
   private readonly data: ViewSet<SharedArrayBuffer>;
 
@@ -60,6 +60,16 @@ export class Listener extends ListenerBase {
         );
       }
     }.call(this);
+  }
+
+  async listen<T>(
+    callback: (data: ViewSet<SharedArrayBuffer>) => T,
+  ): Promise<T> {
+    return await this.wait_on_async(this.listen_inner(callback));
+  }
+
+  listen_blocking<T>(callback: (data: ViewSet<SharedArrayBuffer>) => T): T {
+    return this.wait_on(this.listen_inner(callback));
   }
 }
 

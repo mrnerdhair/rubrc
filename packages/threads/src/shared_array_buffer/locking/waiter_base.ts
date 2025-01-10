@@ -37,12 +37,25 @@ export class WaiterBase {
     return new Wait(...args);
   }
 
-  protected recursable<
-    T extends WaitOnGen<void, void> &
-      Partial<Record<typeof WaiterBase.RECURSABLE, unknown>>,
-  >(value: T): T {
-    value[WaiterBase.RECURSABLE] = true;
-    return value;
+  protected recursable<T>(x: T): T {
+    if (
+      (typeof x === "object" || typeof x === "function") &&
+      x !== null &&
+      Symbol.iterator in x &&
+      typeof x[Symbol.iterator] === "function" &&
+      "next" in x &&
+      typeof x.next === "function" &&
+      "return" in x &&
+      typeof x.return === "function" &&
+      "throw" in x &&
+      typeof x.throw === "function"
+    ) {
+      (
+        x as WaitOnGen<void, void> &
+          Partial<Record<typeof WaiterBase.RECURSABLE, unknown>>
+      )[WaiterBase.RECURSABLE] = true;
+    }
+    return x;
   }
 
   private static is_recursable<T, U = never>(x: unknown): x is WaitOnGen<T, U> {
