@@ -23,7 +23,7 @@ export type WorkerBackgroundRefObject = {
 export const WorkerBackgroundRefObjectConstructor =
   (): WorkerBackgroundRefObject => {
     const [call, listen] = new_caller_listener_target(
-      4 * Int32Array.BYTES_PER_ELEMENT,
+      3 * Int32Array.BYTES_PER_ELEMENT,
     );
     const [done_call, done_listen] = new_caller_listener_target(
       3 * Int32Array.BYTES_PER_ELEMENT,

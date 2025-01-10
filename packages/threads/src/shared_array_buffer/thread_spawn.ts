@@ -132,16 +132,13 @@ export class ThreadSpawner {
     env: Array<string>,
     fd_map: Array<[number, number] | undefined>,
   ): number {
-    const worker = this.worker_background_ref.new_worker(
-      { type: "module" },
-      {
-        this_is_thread_spawn: true,
-        start_arg,
-        args,
-        env,
-        fd_map,
-      },
-    );
+    const worker = this.worker_background_ref.new_worker({
+      this_is_thread_spawn: true,
+      start_arg,
+      args,
+      env,
+      fd_map,
+    });
 
     const thread_id = worker.get_id();
 
@@ -165,16 +162,13 @@ export class ThreadSpawner {
       throw new Error("worker_background_worker is undefined.");
     }
 
-    return await this.worker_background_ref.async_start_on_thread(
-      { type: "module" },
-      {
-        this_is_thread_spawn: true,
-        this_is_start: true,
-        args,
-        env,
-        fd_map,
-      },
-    );
+    return await this.worker_background_ref.async_start_on_thread({
+      this_is_thread_spawn: true,
+      this_is_start: true,
+      args,
+      env,
+      fd_map,
+    });
   }
 
   get_share_memory(): WebAssembly.Memory {

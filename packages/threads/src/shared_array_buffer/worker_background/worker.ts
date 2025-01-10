@@ -114,16 +114,13 @@ export class WorkerBackground {
       await listener.listen(async (data) => {
         const gen_worker = () => {
           console.log("gen_worker");
-          const is_module = data.i32[1] === 1;
-          return new Worker(worker_url, {
-            type: is_module ? "module" : "classic",
-          });
+          return new Worker(worker_url);
         };
 
         const gen_obj = (): Record<string, unknown> => {
           console.log("gen_obj");
-          const json_ptr = data.i32[2];
-          const json_len = data.i32[3];
+          const json_ptr = data.i32[1];
+          const json_len = data.i32[2];
           const json_buff = this.allocator.get_memory(json_ptr, json_len);
           this.allocator.free(json_ptr, json_len);
           const json = new TextDecoder().decode(json_buff);

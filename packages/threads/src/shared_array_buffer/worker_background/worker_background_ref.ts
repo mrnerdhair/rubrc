@@ -12,7 +12,7 @@ import {
   WorkerBackgroundFuncNames,
   WorkerBackgroundReturnCodes,
 } from "../util";
-import type { WorkerBackgroundRefObject, WorkerOptions } from "./worker_export";
+import type { WorkerBackgroundRefObject } from "./worker_export";
 
 export class WorkerBackgroundRef {
   private readonly allocator: AllocatorUseArrayBuffer;
@@ -46,20 +46,19 @@ export class WorkerBackgroundRef {
     this.done_listener = new Listener(this.locks.done_listen);
   }
 
-  new_worker(options: WorkerOptions, post_obj: unknown): WorkerRef {
+  new_worker(post_obj: unknown): WorkerRef {
     return this.locker.lock_blocking(() => {
       const id = this.caller.call_and_wait_blocking(
         (data) => {
           data.i32[0] = WorkerBackgroundFuncNames.create_new_worker;
-          data.i32[1] = options.type === "module" ? 1 : 0;
 
           const ptr_buff = new Uint32Array(2);
           const obj_json = JSON.stringify(post_obj);
           const obj_buffer = new TextEncoder().encode(obj_json);
           this.allocator.block_write(obj_buffer, ptr_buff, 0);
 
-          data.i32[2] = ptr_buff[0];
-          data.i32[3] = ptr_buff[1];
+          data.i32[1] = ptr_buff[0];
+          data.i32[2] = ptr_buff[1];
         },
         (data) => data.i32[0],
       );
@@ -67,19 +66,18 @@ export class WorkerBackgroundRef {
     });
   }
 
-  async async_start_on_thread(options: WorkerOptions, post_obj: unknown) {
+  async async_start_on_thread(post_obj: unknown) {
     await this.locker.lock(async () => {
       await this.caller.call_and_wait((data) => {
         data.i32[0] = WorkerBackgroundFuncNames.create_start;
-        data.i32[1] = options.type === "module" ? 1 : 0;
 
         const ptr_buff = new Uint32Array(2);
         const obj_json = JSON.stringify(post_obj);
         const obj_buffer = new TextEncoder().encode(obj_json);
         this.allocator.block_write(obj_buffer, ptr_buff, 0);
 
-        data.i32[2] = ptr_buff[0];
-        data.i32[3] = ptr_buff[1];
+        data.i32[1] = ptr_buff[0];
+        data.i32[2] = ptr_buff[1];
       });
     });
     return await this.async_wait_done_or_error();
