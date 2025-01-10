@@ -9,9 +9,11 @@ import {
   as_wasi_p1_thread,
 } from "rubrc-util";
 import type { WASIFarmRef } from "./ref";
-import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer/index";
-import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/index";
-import { ThreadSpawner } from "./shared_array_buffer/index";
+import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer";
+import type {
+  ThreadSpawner,
+  WASIFarmRefUseArrayBufferObject,
+} from "./shared_array_buffer";
 
 export class WASIFarmAnimal {
   args: Array<string>;
@@ -30,8 +32,6 @@ export class WASIFarmAnimal {
 
   wasiImport: ReturnType<typeof WASIFarmAnimal.makeWasiImport>;
   wasiThreadImport: ReturnType<typeof WASIFarmAnimal.makeWasiThreadImport>;
-
-  private can_thread_spawn = false;
 
   private thread_spawner?: ThreadSpawner;
 
@@ -221,43 +221,16 @@ export class WASIFarmAnimal {
     return thread_spawner.get_share_memory().grow(delta);
   }
 
-  static async init(options: {
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
-    args: Array<string>;
-    env: Array<string>;
-    can_thread_spawn?: false;
-    override_fd_maps?: Array<number[]>;
-  }): Promise<WASIFarmAnimal>;
-  static async init(options: {
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
-    args: Array<string>;
-    env: Array<string>;
-    can_thread_spawn: true;
-    override_fd_maps: Array<number[]> | undefined;
-    thread_spawner: ThreadSpawner;
-  }): Promise<WASIFarmAnimal>;
-  static async init(options: {
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
-    args: Array<string>;
-    env: Array<string>;
-    can_thread_spawn: true;
-    module: WebAssembly.Module;
-    override_fd_maps?: Array<number[]>;
-  }): Promise<WASIFarmAnimal>;
   static async init({
     wasi_farm_refs,
     args,
     env,
-    can_thread_spawn,
-    module,
     override_fd_maps,
     thread_spawner,
   }: {
     wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
     args: Array<string>;
     env: Array<string>;
-    can_thread_spawn?: boolean;
-    module?: WebAssembly.Module;
     override_fd_maps?: Array<number[]>;
     thread_spawner?: ThreadSpawner;
   }): Promise<WASIFarmAnimal> {
@@ -271,23 +244,9 @@ export class WASIFarmAnimal {
       wasi_farm_refs.map(async (x) => await WASIFarmRefUseArrayBuffer.init(x)),
     );
 
-    const thread_spawner_out = !can_thread_spawn
-      ? undefined
-      : await (async () => {
-          if (thread_spawner) return thread_spawner;
-          if (module === undefined) {
-            throw new Error("module is not defined");
-          }
-          return await ThreadSpawner.init({
-            wasi_farm_refs_object: wasi_farm_refs,
-            module,
-          });
-        })();
-
     return new WASIFarmAnimal({
       wasi_farm_refs: wasi_farm_refs_out,
-      can_thread_spawn: can_thread_spawn ?? false,
-      thread_spawner: thread_spawner_out,
+      thread_spawner,
       mapping_fds: await WASIFarmAnimal.mapping_fds(
         wasi_farm_refs_out,
         override_fd_maps,
@@ -299,14 +258,12 @@ export class WASIFarmAnimal {
 
   protected constructor({
     wasi_farm_refs,
-    can_thread_spawn,
     thread_spawner,
     mapping_fds,
     args,
     env,
   }: {
     wasi_farm_refs: WASIFarmRef[];
-    can_thread_spawn: boolean;
     thread_spawner: ThreadSpawner | undefined;
     mapping_fds: Array<[number, number] | undefined>;
     args: Array<string>;
@@ -314,7 +271,6 @@ export class WASIFarmAnimal {
   }) {
     this.wasi_farm_refs = wasi_farm_refs;
     this.thread_spawner = thread_spawner;
-    this.can_thread_spawn = can_thread_spawn;
     this.fd_map = mapping_fds;
     this.args = args;
     this.env = env;
@@ -1072,7 +1028,7 @@ export class WASIFarmAnimal {
   private static makeWasiThreadImport(self: WASIFarmAnimal) {
     return {
       "thread-spawn": (start_arg: number) => {
-        if (!self.can_thread_spawn || !self.thread_spawner) {
+        if (self.thread_spawner === undefined) {
           throw new Error("thread_spawn is not allowed");
         }
 

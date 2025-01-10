@@ -55,10 +55,9 @@ export class ThreadSpawnWorker {
 
     return new ThreadSpawnWorker({
       wasi: await WASIFarmAnimal.init({
-        wasi_farm_refs: sl_object.wasi_farm_refs_object,
+        wasi_farm_refs: sl_object.wasi_farm_refs,
         args,
         env,
-        can_thread_spawn: true,
         override_fd_maps,
         thread_spawner,
       }),

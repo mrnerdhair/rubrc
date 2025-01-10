@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import {
+  ThreadSpawner,
   WASIFarmAnimal,
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
@@ -25,7 +26,7 @@ export class RustcWorker {
     wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
   ): Promise<RustcWorker> {
     terminal.write("loading rustc\r\n");
-    const compiler = await get_rustc_wasm();
+    const module = await get_rustc_wasm();
 
     terminal.write("loaded rustc\r\n");
 
@@ -34,8 +35,10 @@ export class RustcWorker {
       args: [],
       env: ["RUST_MIN_STACK=16777216"],
       // debug: true,
-      can_thread_spawn: true,
-      module: compiler,
+      thread_spawner: await ThreadSpawner.init({
+        wasi_farm_refs,
+        module,
+      }),
     });
 
     terminal.write("loaded wasi\r\n");

@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { ThreadSpawner } from "@oligami/browser_wasi_shim-threads";
 import {
   WASIFarmAnimal,
   type WASIFarmRefUseArrayBufferObject,
@@ -32,20 +33,21 @@ export class LlvmWorker {
   ): Promise<LlvmWorker> {
     console.log("loading llvm");
 
-    const linker_wasm = await get_llvm_wasm();
+    const module = await get_llvm_wasm();
 
-    console.log("linker_wasm", linker_wasm);
+    console.log("linker_wasm", module);
 
     const wasi = await WASIFarmAnimal.init({
       wasi_farm_refs,
       args: ["llvm"],
       env: [],
-      // debug: true,
-      can_thread_spawn: true,
-      module: linker_wasm,
+      thread_spawner: await ThreadSpawner.init({
+        wasi_farm_refs,
+        module,
+      }),
     });
 
-    const linker = await wasi.instantiate_cmd(linker_wasm, true);
+    const linker = await wasi.instantiate_cmd(module, true);
     const memory_reset = linker.exports.memory.buffer;
     const memory_reset_view = new Uint8Array(memory_reset).slice();
 

@@ -30,7 +30,7 @@ const workerBackgroundInit =
 
 export type ThreadSpawnerObject = {
   share_memory?: WebAssembly.Memory;
-  wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
+  wasi_farm_refs: Array<WASIFarmRefUseArrayBufferObject>;
   MIN_STACK?: number;
   worker_background_ref_object?: WorkerBackgroundRefObject;
   module: WebAssembly.Module;
@@ -48,7 +48,7 @@ export class ThreadSpawner {
   // https://github.com/rustwasm/wasm-pack/issues/479
 
   static async init({
-    wasi_farm_refs_object,
+    wasi_farm_refs,
     share_memory,
     MIN_STACK,
     worker_background_ref_object,
@@ -97,7 +97,7 @@ export class ThreadSpawner {
         {
           sl_object: {
             share_memory,
-            wasi_farm_refs_object,
+            wasi_farm_refs,
             worker_background_ref_object,
             // inst_default_buffer_kept,
             module,
