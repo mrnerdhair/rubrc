@@ -38,7 +38,7 @@ export type ThreadSpawnerObject = {
 };
 
 export class ThreadSpawner {
-  private share_memory: WebAssembly.Memory;
+  readonly share_memory: WebAssembly.Memory;
   private worker_background_ref: WorkerBackgroundRef;
   // inst_default_buffer_kept: WebAssembly.Memory;
 
@@ -167,13 +167,5 @@ export class ThreadSpawner {
       env,
       fd_map,
     });
-  }
-
-  get_share_memory(): WebAssembly.Memory {
-    return this.share_memory;
-  }
-
-  done_notify(code: number): void {
-    this.worker_background_ref.done_notify(code);
   }
 }

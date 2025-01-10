@@ -60,11 +60,9 @@ export class WASIFarmAnimal {
     this._inst = instance;
     try {
       instance.exports._start();
-      this.thread_spawner?.done_notify(0);
       return 0;
     } catch (e) {
       if (!(e instanceof WASIProcExit)) throw e;
-      this.thread_spawner?.done_notify(e.code);
       return e.code;
     }
   }
@@ -83,7 +81,7 @@ export class WASIFarmAnimal {
       throw new Error("thread_spawn is not supported");
     }
 
-    new Uint8Array(this.thread_spawner.get_share_memory().buffer).fill(0);
+    new Uint8Array(this.thread_spawner.share_memory.buffer).fill(0);
 
     return await this.thread_spawner.async_start_on_thread(
       this.args,
@@ -218,7 +216,7 @@ export class WASIFarmAnimal {
       throw new Error("thread_spawner is not defined");
     }
 
-    return thread_spawner.get_share_memory().grow(delta);
+    return thread_spawner.share_memory.grow(delta);
   }
 
   static async init({
@@ -304,7 +302,7 @@ export class WASIFarmAnimal {
       ...(this.thread_spawner
         ? {
             env: {
-              memory: this.thread_spawner?.get_share_memory(),
+              memory: this.thread_spawner?.share_memory,
             },
 
             wasi: use_strace

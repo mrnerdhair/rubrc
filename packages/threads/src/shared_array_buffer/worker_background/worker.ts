@@ -155,11 +155,13 @@ export class WorkerBackground {
           Promise.withResolvers<number>();
 
         donePromise.then(
-          async (_value) => {
-            // await this.done_caller.call_and_wait(async (data) => {
-            //   data.i32[0] = WorkerBackgroundReturnCodes.completed;
-            //   data.i32[1] = value;
-            // });
+          async (value) => {
+            if (signature_input !== WorkerBackgroundFuncNames.create_start)
+              return;
+            await this.done_caller.call_and_wait(async (data) => {
+              data.i32[0] = WorkerBackgroundReturnCodes.completed;
+              data.i32[1] = value;
+            });
           },
           async (error) => {
             console.error(error);

@@ -25,7 +25,6 @@ export class WorkerBackgroundRef {
   };
   private readonly locker: Locker;
   private readonly caller: Caller;
-  private readonly done_caller: Caller;
   private readonly done_listener: Listener;
 
   protected constructor(
@@ -42,7 +41,6 @@ export class WorkerBackgroundRef {
     this.locks = locks;
     this.locker = new Locker(this.locks.lock);
     this.caller = new Caller(this.locks.call);
-    this.done_caller = new Caller(this.locks.done_call);
     this.done_listener = new Listener(this.locks.done_listen);
   }
 
@@ -99,13 +97,6 @@ export class WorkerBackgroundRef {
       await AllocatorUseArrayBuffer.init(sl.allocator),
       sl.locks,
     );
-  }
-
-  done_notify(code: number): void {
-    this.done_caller.call_and_wait_blocking((data) => {
-      data.i32[0] = WorkerBackgroundReturnCodes.completed;
-      data.i32[1] = code;
-    });
   }
 
   private async async_wait_done_or_error(): Promise<number> {
