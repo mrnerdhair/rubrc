@@ -17,7 +17,7 @@ export class FdCloseSenderUseArrayBuffer
   implements FdCloseSender
 {
   // Should be able to change the size of memory as it accumulates more and more on memory
-  constructor(
+  protected constructor(
     max_share_arrays_memory?: number,
     share_arrays_memory?: SharedArrayBuffer,
     share_arrays_memory_lock?: LockerTarget,
@@ -53,8 +53,9 @@ export class FdCloseSenderUseArrayBuffer
 
   // Initialize the class from object
   static async init(
-    sl: FdCloseSenderUseArrayBufferObject,
-  ): Promise<FdCloseSender> {
+    sl?: FdCloseSenderUseArrayBufferObject,
+  ): Promise<FdCloseSenderUseArrayBuffer> {
+    if (!sl) return new FdCloseSenderUseArrayBuffer();
     return new FdCloseSenderUseArrayBuffer(
       sl.share_arrays_memory.byteLength,
       sl.share_arrays_memory,

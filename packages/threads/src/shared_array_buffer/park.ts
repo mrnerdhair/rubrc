@@ -164,7 +164,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     Atomics.store(view, 0, fds.length);
     Atomics.store(view, 1, 0);
 
-    const fd_close_receiver = new FdCloseSenderUseArrayBuffer();
+    const fd_close_receiver = await FdCloseSenderUseArrayBuffer.init();
 
     const [call, listen] = new_caller_listener_target(
       4 * Int32Array.BYTES_PER_ELEMENT,
