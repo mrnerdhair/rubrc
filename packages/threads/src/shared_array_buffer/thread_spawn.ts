@@ -14,8 +14,7 @@
 
 //  (import "wasi" "thread-spawn" (func $fimport$27 (param i32) (result i32)))
 
-import * as Comlink from "comlink";
-import { setTransferHandlers } from "rubrc-util";
+import { wrappedWorkerInit } from "rubrc-util";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import type { WorkerBackgroundRefObject } from "./worker_background/index";
 import { WorkerBackgroundRef } from "./worker_background/index";
@@ -26,7 +25,8 @@ import type {
 import WorkerBackgroundCtor from "./worker_background/worker?worker";
 import { WorkerBackgroundRefObjectConstructor } from "./worker_background/worker_export";
 
-setTransferHandlers();
+const workerBackgroundInit =
+  wrappedWorkerInit<WorkerBackgroundInit>(WorkerBackgroundCtor);
 
 export type ThreadSpawnerObject = {
   share_memory?: WebAssembly.Memory;

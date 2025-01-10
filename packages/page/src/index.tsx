@@ -12,10 +12,8 @@ import MainWorkerCtor from "./worker_process/worker?worker";
 import "./monaco_worker";
 import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
-import { type CmdParser, type Terminal, setTransferHandlers } from "rubrc-util";
+import { type CmdParser, type Terminal, wrappedWorkerInit } from "rubrc-util";
 import { CompileAndRun } from "./compile_and_run";
-
-setTransferHandlers();
 
 const root = document.getElementById("root");
 
@@ -25,7 +23,7 @@ if (!(root instanceof HTMLElement)) {
   );
 }
 
-const mainWorkerInit = Comlink.wrap<MainWorkerInit>(new MainWorkerCtor());
+const mainWorkerInit = wrappedWorkerInit<MainWorkerInit>(MainWorkerCtor);
 
 const { promise: main_worker_promise, resolve: set_main_worker } =
   Promise.withResolvers<MainWorkerType>();

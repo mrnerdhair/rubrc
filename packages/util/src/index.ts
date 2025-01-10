@@ -17,7 +17,12 @@ export {
   is_wasi_p1_reactor,
 } from "./wasi_p1_reactor";
 
-export { setTransferHandlers } from "./comlink";
+export {
+  setTransferHandlers,
+  wrappedWorkerInit,
+  type WrappedWorker,
+  wrappedWorkerTerminate,
+} from "./comlink";
 
 export type Terminal = {
   write: (value: string) => void;

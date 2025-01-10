@@ -16,13 +16,13 @@ import type {
 import UtilCmdWorkerCtor from "./util_cmd?worker";
 
 import { type Terminal, setTransferHandlers } from "rubrc-util";
+import { wrappedWorkerInit } from "rubrc-util";
 import type { CompileAndRun } from "../compile_and_run";
 
-const rustcWorkerInit = Comlink.wrap<RustcWorkerInit>(new RustcWorkerCtor());
-const utilCmdWorkerInit = Comlink.wrap<UtilCmdWorkerInit>(
-  new UtilCmdWorkerCtor(),
-);
-const llvmWorkerInit = Comlink.wrap<LlvmWorkerInit>(new LlvmWorkerCtor());
+const rustcWorkerInit = wrappedWorkerInit<RustcWorkerInit>(RustcWorkerCtor);
+const utilCmdWorkerInit =
+  wrappedWorkerInit<UtilCmdWorkerInit>(UtilCmdWorkerCtor);
+const llvmWorkerInit = wrappedWorkerInit<LlvmWorkerInit>(LlvmWorkerCtor);
 
 export class MainWorker {
   private readonly terminal: Terminal;

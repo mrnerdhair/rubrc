@@ -37,7 +37,12 @@ function isStructuredClonable(x: unknown): boolean {
 
 type Indexable = Record<PropertyKey, unknown>;
 
+let transferHandlersSet = false;
+
 export function setTransferHandlers() {
+  if (transferHandlersSet) return;
+  transferHandlersSet = true;
+
   Comlink.transferHandlers.set("proxyTransferHandler", {
     canHandle(obj: unknown): obj is Indexable {
       return (
@@ -58,4 +63,35 @@ export function setTransferHandlers() {
       return Comlink.wrap<Indexable>(port);
     },
   });
+}
+
+const terminateWrappedWorkerMarker: unique symbol = Symbol("terminateWorker");
+declare const terminateWrappedWorkerBrand: unique symbol;
+
+export type WrappedWorker<T> = T & { [terminateWrappedWorkerBrand]: never };
+
+export function wrappedWorkerInit<
+  // biome-ignore lint/suspicious/noExplicitAny: any is correct in generic type constraints
+  T extends (...args: any) => Promise<any>,
+>(workerCtor: { new (options?: { name?: string }): Worker }): (
+  ...args: Parameters<T>
+) => Promise<WrappedWorker<Awaited<ReturnType<T>>>> {
+  setTransferHandlers();
+  return async (...args: Parameters<T>) => {
+    const worker = new workerCtor();
+    const out: Awaited<ReturnType<T>> = await Comlink.wrap<T>(worker)(...args);
+    out[terminateWrappedWorkerMarker] = () => worker.terminate();
+    assume<WrappedWorker<typeof out>>(out);
+    return out;
+  };
+}
+
+export function wrappedWorkerTerminate(
+  worker: WrappedWorker<unknown> | null | undefined,
+) {
+  if (!worker) return;
+  assume<
+    { readonly [terminateWrappedWorkerMarker]: () => void } | null | undefined
+  >(worker);
+  worker[terminateWrappedWorkerMarker]();
 }
