@@ -23,6 +23,7 @@ import {
   WorkerBackgroundFuncNames,
   WorkerBackgroundReturnCodes,
 } from "../util";
+import worker_url from "./thread_spawn_worker.ts?worker&url";
 import type { WorkerBackgroundRefObject } from "./worker_export";
 
 // Note that postMessage, etc.
