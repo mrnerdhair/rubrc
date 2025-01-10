@@ -22,23 +22,21 @@ export class RustcWorker {
 
   static async init(
     terminal: Terminal,
-    wasi_refs: WASIFarmRefUseArrayBufferObject[],
+    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
   ): Promise<RustcWorker> {
     terminal.write("loading rustc\r\n");
     const compiler = await get_rustc_wasm();
 
     terminal.write("loaded rustc\r\n");
 
-    const wasi = await WASIFarmAnimal.init(
-      wasi_refs,
-      [], // args
-      ["RUST_MIN_STACK=16777216"], // env
-      {
-        // debug: true,
-        can_thread_spawn: true,
-        module: compiler,
-      },
-    );
+    const wasi = await WASIFarmAnimal.init({
+      wasi_farm_refs,
+      args: [],
+      env: ["RUST_MIN_STACK=16777216"],
+      // debug: true,
+      can_thread_spawn: true,
+      module: compiler,
+    });
 
     terminal.write("loaded wasi\r\n");
 

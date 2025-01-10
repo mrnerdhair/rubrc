@@ -221,46 +221,46 @@ export class WASIFarmAnimal {
     return thread_spawner.get_share_memory().grow(delta);
   }
 
-  static async init(
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
-    args: Array<string>,
-    env: Array<string>,
-    options?: {
-      can_thread_spawn?: false;
-    },
-    override_fd_maps?: Array<number[]>,
-  ): Promise<WASIFarmAnimal>;
-  static async init(
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
-    args: Array<string>,
-    env: Array<string>,
-    options: {
-      can_thread_spawn: true;
-    },
-    override_fd_maps: Array<number[]> | undefined,
-    thread_spawner: ThreadSpawner,
-  ): Promise<WASIFarmAnimal>;
-  static async init(
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
-    args: Array<string>,
-    env: Array<string>,
-    options: {
-      can_thread_spawn: true;
-      module: WebAssembly.Module;
-    },
-    override_fd_maps?: Array<number[]>,
-  ): Promise<WASIFarmAnimal>;
-  static async init(
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
-    args: Array<string>,
-    env: Array<string>,
-    options: {
-      can_thread_spawn?: boolean;
-      module?: WebAssembly.Module;
-    } = {},
-    override_fd_maps?: Array<number[]>,
-    thread_spawner?: ThreadSpawner,
-  ): Promise<WASIFarmAnimal> {
+  static async init(options: {
+    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
+    args: Array<string>;
+    env: Array<string>;
+    can_thread_spawn?: false;
+    override_fd_maps?: Array<number[]>;
+  }): Promise<WASIFarmAnimal>;
+  static async init(options: {
+    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
+    args: Array<string>;
+    env: Array<string>;
+    can_thread_spawn: true;
+    override_fd_maps: Array<number[]> | undefined;
+    thread_spawner: ThreadSpawner;
+  }): Promise<WASIFarmAnimal>;
+  static async init(options: {
+    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
+    args: Array<string>;
+    env: Array<string>;
+    can_thread_spawn: true;
+    module: WebAssembly.Module;
+    override_fd_maps?: Array<number[]>;
+  }): Promise<WASIFarmAnimal>;
+  static async init({
+    wasi_farm_refs,
+    args,
+    env,
+    can_thread_spawn,
+    module,
+    override_fd_maps,
+    thread_spawner,
+  }: {
+    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
+    args: Array<string>;
+    env: Array<string>;
+    can_thread_spawn?: boolean;
+    module?: WebAssembly.Module;
+    override_fd_maps?: Array<number[]>;
+    thread_spawner?: ThreadSpawner;
+  }): Promise<WASIFarmAnimal> {
     try {
       new SharedArrayBuffer(4);
     } catch {
@@ -271,22 +271,22 @@ export class WASIFarmAnimal {
       wasi_farm_refs.map(async (x) => await WASIFarmRefUseArrayBuffer.init(x)),
     );
 
-    const thread_spawner_out = !options.can_thread_spawn
+    const thread_spawner_out = !can_thread_spawn
       ? undefined
       : await (async () => {
           if (thread_spawner) return thread_spawner;
-          if (options.module === undefined) {
+          if (module === undefined) {
             throw new Error("module is not defined");
           }
           return await ThreadSpawner.init({
             wasi_farm_refs_object: wasi_farm_refs,
-            module: options.module,
+            module,
           });
         })();
 
     return new WASIFarmAnimal({
       wasi_farm_refs: wasi_farm_refs_out,
-      can_thread_spawn: options.can_thread_spawn ?? false,
+      can_thread_spawn: can_thread_spawn ?? false,
       thread_spawner: thread_spawner_out,
       mapping_fds: await WASIFarmAnimal.mapping_fds(
         wasi_farm_refs_out,

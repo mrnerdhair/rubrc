@@ -36,7 +36,7 @@ export class ThreadSpawnWorker {
     env: Array<string>;
     fd_map: Array<[number, number] | undefined>;
   }): Promise<ThreadSpawnWorker> {
-    const override_fd_map = Array.from<[number, number][]>(
+    const override_fd_maps = Array.from<[number, number][]>(
       ((x) => ({
         ...x,
         length: Object.keys(x).length,
@@ -54,16 +54,14 @@ export class ThreadSpawnWorker {
     });
 
     return new ThreadSpawnWorker({
-      wasi: await WASIFarmAnimal.init(
-        sl_object.wasi_farm_refs_object,
+      wasi: await WASIFarmAnimal.init({
+        wasi_farm_refs: sl_object.wasi_farm_refs_object,
         args,
         env,
-        {
-          can_thread_spawn: true,
-        },
-        override_fd_map,
+        can_thread_spawn: true,
+        override_fd_maps,
         thread_spawner,
-      ),
+      }),
       module,
     });
   }

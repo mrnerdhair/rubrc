@@ -59,7 +59,7 @@ export class UtilCmdWorker {
   static async init(
     terminal: Terminal,
     compile_and_run: CompileAndRun,
-    wasi_refs: WASIFarmRefUseArrayBufferObject[],
+    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
   ): Promise<UtilCmdWorker> {
     console.log("loading lsr and tre");
 
@@ -67,11 +67,11 @@ export class UtilCmdWorker {
       await (await fetch(lsr)).arrayBuffer(),
     );
 
-    const ls_wasi = await WASIFarmAnimal.init(
-      wasi_refs,
-      [], // args
-      [], // env
-    );
+    const ls_wasi = await WASIFarmAnimal.init({
+      wasi_farm_refs,
+      args: [],
+      env: [],
+    });
 
     const ls_inst = await ls_wasi.instantiate_cmd(ls_wasm);
 
@@ -82,11 +82,11 @@ export class UtilCmdWorker {
       await (await fetch(tre)).arrayBuffer(),
     );
 
-    const tree_wasi = await WASIFarmAnimal.init(
-      wasi_refs,
-      [], // args
-      [], // env
-    );
+    const tree_wasi = await WASIFarmAnimal.init({
+      wasi_farm_refs,
+      args: [],
+      env: [],
+    });
 
     const tree_inst = await tree_wasi.instantiate_cmd(tree_wasm);
 
@@ -99,11 +99,11 @@ export class UtilCmdWorker {
 
     console.log("lsr and tre loaded");
 
-    const animal = await WASIFarmAnimal.init(
-      wasi_refs,
-      [], // args
-      [], // env
-    );
+    const animal = await WASIFarmAnimal.init({
+      wasi_farm_refs,
+      args: [],
+      env: [],
+    });
 
     return new UtilCmdWorker({
       ls_memory_reset_view,

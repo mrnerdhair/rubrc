@@ -28,7 +28,7 @@ export class LlvmWorker {
   }
 
   static async init(
-    wasi_refs: WASIFarmRefUseArrayBufferObject[],
+    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
   ): Promise<LlvmWorker> {
     console.log("loading llvm");
 
@@ -36,16 +36,14 @@ export class LlvmWorker {
 
     console.log("linker_wasm", linker_wasm);
 
-    const wasi = await WASIFarmAnimal.init(
-      wasi_refs,
-      ["llvm"], // args
-      [], // env
-      {
-        // debug: true,
-        can_thread_spawn: true,
-        module: linker_wasm,
-      },
-    );
+    const wasi = await WASIFarmAnimal.init({
+      wasi_farm_refs,
+      args: ["llvm"],
+      env: [],
+      // debug: true,
+      can_thread_spawn: true,
+      module: linker_wasm,
+    });
 
     const linker = await wasi.instantiate_cmd(linker_wasm, true);
     const memory_reset = linker.exports.memory.buffer;
