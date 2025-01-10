@@ -9,7 +9,7 @@ const thread_spawn_on_worker = async (
     this_is_thread_spawn: true;
     worker_background_ref: WorkerBackgroundRefObject;
     sl_object: ThreadSpawnerObject;
-    thread_spawn_wasm: WebAssembly.Module;
+    module: WebAssembly.Module;
     args: Array<string>;
     env: Array<string>;
     fd_map: [number, number][];
@@ -28,7 +28,7 @@ const thread_spawn_on_worker = async (
     sl_object,
     fd_map,
     worker_background_ref,
-    thread_spawn_wasm,
+    module,
     args,
     env,
   } = msg;
@@ -66,7 +66,7 @@ const thread_spawn_on_worker = async (
   );
 
   if (msg.this_is_start) {
-    const inst = await wasi.instantiate_cmd(thread_spawn_wasm);
+    const inst = await wasi.instantiate_cmd(module);
 
     try {
       globalThis.postMessage({
@@ -84,7 +84,7 @@ const thread_spawn_on_worker = async (
 
     console.log(`thread_spawn worker ${thread_id} start`);
 
-    const inst = await wasi.instantiate_thread(thread_spawn_wasm);
+    const inst = await wasi.instantiate_thread(module);
 
     globalThis.postMessage({
       msg: "ready",

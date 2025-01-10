@@ -43,7 +43,7 @@ export class LlvmWorker {
       {
         // debug: true,
         can_thread_spawn: true,
-        thread_spawn_wasm: linker_wasm,
+        module: linker_wasm,
       },
     );
 

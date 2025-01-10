@@ -33,7 +33,7 @@ export type ThreadSpawnerObject = {
   wasi_farm_refs_object: Array<WASIFarmRefUseArrayBufferObject>;
   MIN_STACK?: number;
   worker_background_ref_object?: WorkerBackgroundRefObject;
-  thread_spawn_wasm?: WebAssembly.Module;
+  module: WebAssembly.Module;
   // inst_default_buffer_kept: WebAssembly.Memory;
 };
 
@@ -52,7 +52,7 @@ export class ThreadSpawner {
     share_memory,
     MIN_STACK,
     worker_background_ref_object,
-    thread_spawn_wasm,
+    module,
     // inst_default_buffer_kept,
   }: ThreadSpawnerObject): Promise<ThreadSpawner> {
     // 16MB for the time being.
@@ -101,7 +101,7 @@ export class ThreadSpawner {
             worker_background_ref_object,
             // inst_default_buffer_kept,
           },
-          thread_spawn_wasm,
+          module,
         },
         worker_background_ref_object,
       ),

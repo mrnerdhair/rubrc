@@ -32,7 +32,7 @@ import type { WorkerBackgroundRefObject } from "./worker_export";
 
 export type OverrideObject = {
   sl_object: ThreadSpawnerObject;
-  thread_spawn_wasm: WebAssembly.Module | undefined;
+  module: WebAssembly.Module;
 };
 
 export class WorkerBackground {

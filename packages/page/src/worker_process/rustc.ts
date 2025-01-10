@@ -36,7 +36,7 @@ export class RustcWorker {
       {
         // debug: true,
         can_thread_spawn: true,
-        thread_spawn_wasm: compiler,
+        module: compiler,
       },
     );
 

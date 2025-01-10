@@ -248,7 +248,7 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options: {
       can_thread_spawn: true;
-      thread_spawn_wasm: WebAssembly.Module;
+      module: WebAssembly.Module;
       hand_override_fd_map?: Array<[number, number]>;
     },
     override_fd_maps?: Array<number[]>,
@@ -259,7 +259,7 @@ export class WASIFarmAnimal {
     env: Array<string>,
     options: {
       can_thread_spawn?: boolean;
-      thread_spawn_wasm?: WebAssembly.Module;
+      module?: WebAssembly.Module;
       hand_override_fd_map?: Array<[number, number]>;
     } = {},
     override_fd_maps?: Array<number[]>,
@@ -279,12 +279,12 @@ export class WASIFarmAnimal {
       ? undefined
       : await (async () => {
           if (thread_spawner) return thread_spawner;
-          if (options.thread_spawn_wasm === undefined) {
-            throw new Error("thread_spawn_wasm is not defined");
+          if (options.module === undefined) {
+            throw new Error("module is not defined");
           }
           return await ThreadSpawner.init({
             wasi_farm_refs_object: wasi_farm_refs,
-            thread_spawn_wasm: options.thread_spawn_wasm,
+            module: options.module,
           });
         })();
 
