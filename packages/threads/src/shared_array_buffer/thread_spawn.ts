@@ -29,7 +29,7 @@ const workerBackgroundInit =
   wrappedWorkerInit<WorkerBackgroundInit>(WorkerBackgroundCtor);
 
 export type ThreadSpawnerObject = {
-  share_memory?: WebAssembly.Memory;
+  share_memory: WebAssembly.Memory;
   wasi_farm_refs: Array<WASIFarmRefUseArrayBufferObject>;
   MIN_STACK?: number;
   worker_background_ref_object?: WorkerBackgroundRefObject;

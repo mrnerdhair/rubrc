@@ -81,8 +81,6 @@ export class WASIFarmAnimal {
       throw new Error("thread_spawn is not supported");
     }
 
-    new Uint8Array(this.thread_spawner.share_memory.buffer).fill(0);
-
     return await this.thread_spawner.async_start_on_thread(
       this.args,
       this.env,

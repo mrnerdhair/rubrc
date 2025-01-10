@@ -255,6 +255,10 @@ export class WorkerBackground {
             break;
           }
           case WorkerBackgroundFuncNames.create_start: {
+            new Uint8Array(
+              this.override_object.sl_object.share_memory.buffer,
+            ).fill(0);
+
             const worker = await gen_worker();
             this.start_worker = worker;
 
