@@ -26,7 +26,10 @@ export class Caller extends LockingBase {
 
   private call_and_wait_inner<T, U>(
     start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
-    finished_callback?: (data: ViewSet<SharedArrayBuffer>, chain: Awaited<U>) => T,
+    finished_callback?: (
+      data: ViewSet<SharedArrayBuffer>,
+      chain: Awaited<U>,
+    ) => T,
   ) {
     return function* (this: Caller): WaitOnGen<T, U> {
       yield this.relock(
@@ -86,7 +89,10 @@ export class Caller extends LockingBase {
   ): Promise<void>;
   async call_and_wait<T, U>(
     start_callback: (data: ViewSet<SharedArrayBuffer>) => U,
-    finished_callback: (data: ViewSet<SharedArrayBuffer>, chain: Awaited<U>) => T,
+    finished_callback: (
+      data: ViewSet<SharedArrayBuffer>,
+      chain: Awaited<U>,
+    ) => T,
   ): Promise<Awaited<T>>;
   async call_and_wait<T>(
     start_callback: undefined,
@@ -94,7 +100,10 @@ export class Caller extends LockingBase {
   ): Promise<Awaited<T>>;
   async call_and_wait<T, U>(
     start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
-    finished_callback?: (data: ViewSet<SharedArrayBuffer>, chain: Awaited<U>) => T,
+    finished_callback?: (
+      data: ViewSet<SharedArrayBuffer>,
+      chain: Awaited<U>,
+    ) => T,
   ): Promise<Awaited<T>> {
     return await this.wait_on_async(
       this.call_and_wait_inner(start_callback, finished_callback),
