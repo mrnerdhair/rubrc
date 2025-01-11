@@ -11,12 +11,15 @@ import {
   new_caller_listener_target,
   new_locker_target,
 } from "./locking";
+import type { ViewSet } from "./locking";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
-export const fd_func_sig_u32_size: number = 18;
-export const fd_func_sig_bytes: number =
-  fd_func_sig_u32_size * Uint32Array.BYTES_PER_ELEMENT;
+// The largest size is u32 * 18 + 1
+// Alignment is troublesome, so make it u32 * 18 + 4
+// In other words, one size is 76 bytes
+const FD_FUNC_SIG_U32_SIZE = 18;
+
 const MAX_FDS_LEN = 128;
 
 export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
@@ -100,11 +103,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   private readonly listen_fds: Array<Promise<void> | undefined> = [];
   private readonly abort_fds: Array<AbortController | undefined> = [];
 
-  // The largest size is u32 * 18 + 1
-  // Alignment is troublesome, so make it u32 * 18 + 4
-  // In other words, one size is 76 bytes
-  private readonly fd_func_sig: SharedArrayBuffer;
-
   private readonly base_func_util_locks: {
     lock: LockerTarget;
     call: CallerTarget;
@@ -148,17 +146,18 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       share_arrays_memory_lock: new_locker_target(),
     });
     const lock_fds = new Array(MAX_FDS_LEN).fill(undefined).map(() => {
-      const [call, listen] = new_caller_listener_target();
+      const [call, listen] = new_caller_listener_target(
+        FD_FUNC_SIG_U32_SIZE * Uint32Array.BYTES_PER_ELEMENT,
+      );
       return {
         lock: new_locker_target(),
         call,
         listen,
       };
     });
-    const fd_func_sig = new SharedArrayBuffer(
-      fd_func_sig_u32_size * 4 * MAX_FDS_LEN,
+    const fds_len_and_num = new SharedArrayBuffer(
+      2 * Uint32Array.BYTES_PER_ELEMENT,
     );
-    const fds_len_and_num = new SharedArrayBuffer(8);
 
     const view = new Int32Array(fds_len_and_num);
     Atomics.store(view, 0, fds.length);
@@ -187,7 +186,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       fds_map,
       allocator,
       lock_fds,
-      fd_func_sig,
       fds_len_and_num,
       fd_close_receiver,
       base_func_util_locks,
@@ -205,7 +203,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     fds_map,
     allocator,
     lock_fds,
-    fd_func_sig,
     fds_len_and_num,
     fd_close_receiver,
     base_func_util_locks,
@@ -229,7 +226,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       call: CallerTarget;
       listen: ListenerTarget;
     }>;
-    fd_func_sig: SharedArrayBuffer;
     fds_len_and_num: SharedArrayBuffer;
     fd_close_receiver: FdCloseSenderUseArrayBuffer;
     base_func_util_locks: {
@@ -250,7 +246,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     this.fds_map = fds_map;
     this.allocator = allocator;
     this.lock_fds = lock_fds;
-    this.fd_func_sig = fd_func_sig;
     this.fds_len_and_num = fds_len_and_num;
     this.fd_close_receiver = fd_close_receiver;
     this.base_func_util_locks = base_func_util_locks;
@@ -264,7 +259,6 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       allocator: this.allocator.get_ref(),
       lock_fds: this.lock_fds,
       fds_len_and_num: this.fds_len_and_num,
-      fd_func_sig: this.fd_func_sig,
       base_func_util_locks: this.base_func_util_locks,
       fd_close_receiver: this.fd_close_receiver.get_ref(),
       stdin: this.stdin,
@@ -377,68 +371,60 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   }
 
   private make_listen_fd_handlers(
-    bytes_offset: number,
+    data: ViewSet,
   ): Partial<Record<keyof typeof FuncNames, () => Promise<number>>> {
-    const func_sig_view_u8 = new Uint8Array(this.fd_func_sig, bytes_offset);
-    const func_sig_view_u16 = new Uint16Array(this.fd_func_sig, bytes_offset);
-    const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
-    const func_sig_view_u64 = new BigUint64Array(
-      this.fd_func_sig,
-      bytes_offset,
-    );
-
     return {
       // fd_advise: (fd: u32) => errno;
       fd_advise: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         return this.fd_advise(fd);
       },
       // fd_allocate: (fd: u32, offset: u64, len: u64) => errno;
       fd_allocate: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const offset = Atomics.load(func_sig_view_u64, 1);
-        const len = Atomics.load(func_sig_view_u64, 2);
+        const fd = data.u32[1];
+        const offset = data.u64[1];
+        const len = data.u64[2];
 
         return this.fd_allocate(fd, offset, len);
       },
       // fd_close: (fd: u32) => errno;
       fd_close: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         return await this.fd_close(fd);
       },
       // fd_datasync: (fd: u32) => errno;
       fd_datasync: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         return this.fd_datasync(fd);
       },
       // fd_fdstat_get: (fd: u32) => [wasi.Fdstat(u32 * 6)], errno];
       fd_fdstat_get: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         const [fdstat, ret] = this.fd_fdstat_get(fd);
         if (fdstat) {
-          Atomics.store(func_sig_view_u8, 0, fdstat.fs_filetype);
-          Atomics.store(func_sig_view_u16, 2, fdstat.fs_flags);
-          Atomics.store(func_sig_view_u64, 1, fdstat.fs_rights_base);
-          Atomics.store(func_sig_view_u64, 2, fdstat.fs_rights_inherited);
+          data.u8[0] = fdstat.fs_filetype;
+          data.u16[2] = fdstat.fs_flags;
+          data.u64[1] = fdstat.fs_rights_base;
+          data.u64[2] = fdstat.fs_rights_inherited;
         }
         return ret;
       },
       // fd_fdstat_set_flags: (fd: u32, flags: u16) => errno;
       fd_fdstat_set_flags: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const flags = Atomics.load(func_sig_view_u16, 4);
+        const fd = data.u32[1];
+        const flags = data.u16[4];
 
         return this.fd_fdstat_set_flags(fd, flags);
       },
       // fd_fdstat_set_rights: (fd: u32, fs_rights_base: u64, fs_rights_inheriting: u64) => errno;
       fd_fdstat_set_rights: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const fs_rights_base = Atomics.load(func_sig_view_u64, 1);
-        const fs_rights_inheriting = Atomics.load(func_sig_view_u64, 2);
+        const fd = data.u32[1];
+        const fs_rights_base = data.u64[1];
+        const fs_rights_inheriting = data.u64[2];
 
         return this.fd_fdstat_set_rights(
           fd,
@@ -448,44 +434,45 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
       // fd_filestat_get: (fd: u32) => [wasi.Filestat(u32 * 16)], errno];
       fd_filestat_get: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         const [filestat, ret] = this.fd_filestat_get(fd);
         if (filestat) {
-          Atomics.store(func_sig_view_u64, 0, filestat.dev);
-          Atomics.store(func_sig_view_u64, 1, filestat.ino);
-          Atomics.store(func_sig_view_u8, 16, filestat.filetype);
-          Atomics.store(func_sig_view_u64, 3, filestat.nlink);
-          Atomics.store(func_sig_view_u64, 4, filestat.size);
-          Atomics.store(func_sig_view_u64, 5, filestat.atim);
-          Atomics.store(func_sig_view_u64, 6, filestat.mtim);
-          Atomics.store(func_sig_view_u64, 7, filestat.ctim);
+          data.u64[0] = filestat.dev;
+          data.u64[1] = filestat.ino;
+          data.u8[16] = filestat.filetype;
+          data.u64[3] = filestat.nlink;
+          data.u64[4] = filestat.size;
+          data.u64[5] = filestat.atim;
+          data.u64[6] = filestat.mtim;
+          data.u64[7] = filestat.ctim;
         }
         return ret;
       },
       // fd_filestat_set_size: (fd: u32, size: u64) => errno;
       fd_filestat_set_size: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const size = Atomics.load(func_sig_view_u64, 1);
+        const fd = data.u32[1];
+        const size = data.u64[1];
 
         return this.fd_filestat_set_size(fd, size);
       },
       // fd_filestat_set_times: (fd: u32, atim: u64, mtim: u64, fst_flags: u16) => errno;
       fd_filestat_set_times: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const atim = Atomics.load(func_sig_view_u64, 1);
-        const mtim = Atomics.load(func_sig_view_u64, 2);
-        const fst_flags = Atomics.load(func_sig_view_u16, 12);
+        const fd = data.u32[1];
+        const atim = data.u64[1];
+        const mtim = data.u64[2];
+        const fst_flags = data.u16[12];
 
         return this.fd_filestat_set_times(fd, atim, mtim, fst_flags);
       },
       // fd_pread: (fd: u32, iovs_ptr: pointer, iovs_len: u32, offset: u64) => [u32, data_ptr, errno];
       fd_pread: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const iovs_ptr = Atomics.load(func_sig_view_u32, 2);
-        const iovs_ptr_len = Atomics.load(func_sig_view_u32, 3);
-        const offset = Atomics.load(func_sig_view_u64, 2);
-        const data = new Uint32Array(
+        const fd = data.u32[1];
+        const iovs_ptr = data.u32[2];
+        const iovs_ptr_len = data.u32[3];
+        const offset = data.u64[2];
+
+        const iovs = new Uint32Array(
           this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
         );
         this.allocator.free(iovs_ptr, iovs_ptr_len);
@@ -493,75 +480,67 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const iovecs = new Array<wasi.Iovec>();
         for (let i = 0; i < iovs_ptr_len; i += 8) {
           const iovec = new wasi.Iovec();
-          iovec.buf = data[i * 2];
-          iovec.buf_len = data[i * 2 + 1];
+          iovec.buf = iovs[i * 2];
+          iovec.buf_len = iovs[i * 2 + 1];
           iovecs.push(iovec);
         }
 
         const [nread_and_buffer, error] = this.fd_pread(fd, iovecs, offset);
         if (nread_and_buffer !== undefined) {
           const [nread, buffer8] = nread_and_buffer;
-          Atomics.store(func_sig_view_u32, 0, nread);
-          await this.allocator.async_write(
-            buffer8,
-            new Int32Array(this.fd_func_sig),
-            fd * fd_func_sig_u32_size + 1,
-          );
+          data.u32[0] = nread;
+          await this.allocator.async_write(buffer8, data.i32, 1);
         }
         return error;
       },
       // fd_prestat_get: (fd: u32) => [wasi.Prestat(u32 * 2)], errno];
       fd_prestat_get: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         const [prestat, ret] = this.fd_prestat_get(fd);
         if (prestat) {
-          Atomics.store(func_sig_view_u32, 0, prestat.tag);
-          Atomics.store(func_sig_view_u32, 1, prestat.inner.pr_name.byteLength);
+          data.u32[0] = prestat.tag;
+          data.u32[1] = prestat.inner.pr_name.byteLength;
         }
         return ret;
       },
       // fd_prestat_dir_name: (fd: u32, path_len: u32) => [path_ptr: pointer, path_len: u32, errno];
       fd_prestat_dir_name: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const path_len = Atomics.load(func_sig_view_u32, 2);
+        const fd = data.u32[1];
+        const path_len = data.u32[2];
 
         const [prestat_dir_name, ret] = this.fd_prestat_dir_name(fd, path_len);
         if (
           prestat_dir_name &&
           (ret === wasi.ERRNO_SUCCESS || ret === wasi.ERRNO_NAMETOOLONG)
         ) {
-          await this.allocator.async_write(
-            prestat_dir_name,
-            new Int32Array(this.fd_func_sig),
-            fd * fd_func_sig_u32_size,
-          );
+          await this.allocator.async_write(prestat_dir_name, data.i32, 0);
         }
         return ret;
       },
       // fd_pwrite: (fd: u32, write_data: pointer, write_data_len: u32, offset: u64) => [u32, errno];
       fd_pwrite: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const write_data_ptr = Atomics.load(func_sig_view_u32, 2);
-        const write_data_len = Atomics.load(func_sig_view_u32, 3);
-        const offset = Atomics.load(func_sig_view_u64, 2);
+        const fd = data.u32[1];
+        const write_data_ptr = data.u32[2];
+        const write_data_len = data.u32[3];
+        const offset = data.u64[2];
 
-        const data = new Uint8Array(
+        const write_data = new Uint8Array(
           this.allocator.get_memory(write_data_ptr, write_data_len),
         );
         this.allocator.free(write_data_ptr, write_data_len);
 
-        const [nwritten, error] = this.fd_pwrite(fd, data, offset);
+        const [nwritten, error] = this.fd_pwrite(fd, write_data, offset);
         if (nwritten !== undefined) {
-          Atomics.store(func_sig_view_u32, 0, nwritten);
+          data.u32[0] = nwritten;
         }
         return error;
       },
       // fd_read: (fd: u32, iovs_ptr: pointer, iovs_len: u32) => [u32, data_ptr, errno];
       fd_read: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const iovs_ptr = Atomics.load(func_sig_view_u32, 2);
-        const iovs_ptr_len = Atomics.load(func_sig_view_u32, 3);
+        const fd = data.u32[1];
+        const iovs_ptr = data.u32[2];
+        const iovs_ptr_len = data.u32[3];
         const iovs = new Uint32Array(
           this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
         );
@@ -579,20 +558,16 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
         if (nread_and_buffer !== undefined) {
           const [nread, buffer8] = nread_and_buffer;
-          Atomics.store(func_sig_view_u32, 0, nread);
-          await this.allocator.async_write(
-            buffer8,
-            new Int32Array(this.fd_func_sig),
-            fd * fd_func_sig_u32_size + 1,
-          );
+          data.u32[0] = nread;
+          await this.allocator.async_write(buffer8, data.i32, 1);
         }
         return error;
       },
       // fd_readdir: (fd: u32, buf_len: u32, cookie: u64) => [buf_ptr: pointer, buf_len: u32, buf_used: u32, errno];
       fd_readdir: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const buf_len = Atomics.load(func_sig_view_u32, 2);
-        const cookie = Atomics.load(func_sig_view_u64, 2);
+        const fd = data.u32[1];
+        const buf_len = data.u32[2];
+        const cookie = data.u64[2];
 
         const [array_and_buf_used, error] = this.fd_readdir(
           fd,
@@ -601,65 +576,61 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         );
         if (array_and_buf_used) {
           const [array, buf_used] = array_and_buf_used;
-          await this.allocator.async_write(
-            array,
-            new Int32Array(this.fd_func_sig),
-            fd * fd_func_sig_u32_size,
-          );
-          Atomics.store(func_sig_view_u32, 2, buf_used);
+          await this.allocator.async_write(array, data.i32, 0);
+          data.u32[2] = buf_used;
         }
         return error;
       },
       // fd_seek: (fd: u32, offset: i64, whence: u8) => [u64, errno];
       fd_seek: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const offset = Atomics.load(func_sig_view_u64, 1);
-        const whence = Atomics.load(func_sig_view_u8, 16);
+        const fd = data.u32[1];
+        const offset = data.u64[1];
+        const whence = data.u8[16];
 
         const [new_offset, error] = this.fd_seek(fd, offset, whence);
         if (new_offset !== undefined) {
-          Atomics.store(func_sig_view_u64, 0, new_offset);
+          data.u64[0] = new_offset;
         }
         return error;
       },
       // fd_sync: (fd: u32) => errno;
       fd_sync: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         return this.fd_sync(fd);
       },
       // fd_tell: (fd: u32) => [u64, errno];
       fd_tell: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
+        const fd = data.u32[1];
 
         const [offset, error] = this.fd_tell(fd);
         if (offset !== undefined) {
-          Atomics.store(func_sig_view_u64, 0, offset);
+          data.u64[0] = offset;
         }
         return error;
       },
       // fd_write: (fd: u32, write_data: pointer, write_data_len: u32) => [u32, errno];
       fd_write: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const write_data_ptr = Atomics.load(func_sig_view_u32, 2);
-        const write_data_len = Atomics.load(func_sig_view_u32, 3);
+        const fd = data.u32[1];
+        const write_data_ptr = data.u32[2];
+        const write_data_len = data.u32[3];
 
-        const data = new Uint8Array(
+        const write_data = new Uint8Array(
           this.allocator.get_memory(write_data_ptr, write_data_len),
         );
         this.allocator.free(write_data_ptr, write_data_len);
 
-        const [nwritten, error] = await this.fd_write(fd, data);
+        const [nwritten, error] = await this.fd_write(fd, write_data);
         if (nwritten !== undefined) {
-          Atomics.store(func_sig_view_u32, 0, nwritten);
+          data.u32[0] = nwritten;
         }
         return error;
       },
       // path_create_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
       path_create_directory: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const path_ptr = Atomics.load(func_sig_view_u32, 2);
-        const path_len = Atomics.load(func_sig_view_u32, 3);
+        const fd = data.u32[1];
+        const path_ptr = data.u32[2];
+        const path_len = data.u32[3];
 
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
@@ -671,10 +642,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
       // path_filestat_get: (fd: u32, flags: u32, path_ptr: pointer, path_len: u32) => [wasi.Filestat(u32 * 16), errno];
       path_filestat_get: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const flags = Atomics.load(func_sig_view_u32, 2);
-        const path_ptr = Atomics.load(func_sig_view_u32, 3);
-        const path_len = Atomics.load(func_sig_view_u32, 4);
+        const fd = data.u32[1];
+        const flags = data.u32[2];
+        const path_ptr = data.u32[3];
+        const path_len = data.u32[4];
 
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
@@ -684,26 +655,26 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
         const [filestat, ret] = this.path_filestat_get(fd, flags, path_str);
         if (filestat) {
-          Atomics.store(func_sig_view_u64, 0, filestat.dev);
-          Atomics.store(func_sig_view_u64, 1, filestat.ino);
-          Atomics.store(func_sig_view_u8, 16, filestat.filetype);
-          Atomics.store(func_sig_view_u64, 3, filestat.nlink);
-          Atomics.store(func_sig_view_u64, 4, filestat.size);
-          Atomics.store(func_sig_view_u64, 5, filestat.atim);
-          Atomics.store(func_sig_view_u64, 6, filestat.mtim);
-          Atomics.store(func_sig_view_u64, 7, filestat.ctim);
+          data.u64[0] = filestat.dev;
+          data.u64[1] = filestat.ino;
+          data.u8[16] = filestat.filetype;
+          data.u64[3] = filestat.nlink;
+          data.u64[4] = filestat.size;
+          data.u64[5] = filestat.atim;
+          data.u64[6] = filestat.mtim;
+          data.u64[7] = filestat.ctim;
         }
         return ret;
       },
       // path_filestat_set_times: (fd: u32, flags: u32, path_ptr: pointer, path_len: u32, atim: u64, mtim: u64, fst_flags: u16) => errno;
       path_filestat_set_times: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const flags = Atomics.load(func_sig_view_u32, 2);
-        const path_ptr = Atomics.load(func_sig_view_u32, 3);
-        const path_len = Atomics.load(func_sig_view_u32, 4);
-        const atim = Atomics.load(func_sig_view_u64, 3);
-        const mtim = Atomics.load(func_sig_view_u64, 4);
-        const fst_flags = Atomics.load(func_sig_view_u16, 12);
+        const fd = data.u32[1];
+        const flags = data.u32[2];
+        const path_ptr = data.u32[3];
+        const path_len = data.u32[4];
+        const atim = data.u64[3];
+        const mtim = data.u64[4];
+        const fst_flags = data.u16[12];
 
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
@@ -722,13 +693,13 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
       // path_link: (old_fd: u32, old_flags: u32, old_path_ptr: pointer, old_path_len: u32, new_fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
       path_link: async () => {
-        const old_fd = Atomics.load(func_sig_view_u32, 1);
-        const old_flags = Atomics.load(func_sig_view_u32, 2);
-        const old_path_ptr = Atomics.load(func_sig_view_u32, 3);
-        const old_path_len = Atomics.load(func_sig_view_u32, 4);
-        const new_fd = Atomics.load(func_sig_view_u32, 5);
-        const new_path_ptr = Atomics.load(func_sig_view_u32, 6);
-        const new_path_len = Atomics.load(func_sig_view_u32, 7);
+        const old_fd = data.u32[1];
+        const old_flags = data.u32[2];
+        const old_path_ptr = data.u32[3];
+        const old_path_len = data.u32[4];
+        const new_fd = data.u32[5];
+        const new_path_ptr = data.u32[6];
+        const new_path_len = data.u32[7];
 
         const old_path = new Uint8Array(
           this.allocator.get_memory(old_path_ptr, old_path_len),
@@ -751,14 +722,14 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
       // path_open: (fd: u32, dirflags: u32, path_ptr: pointer, path_len: u32, oflags: u32, fs_rights_base: u64, fs_rights_inheriting: u64, fdflags: u16) => [u32, errno];
       path_open: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const dirflags = Atomics.load(func_sig_view_u32, 2);
-        const path_ptr = Atomics.load(func_sig_view_u32, 3);
-        const path_len = Atomics.load(func_sig_view_u32, 4);
-        const oflags = Atomics.load(func_sig_view_u32, 5);
-        const fs_rights_base = Atomics.load(func_sig_view_u64, 3);
-        const fs_rights_inheriting = Atomics.load(func_sig_view_u64, 4);
-        const fd_flags = Atomics.load(func_sig_view_u16, 20);
+        const fd = data.u32[1];
+        const dirflags = data.u32[2];
+        const path_ptr = data.u32[3];
+        const path_len = data.u32[4];
+        const oflags = data.u32[5];
+        const fs_rights_base = data.u64[3];
+        const fs_rights_inheriting = data.u64[4];
+        const fd_flags = data.u16[20];
 
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
@@ -776,16 +747,16 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           fd_flags,
         );
         if (opened_fd !== undefined) {
-          Atomics.store(func_sig_view_u32, 0, opened_fd);
+          data.u32[0] = opened_fd;
         }
         return error;
       },
       // path_readlink: (fd: u32, path_ptr: pointer, path_len: u32, buf_len: u32) => [buf_len: u32, data_ptr: pointer, data_len: u32, errno];
       path_readlink: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const path_ptr = Atomics.load(func_sig_view_u32, 2);
-        const path_len = Atomics.load(func_sig_view_u32, 3);
-        const buf_len = Atomics.load(func_sig_view_u32, 4);
+        const fd = data.u32[1];
+        const path_ptr = data.u32[2];
+        const path_len = data.u32[3];
+        const buf_len = data.u32[4];
 
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
@@ -795,20 +766,16 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
         const [buf, error] = this.path_readlink(fd, path_str, buf_len);
         if (buf) {
-          await this.allocator.async_write(
-            buf,
-            new Int32Array(this.fd_func_sig),
-            fd * fd_func_sig_u32_size + 1,
-          );
-          Atomics.store(func_sig_view_u32, 0, buf.byteLength);
+          await this.allocator.async_write(buf, data.i32, 1);
+          data.u32[0] = buf.byteLength;
         }
         return error;
       },
       // path_remove_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
       path_remove_directory: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const path_ptr = Atomics.load(func_sig_view_u32, 2);
-        const path_len = Atomics.load(func_sig_view_u32, 3);
+        const fd = data.u32[1];
+        const path_ptr = data.u32[2];
+        const path_len = data.u32[3];
 
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
@@ -820,12 +787,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
       // path_rename: (old_fd: u32, old_path_ptr: pointer, old_path_len: u32, new_fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
       path_rename: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const old_path_ptr = Atomics.load(func_sig_view_u32, 2);
-        const old_path_len = Atomics.load(func_sig_view_u32, 3);
-        const new_fd = Atomics.load(func_sig_view_u32, 4);
-        const new_path_ptr = Atomics.load(func_sig_view_u32, 5);
-        const new_path_len = Atomics.load(func_sig_view_u32, 6);
+        const fd = data.u32[1];
+        const old_path_ptr = data.u32[2];
+        const old_path_len = data.u32[3];
+        const new_fd = data.u32[4];
+        const new_path_ptr = data.u32[5];
+        const new_path_len = data.u32[6];
 
         const old_path = new Uint8Array(
           this.allocator.get_memory(old_path_ptr, old_path_len),
@@ -842,11 +809,11 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
       // path_symlink: (old_path_ptr: pointer, old_path_len: u32, fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
       path_symlink: async () => {
-        const old_path_ptr = Atomics.load(func_sig_view_u32, 1);
-        const old_path_len = Atomics.load(func_sig_view_u32, 2);
-        const fd = Atomics.load(func_sig_view_u32, 3);
-        const new_path_ptr = Atomics.load(func_sig_view_u32, 4);
-        const new_path_len = Atomics.load(func_sig_view_u32, 5);
+        const old_path_ptr = data.u32[1];
+        const old_path_len = data.u32[2];
+        const fd = data.u32[3];
+        const new_path_ptr = data.u32[4];
+        const new_path_len = data.u32[5];
 
         const old_path = new Uint8Array(
           this.allocator.get_memory(old_path_ptr, old_path_len),
@@ -863,9 +830,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       },
       // path_unlink_file: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
       path_unlink_file: async () => {
-        const fd = Atomics.load(func_sig_view_u32, 1);
-        const path_ptr = Atomics.load(func_sig_view_u32, 2);
-        const path_len = Atomics.load(func_sig_view_u32, 3);
+        const fd = data.u32[1];
+        const path_ptr = data.u32[2];
+        const path_len = data.u32[3];
 
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
@@ -880,32 +847,24 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // listen fd
   async listen_fd(fd_n: number, aborter: AbortSignal) {
-    const bytes_offset = fd_n * fd_func_sig_bytes;
-    const func_sig_view_i32 = new Int32Array(this.fd_func_sig, bytes_offset);
-    const func_sig_view_u32 = new Uint32Array(this.fd_func_sig, bytes_offset);
-    const errno_offset = fd_func_sig_u32_size - 1;
-
     this.get_fd_locker(fd_n).reset();
-    Atomics.store(func_sig_view_i32, errno_offset, -1);
 
-    const handlers = this.make_listen_fd_handlers(bytes_offset);
     const listener = this.get_fd_listener(fd_n);
     listener.reset();
     while (!aborter.aborted && this.fds[fd_n] !== undefined) {
-      await listener.listen(async () => {
+      await listener.listen(async (data) => {
         try {
-          const func_number = Atomics.load(func_sig_view_u32, 0);
+          const handlers = this.make_listen_fd_handlers(data);
+          const func_number = data.u32[0];
           const func_name = FuncNames[func_number] as keyof typeof FuncNames;
           const handler =
             handlers[func_name] ??
             (() => {
               throw new Error(`Unknown function number: ${func_number}`);
             });
-          const errno = await handler();
-          Atomics.store(func_sig_view_i32, errno_offset, errno);
+          data.i32[data.i32.length - 1] = await handler();
         } catch (e) {
-          const func_sig_view = new Int32Array(this.fd_func_sig);
-          Atomics.exchange(func_sig_view, 16, -1);
+          data.i32[16] = -1;
 
           throw e;
         }
