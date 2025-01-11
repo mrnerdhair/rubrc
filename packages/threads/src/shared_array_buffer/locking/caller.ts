@@ -1,11 +1,11 @@
 import { ListenerState } from "./listener";
 import { LockingBase } from "./locking_base";
-import { ViewSet } from "./view_set";
+import { type ViewSet, ViewSet64 } from "./view_set";
 import type { WaitOnGen } from "./waiter_base";
 
 export class Caller extends LockingBase {
   private readonly lock_view: Int32Array<SharedArrayBuffer>;
-  private readonly data: ViewSet<SharedArrayBuffer>;
+  private readonly data: ViewSet<SharedArrayBuffer, 64>;
 
   constructor(target: Target) {
     super();
@@ -14,7 +14,7 @@ export class Caller extends LockingBase {
       Math.ceil(
         (1 * Int32Array.BYTES_PER_ELEMENT) / BigInt64Array.BYTES_PER_ELEMENT,
       ) * BigInt64Array.BYTES_PER_ELEMENT;
-    this.data = new ViewSet(target, offset, target.byteLength - offset);
+    this.data = new ViewSet64(target, offset, target.byteLength - offset);
   }
 
   reset() {
