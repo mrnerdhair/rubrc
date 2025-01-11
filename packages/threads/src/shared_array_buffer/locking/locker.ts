@@ -7,7 +7,7 @@ export class Locker {
   protected readonly dual_locked_value: number;
 
   constructor(
-    target: LockerTarget,
+    target: Target,
     locked_value = 1,
     unlocked_value = 0,
     dual_locked_value = 2,
@@ -16,6 +16,10 @@ export class Locker {
     this.locked_value = locked_value;
     this.unlocked_value = unlocked_value;
     this.dual_locked_value = dual_locked_value;
+  }
+
+  get target() {
+    return this.view.buffer as Target;
   }
 
   reset(): void {
@@ -111,14 +115,14 @@ export class Locker {
 
     // biome-ignore lint/style/noParameterAssign:
     first = new Locker(
-      first.view.buffer as LockerTarget,
+      first.view.buffer as Target,
       first.dual_locked_value,
       first.unlocked_value,
       first.dual_locked_value,
     );
     // biome-ignore lint/style/noParameterAssign:
     second = new Locker(
-      second.view.buffer as LockerTarget,
+      second.view.buffer as Target,
       second.dual_locked_value,
       second.unlocked_value,
       second.dual_locked_value,
@@ -149,14 +153,14 @@ export class Locker {
 
     // biome-ignore lint/style/noParameterAssign:
     first = new Locker(
-      first.view.buffer as LockerTarget,
+      first.view.buffer as Target,
       first.dual_locked_value,
       first.unlocked_value,
       first.dual_locked_value,
     );
     // biome-ignore lint/style/noParameterAssign:
     second = new Locker(
-      second.view.buffer as LockerTarget,
+      second.view.buffer as Target,
       second.dual_locked_value,
       second.unlocked_value,
       second.dual_locked_value,
@@ -182,11 +186,9 @@ export class LockNotReady {
 }
 
 declare const targetBrand: unique symbol;
-export type LockerTarget = SharedArrayBuffer & { [targetBrand]: never };
-export function new_locker_target(): LockerTarget {
-  return new SharedArrayBuffer(
-    1 * Int32Array.BYTES_PER_ELEMENT,
-  ) as LockerTarget;
+export type Target = SharedArrayBuffer & { [targetBrand]: never };
+export function new_locker_target(): Target {
+  return new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT) as Target;
 }
 
 // kludgy but cross-platform replacement for setImmediate

@@ -54,14 +54,9 @@ export class WorkerBackgroundRef {
       const id = this.caller.call_and_wait_blocking(
         (data) => {
           data.i32[0] = WorkerBackgroundFuncNames.create_new_worker;
-
-          const ptr_buff = new Uint32Array(2);
-          const obj_json = JSON.stringify(post_obj);
-          const obj_buffer = new TextEncoder().encode(obj_json);
-          this.allocator.block_write(obj_buffer, ptr_buff, 0);
-
-          data.i32[1] = ptr_buff[0];
-          data.i32[2] = ptr_buff[1];
+          [data.i32[1], data.i32[2]] = this.allocator.block_write(
+            JSON.stringify(post_obj),
+          );
         },
         (data) => data.i32[0],
       );
@@ -77,14 +72,9 @@ export class WorkerBackgroundRef {
     await this.locker.lock(async () => {
       await this.caller.call_and_wait((data) => {
         data.i32[0] = WorkerBackgroundFuncNames.create_start;
-
-        const ptr_buff = new Uint32Array(2);
-        const obj_json = JSON.stringify(post_obj);
-        const obj_buffer = new TextEncoder().encode(obj_json);
-        this.allocator.block_write(obj_buffer, ptr_buff, 0);
-
-        data.i32[1] = ptr_buff[0];
-        data.i32[2] = ptr_buff[1];
+        [data.i32[1], data.i32[2]] = this.allocator.block_write(
+          JSON.stringify(post_obj),
+        );
       });
     });
     return await this.async_wait_done_or_error();
@@ -114,9 +104,9 @@ export class WorkerBackgroundRef {
         case WorkerBackgroundReturnCodes.threw: {
           const ptr = data.i32[1];
           const size = data.i32[2];
-          const error_buffer = this.allocator.get_memory(ptr, size);
-          const error_txt = new TextDecoder().decode(error_buffer);
-          const error_serialized = JSON.parse(error_txt);
+          const error_serialized = JSON.parse(
+            this.allocator.get_string(ptr, size),
+          );
           if (!Serializer.isSerializedError(error_serialized))
             throw new Error("expected SerializedError");
           throw Serializer.deserialize(error_serialized);

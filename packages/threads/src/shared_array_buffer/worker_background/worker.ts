@@ -129,13 +129,8 @@ export class WorkerBackground {
     while (true) {
       await listener.listen(async (data) => {
         const signature_input = data.i32[0];
-        const json_ptr = data.i32[1];
-        const json_len = data.i32[2];
+        const json = this.allocator.get_string(data.i32[1], data.i32[2]);
 
-        const json_buff = this.allocator.get_memory(json_ptr, json_len);
-        this.allocator.free(json_ptr, json_len);
-
-        const json = new TextDecoder().decode(json_buff);
         const obj = JSON.parse(json);
         if (!obj || typeof obj !== "object" || Array.isArray(obj))
           throw new Error("expected JSON object");
@@ -170,15 +165,9 @@ export class WorkerBackground {
             if (!(error instanceof Error)) throw error;
             const serialized_error = Serializer.serialize(error);
 
-            const ptr_len_buf = new Uint32Array(
-              2 * Uint32Array.BYTES_PER_ELEMENT,
+            const [ptr, len] = await this.allocator.async_write(
+              JSON.stringify(serialized_error),
             );
-            await this.allocator.async_write(
-              new TextEncoder().encode(JSON.stringify(serialized_error)),
-              ptr_len_buf,
-              0,
-            );
-            const [ptr, len] = ptr_len_buf;
 
             await this.done_caller.call_and_wait(async (data) => {
               data.i32[0] = WorkerBackgroundReturnCodes.threw;

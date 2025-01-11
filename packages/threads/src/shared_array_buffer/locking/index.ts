@@ -6,7 +6,7 @@ import type { Target as ListenerTarget } from "./listener";
 
 export {
   Locker,
-  type LockerTarget,
+  type Target as LockerTarget,
   new_locker_target,
   LockNotReady,
 } from "./locker";

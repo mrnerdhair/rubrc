@@ -1,4 +1,4 @@
-import { Locker, type LockerTarget } from "./locking";
+import { Locker, type LockerTarget, ViewSet } from "./locking";
 
 export type AllocatorUseArrayBufferObject = {
   share_arrays_memory: SharedArrayBuffer;
@@ -25,9 +25,7 @@ export class AllocatorUseArrayBuffer {
 
   // Even if 100MB is allocated, due to browser virtualization,
   // the memory should not actually be used until it is needed.
-  private readonly share_arrays_memory: SharedArrayBuffer;
-  private readonly share_arrays_memory_lock: LockerTarget;
-
+  private readonly data: ViewSet<SharedArrayBuffer>;
   private readonly locker: Locker;
 
   // Since postMessage makes the class an object,
@@ -39,13 +37,15 @@ export class AllocatorUseArrayBuffer {
     share_arrays_memory: SharedArrayBuffer;
     share_arrays_memory_lock: LockerTarget;
   }) {
-    this.share_arrays_memory = share_arrays_memory;
-    this.share_arrays_memory_lock = share_arrays_memory_lock;
-    const view = new Int32Array(this.share_arrays_memory);
-    Atomics.store(view, 0, 0);
-    Atomics.store(view, 1, 0);
-    Atomics.store(view, 2, 12);
-    this.locker = new Locker(this.share_arrays_memory_lock);
+    this.data = new ViewSet(
+      share_arrays_memory,
+      0,
+      share_arrays_memory.byteLength,
+    );
+    this.locker = new Locker(share_arrays_memory_lock);
+    this.data.i32[0] = 0;
+    this.data.i32[1] = 0;
+    this.data.i32[2] = 12;
   }
 
   // Since postMessage converts classes to objects,
@@ -58,55 +58,49 @@ export class AllocatorUseArrayBuffer {
 
   get_ref(): AllocatorUseArrayBufferObject {
     return {
-      share_arrays_memory: this.share_arrays_memory,
-      share_arrays_memory_lock: this.share_arrays_memory_lock,
+      share_arrays_memory: this.data.buffer,
+      share_arrays_memory_lock: this.locker.target,
     };
   }
 
   // Writes without blocking threads when acquiring locks
   async async_write(
-    data: Uint8Array | Uint32Array,
-    memory: Uint32Array | Int32Array,
-    // ptr, len
-    // Pass I32Array ret_ptr
-    ret_ptr: number,
-  ): Promise<void> {
-    await this.locker.lock(() => this.write_inner(data, memory, ret_ptr));
+    data: Uint8Array | Uint32Array | string,
+  ): Promise<[ptr: number, len: number]> {
+    return await this.locker.lock(() => this.write_inner(data));
   }
 
   // Blocking threads for writing when acquiring locks
   block_write(
-    data: Uint8Array | Uint32Array,
-    memory: Uint32Array | Int32Array,
-    // ptr, len
-    ret_ptr: number,
-  ): void {
-    this.locker.lock_blocking(() => this.write_inner(data, memory, ret_ptr));
+    data: Uint8Array | Uint32Array | string,
+  ): [ptr: number, len: number] {
+    return this.locker.lock_blocking(() => this.write_inner(data));
   }
 
   // Function to write after acquiring a lock
   private write_inner(
-    data: Uint8Array | Uint32Array,
-    memory: Uint32Array | Int32Array,
-    // ptr, len
-    ret_ptr: number,
-  ): void {
-    const view = new Int32Array(this.share_arrays_memory);
-    const view8 = new Uint8Array(this.share_arrays_memory);
-
+    data: Uint8Array | Uint32Array | string,
+  ): [ptr: number, len: number] {
     // Indicates more users using memory
-    const old_num = Atomics.add(view, 1, 1);
-    let share_arrays_memory_kept: number;
+    const old_num = Atomics.add(this.data.i32, 1, 1);
+    let ptr: number;
     if (old_num === 0) {
       // Reset because there were no users.
-      share_arrays_memory_kept = Atomics.store(view, 2, 12);
+      ptr = Atomics.store(this.data.i32, 2, 12);
     } else {
-      share_arrays_memory_kept = Atomics.load(view, 2);
+      ptr = Atomics.load(this.data.i32, 2);
     }
 
-    const memory_len = this.share_arrays_memory.byteLength;
-    const len = data.byteLength;
-    const new_memory_len = share_arrays_memory_kept + len;
+    const data8 = (() => {
+      if (typeof data === "string") {
+        return new TextEncoder().encode(data);
+      }
+      return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    })();
+
+    const memory_len = this.data.byteLength;
+    const len = data8.byteLength;
+    const new_memory_len = ptr + len;
     if (memory_len < new_memory_len) {
       // extend memory
       // support from es2024
@@ -116,32 +110,26 @@ export class AllocatorUseArrayBuffer {
       );
     }
 
-    let data8: Uint8Array;
-    if (data instanceof Uint8Array) {
-      data8 = data;
-    } else if (data instanceof Uint32Array) {
-      // data to uint8
-      const tmp = new ArrayBuffer(data.byteLength);
-      new Uint32Array(tmp).set(data);
-      data8 = new Uint8Array(tmp);
-    } else {
-      throw new Error("data8 used before assignment");
-    }
+    this.data.u8.set(data8, ptr);
+    Atomics.store(this.data.i32, 2, new_memory_len);
 
-    view8.set(new Uint8Array(data8), share_arrays_memory_kept);
-    Atomics.store(view, 2, new_memory_len);
-
-    Atomics.store(memory, ret_ptr, share_arrays_memory_kept);
-    Atomics.store(memory, ret_ptr + 1, len);
+    return [ptr, len];
   }
 
   // free allocated memory
-  free(_pointer: number, _len: number) {
-    Atomics.sub(new Int32Array(this.share_arrays_memory), 1, 1);
+  private free(_pointer: number, _len: number) {
+    Atomics.sub(this.data.i32, 1, 1);
   }
 
   // get memory from pointer and length
-  get_memory(ptr: number, len: number): ArrayBuffer {
-    return new Uint8Array(this.share_arrays_memory).slice(ptr, ptr + len).buffer;
+  get_memory(ptr: number, len: number): ViewSet {
+    const buf = this.data.u8.slice(ptr, ptr + len).buffer;
+    const out = new ViewSet(buf, 0, buf.byteLength);
+    this.free(ptr, len);
+    return out;
+  }
+
+  get_string(ptr: number, len: number): string {
+    return new TextDecoder().decode(this.get_memory(ptr, len).u8);
   }
 }

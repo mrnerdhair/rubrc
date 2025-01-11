@@ -17,6 +17,10 @@ export class Caller extends LockingBase {
     this.data = new ViewSet(target, offset, target.byteLength - offset);
   }
 
+  get target() {
+    return this.lock_view.buffer as Target;
+  }
+
   reset() {
     const old = Atomics.exchange(this.lock_view, 0, ListenerState.UNLOCKED);
     if (old !== ListenerState.UNLOCKED) {

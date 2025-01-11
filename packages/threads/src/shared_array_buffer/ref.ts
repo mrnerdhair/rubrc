@@ -83,7 +83,7 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
       this.caller.call_and_wait_blocking((data) => {
         data.i32[0] = WASIFarmParkFuncNames.set_fds_map;
         data.i32[1] = this.id;
-        this.allocator.block_write(fds_array, data.i32, 2);
+        [data.u32[2], data.u32[3]] = this.allocator.block_write(fds_array);
       });
     });
   }
@@ -94,7 +94,8 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
       await this.caller.call_and_wait(async (data) => {
         data.i32[0] = WASIFarmParkFuncNames.set_fds_map;
         data.i32[1] = this.id;
-        await this.allocator.async_write(fds_array, data.i32, 2);
+        [data.u32[2], data.u32[3]] =
+          await this.allocator.async_write(fds_array);
       });
     });
   }
@@ -365,35 +366,29 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
     iovs: Uint32Array,
     offset: bigint,
   ): [[number, Uint8Array], typeof wasi.ERRNO_SUCCESS] | [undefined, number] {
-    const { error, nread, buf_ptr, buf_len } = this.call_fd(
+    return this.call_fd(
       fd,
       (data) => {
         data.u32[0] = FuncNames.fd_pread;
         data.u32[1] = fd;
-        this.allocator.block_write(iovs, data.i32, 2);
+        [data.u32[2], data.u32[3]] = this.allocator.block_write(iovs);
         data.u64[2] = offset;
       },
       (data, error) => {
+        if (error !== wasi.ERRNO_SUCCESS) {
+          return [undefined, error];
+        }
+
         const nread = data.u32[0];
-        const buf_ptr = data.u32[1];
-        const buf_len = data.u32[2];
-        return { error, nread, buf_ptr, buf_len };
+        const buf = this.allocator.get_memory(data.u32[1], data.u32[2]).u8;
+
+        if (nread !== buf.byteLength) {
+          throw new Error("pread nread !== buf_len");
+        }
+
+        return [[nread, buf], error];
       },
     );
-
-    if (error !== wasi.ERRNO_SUCCESS) {
-      this.allocator.free(buf_ptr, buf_len);
-      return [undefined, error];
-    }
-
-    const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
-    this.allocator.free(buf_ptr, buf_len);
-
-    if (nread !== buf_len) {
-      throw new Error("pread nread !== buf_len");
-    }
-
-    return [[nread, buf], error];
   }
 
   fd_prestat_get(
@@ -432,19 +427,11 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
         data.u32[2] = path_len;
       },
       (data, error) => {
-        const ret_path_ptr = data.u32[0];
-        const ret_path_len = data.u32[1];
-
         if (error !== wasi.ERRNO_SUCCESS && error !== wasi.ERRNO_NAMETOOLONG) {
-          this.allocator.free(ret_path_ptr, ret_path_len);
           return [undefined, error];
         }
 
-        const ret_path = new Uint8Array(
-          this.allocator.get_memory(ret_path_ptr, ret_path_len),
-        );
-        this.allocator.free(ret_path_ptr, ret_path_len);
-
+        const ret_path = this.allocator.get_memory(data.u32[0], data.u32[1]).u8;
         return [ret_path, error];
       },
     );
@@ -460,7 +447,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       (data) => {
         data.u32[0] = FuncNames.fd_pwrite;
         data.u32[1] = fd;
-        this.allocator.block_write(write_data, data.i32, 2);
+        [data.u32[2], data.u32[3]] = this.allocator.block_write(write_data);
         data.u64[2] = offset;
       },
       (data, error) => {
@@ -484,27 +471,17 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       (data) => {
         data.u32[0] = FuncNames.fd_read;
         data.u32[1] = fd;
-
-        this.allocator.block_write(iovs, data.i32, 2);
+        [data.u32[2], data.u32[3]] = this.allocator.block_write(iovs);
       },
       (data, error) => {
-        const nread = data.u32[0];
-        const buf_ptr = data.u32[1];
-        const buf_len = data.u32[2];
-
         if (error !== wasi.ERRNO_SUCCESS) {
-          this.allocator.free(buf_ptr, buf_len);
           return [undefined, error];
         }
 
-        // fd_read: ref:  14 30 14
-        // animals.ts:325 fd_read: nread 14 Hello, world!
-        // fd_read: ref:  21 52 32
-        // ref.ts:655 fd_read: ref:  21
-        const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
-        this.allocator.free(buf_ptr, buf_len);
+        const nread = data.u32[0];
+        const buf = this.allocator.get_memory(data.u32[1], data.u32[2]).u8;
 
-        if (nread !== buf_len) {
+        if (nread !== buf.byteLength) {
           throw new Error("read nread !== buf_len");
         }
 
@@ -527,17 +504,12 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
         data.u64[2] = cookie;
       },
       (data, error) => {
-        const buf_ptr = data.u32[0];
-        const buf_len = data.u32[1];
-        const buf_used = data.u32[2];
-
         if (error !== wasi.ERRNO_SUCCESS) {
-          this.allocator.free(buf_ptr, buf_len);
           return [undefined, error];
         }
 
-        const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
-        this.allocator.free(buf_ptr, buf_len);
+        const buf = this.allocator.get_memory(data.u32[0], data.u32[1]).u8;
+        const buf_used = data.u32[2];
 
         return [[buf, buf_used], error];
       },
@@ -617,7 +589,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       (data) => {
         data.u32[0] = FuncNames.fd_write;
         data.u32[1] = fd;
-        this.allocator.block_write(write_data, data.i32, 2);
+        [data.u32[2], data.u32[3]] = this.allocator.block_write(write_data);
       },
       (data, error) => {
         if (error !== wasi.ERRNO_SUCCESS) {
@@ -635,7 +607,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
     return this.call_fd(fd, (data) => {
       data.u32[0] = FuncNames.path_create_directory;
       data.u32[1] = fd;
-      this.allocator.block_write(path, data.i32, 2);
+      [data.u32[2], data.u32[3]] = this.allocator.block_write(path);
     });
   }
 
@@ -650,7 +622,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
         data.u32[0] = FuncNames.path_filestat_get;
         data.u32[1] = fd;
         data.u32[2] = flags;
-        this.allocator.block_write(path, data.i32, 3);
+        [data.u32[3], data.u32[4]] = this.allocator.block_write(path);
       },
       (data, error) => {
         if (error !== wasi.ERRNO_SUCCESS) {
@@ -685,7 +657,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       data.u32[0] = FuncNames.path_filestat_set_times;
       data.u32[1] = fd;
       data.u32[2] = flags;
-      this.allocator.block_write(path, data.i32, 3);
+      [data.u32[3], data.u32[4]] = this.allocator.block_write(path);
       data.u64[3] = st_atim;
       data.u64[4] = st_mtim;
       data.u16[12] = fst_flags;
@@ -703,9 +675,9 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       data.u32[0] = FuncNames.path_link;
       data.u32[1] = old_fd;
       data.u32[2] = old_flags;
-      this.allocator.block_write(old_path, data.i32, 3);
+      [data.u32[3], data.u32[4]] = this.allocator.block_write(old_path);
       data.u32[5] = new_fd;
-      this.allocator.block_write(new_path, data.i32, 6);
+      [data.u32[6], data.u32[7]] = this.allocator.block_write(new_path);
     });
   }
 
@@ -724,19 +696,19 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
         data.u32[0] = FuncNames.path_open;
         data.u32[1] = fd;
         data.u32[2] = dirflags;
-        this.allocator.block_write(path, data.i32, 3);
+        [data.u32[3], data.u32[4]] = this.allocator.block_write(path);
         data.u32[5] = oflags;
         data.u64[3] = fs_rights_base;
         data.u64[4] = fs_rights_inheriting;
         data.u16[20] = fs_flags;
       },
       (data, error) => {
-        if (error === wasi.ERRNO_SUCCESS) {
-          const new_fd = data.u32[0];
-          return [new_fd, error];
+        if (error !== wasi.ERRNO_SUCCESS) {
+          return [undefined, error];
         }
 
-        return [undefined, error];
+        const new_fd = data.u32[0];
+        return [new_fd, error];
       },
     );
   }
@@ -753,24 +725,18 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       (data) => {
         data.u32[0] = FuncNames.path_readlink;
         data.u32[1] = fd;
-        this.allocator.block_write(path, data.i32, 2);
+        [data.u32[2], data.u32[3]] = this.allocator.block_write(path);
         data.u32[4] = buf_len;
       },
       (data, error) => {
-        const nread = data.u32[0];
-        const ret_path_ptr = data.u32[1];
-        const ret_path_len = data.u32[2];
-
         if (error !== wasi.ERRNO_SUCCESS && error !== wasi.ERRNO_NAMETOOLONG) {
-          this.allocator.free(ret_path_ptr, ret_path_len);
           return [undefined, error];
         }
 
-        const ret_path = new Uint8Array(
-          this.allocator.get_memory(ret_path_ptr, ret_path_len),
-        );
-        const ret_path_slice = ret_path.slice(0, nread);
+        const nread = data.u32[0];
+        const ret_path = this.allocator.get_memory(data.u32[1], data.u32[2]).u8;
 
+        const ret_path_slice = ret_path.slice(0, nread);
         return [ret_path_slice, error];
       },
     );
@@ -780,7 +746,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
     return this.call_fd(fd, (data) => {
       data.u32[0] = FuncNames.path_remove_directory;
       data.u32[1] = fd;
-      this.allocator.block_write(path, data.i32, 2);
+      [data.u32[2], data.u32[3]] = this.allocator.block_write(path);
     });
   }
 
@@ -793,18 +759,18 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
     return this.call_double_fd(old_fd, new_fd, (data) => {
       data.u32[0] = FuncNames.path_rename;
       data.u32[1] = old_fd;
-      this.allocator.block_write(old_path, data.i32, 2);
+      [data.u32[2], data.u32[3]] = this.allocator.block_write(old_path);
       data.u32[4] = new_fd;
-      this.allocator.block_write(new_path, data.i32, 5);
+      [data.u32[5], data.u32[6]] = this.allocator.block_write(new_path);
     });
   }
 
   path_symlink(old_path: Uint8Array, fd: number, new_path: Uint8Array): number {
     return this.call_fd(fd, (data) => {
       data.u32[0] = FuncNames.path_symlink;
-      this.allocator.block_write(old_path, data.i32, 1);
+      [data.u32[1], data.u32[2]] = this.allocator.block_write(old_path);
       data.u32[3] = fd;
-      this.allocator.block_write(new_path, data.i32, 4);
+      [data.u32[4], data.u32[5]] = this.allocator.block_write(new_path);
     });
   }
 
@@ -812,7 +778,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
     return this.call_fd(fd, (data) => {
       data.u32[0] = FuncNames.path_unlink_file;
       data.u32[1] = fd;
-      this.allocator.block_write(path, data.i32, 2);
+      [data.u32[2], data.u32[3]] = this.allocator.block_write(path);
     });
   }
 }

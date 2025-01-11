@@ -327,8 +327,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
             const wasi_farm_ref_id = data.i32[1];
             const ptr = data.i32[2];
             const len = data.i32[3];
-            const fd_buf = new Uint32Array(this.allocator.get_memory(ptr, len));
-            this.allocator.free(ptr, len);
+            const fd_buf = this.allocator.get_memory(ptr, len).u32;
             this.set_fds_map(wasi_farm_ref_id, fd_buf);
             break;
           }
@@ -456,11 +455,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const iovs_ptr_len = data.u32[3];
         const offset = data.u64[2];
 
-        const iovs = new Uint32Array(
-          this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
-        );
-        this.allocator.free(iovs_ptr, iovs_ptr_len);
-
+        const iovs = this.allocator.get_memory(iovs_ptr, iovs_ptr_len).u32;
         const iovecs = new Array<wasi.Iovec>();
         for (let i = 0; i < iovs_ptr_len; i += 8) {
           const iovec = new wasi.Iovec();
@@ -473,7 +468,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         if (nread_and_buffer !== undefined) {
           const [nread, buffer8] = nread_and_buffer;
           data.u32[0] = nread;
-          await this.allocator.async_write(buffer8, data.i32, 1);
+          [data.u32[1], data.u32[2]] =
+            await this.allocator.async_write(buffer8);
         }
         return error;
       },
@@ -498,7 +494,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
           prestat_dir_name &&
           (ret === wasi.ERRNO_SUCCESS || ret === wasi.ERRNO_NAMETOOLONG)
         ) {
-          await this.allocator.async_write(prestat_dir_name, data.i32, 0);
+          [data.u32[0], data.u32[1]] =
+            await this.allocator.async_write(prestat_dir_name);
         }
         return ret;
       },
@@ -509,10 +506,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const write_data_len = data.u32[3];
         const offset = data.u64[2];
 
-        const write_data = new Uint8Array(
-          this.allocator.get_memory(write_data_ptr, write_data_len),
-        );
-        this.allocator.free(write_data_ptr, write_data_len);
+        const write_data = this.allocator.get_memory(
+          write_data_ptr,
+          write_data_len,
+        ).u8;
 
         const [nwritten, error] = this.fd_pwrite(fd, write_data, offset);
         if (nwritten !== undefined) {
@@ -525,10 +522,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const fd = data.u32[1];
         const iovs_ptr = data.u32[2];
         const iovs_ptr_len = data.u32[3];
-        const iovs = new Uint32Array(
-          this.allocator.get_memory(iovs_ptr, iovs_ptr_len),
-        );
-        this.allocator.free(iovs_ptr, iovs_ptr_len);
+        const iovs = this.allocator.get_memory(iovs_ptr, iovs_ptr_len).u32;
 
         const iovecs = new Array<wasi.Iovec>();
         for (let i = 0; i < iovs_ptr_len; i += 8) {
@@ -543,7 +537,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         if (nread_and_buffer !== undefined) {
           const [nread, buffer8] = nread_and_buffer;
           data.u32[0] = nread;
-          await this.allocator.async_write(buffer8, data.i32, 1);
+          [data.u32[1], data.u32[2]] =
+            await this.allocator.async_write(buffer8);
         }
         return error;
       },
@@ -560,7 +555,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         );
         if (array_and_buf_used) {
           const [array, buf_used] = array_and_buf_used;
-          await this.allocator.async_write(array, data.i32, 0);
+          [data.u32[0], data.u32[1]] = await this.allocator.async_write(array);
           data.u32[2] = buf_used;
         }
         return error;
@@ -599,10 +594,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const write_data_ptr = data.u32[2];
         const write_data_len = data.u32[3];
 
-        const write_data = new Uint8Array(
-          this.allocator.get_memory(write_data_ptr, write_data_len),
-        );
-        this.allocator.free(write_data_ptr, write_data_len);
+        const write_data = this.allocator.get_memory(
+          write_data_ptr,
+          write_data_len,
+        ).u8;
 
         const [nwritten, error] = await this.fd_write(fd, write_data);
         if (nwritten !== undefined) {
@@ -613,33 +608,17 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       // path_create_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
       path_create_directory: async () => {
         const fd = data.u32[1];
-        const path_ptr = data.u32[2];
-        const path_len = data.u32[3];
+        const path = this.allocator.get_string(data.u32[2], data.u32[3]);
 
-        const path = new Uint8Array(
-          this.allocator.get_memory(path_ptr, path_len),
-        );
-        this.allocator.free(path_ptr, path_len);
-
-        const path_str = new TextDecoder().decode(path);
-
-        return this.path_create_directory(fd, path_str);
+        return this.path_create_directory(fd, path);
       },
       // path_filestat_get: (fd: u32, flags: u32, path_ptr: pointer, path_len: u32) => [wasi.Filestat(u32 * 16), errno];
       path_filestat_get: async () => {
         const fd = data.u32[1];
         const flags = data.u32[2];
-        const path_ptr = data.u32[3];
-        const path_len = data.u32[4];
+        const path = this.allocator.get_string(data.u32[3], data.u32[4]);
 
-        const path = new Uint8Array(
-          this.allocator.get_memory(path_ptr, path_len),
-        );
-        this.allocator.free(path_ptr, path_len);
-
-        const path_str = new TextDecoder().decode(path);
-
-        const [filestat, ret] = this.path_filestat_get(fd, flags, path_str);
+        const [filestat, ret] = this.path_filestat_get(fd, flags, path);
         if (filestat) {
           data.u64[0] = filestat.dev;
           data.u64[1] = filestat.ino;
@@ -656,23 +635,15 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       path_filestat_set_times: async () => {
         const fd = data.u32[1];
         const flags = data.u32[2];
-        const path_ptr = data.u32[3];
-        const path_len = data.u32[4];
+        const path = this.allocator.get_string(data.u32[3], data.u32[4]);
         const atim = data.u64[3];
         const mtim = data.u64[4];
         const fst_flags = data.u16[12];
 
-        const path = new Uint8Array(
-          this.allocator.get_memory(path_ptr, path_len),
-        );
-        this.allocator.free(path_ptr, path_len);
-
-        const path_str = new TextDecoder().decode(path);
-
         return this.path_filestat_set_times(
           fd,
           flags,
-          path_str,
+          path,
           atim,
           mtim,
           fst_flags,
@@ -682,55 +653,26 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       path_link: async () => {
         const old_fd = data.u32[1];
         const old_flags = data.u32[2];
-        const old_path_ptr = data.u32[3];
-        const old_path_len = data.u32[4];
+        const old_path = this.allocator.get_string(data.u32[3], data.u32[4]);
         const new_fd = data.u32[5];
-        const new_path_ptr = data.u32[6];
-        const new_path_len = data.u32[7];
+        const new_path = this.allocator.get_string(data.u32[6], data.u32[7]);
 
-        const old_path = new Uint8Array(
-          this.allocator.get_memory(old_path_ptr, old_path_len),
-        );
-        this.allocator.free(old_path_ptr, old_path_len);
-
-        const new_path = new Uint8Array(
-          this.allocator.get_memory(new_path_ptr, new_path_len),
-        );
-        this.allocator.free(new_path_ptr, new_path_len);
-
-        const old_path_str = new TextDecoder().decode(old_path);
-        const new_path_str = new TextDecoder().decode(new_path);
-
-        return this.path_link(
-          old_fd,
-          old_flags,
-          old_path_str,
-          new_fd,
-          new_path_str,
-        );
+        return this.path_link(old_fd, old_flags, old_path, new_fd, new_path);
       },
       // path_open: (fd: u32, dirflags: u32, path_ptr: pointer, path_len: u32, oflags: u32, fs_rights_base: u64, fs_rights_inheriting: u64, fdflags: u16) => [u32, errno];
       path_open: async () => {
         const fd = data.u32[1];
         const dirflags = data.u32[2];
-        const path_ptr = data.u32[3];
-        const path_len = data.u32[4];
+        const path = this.allocator.get_string(data.u32[3], data.u32[4]);
         const oflags = data.u32[5];
         const fs_rights_base = data.u64[3];
         const fs_rights_inheriting = data.u64[4];
         const fd_flags = data.u16[20];
 
-        const path = new Uint8Array(
-          this.allocator.get_memory(path_ptr, path_len),
-        );
-        this.allocator.free(path_ptr, path_len);
-
-        const path_str = new TextDecoder().decode(path);
-
         const [opened_fd, error] = await this.path_open(
           fd,
           dirflags,
-          path_str,
+          path,
           oflags,
           fs_rights_base,
           fs_rights_inheriting,
@@ -744,100 +686,46 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       // path_readlink: (fd: u32, path_ptr: pointer, path_len: u32, buf_len: u32) => [buf_len: u32, data_ptr: pointer, data_len: u32, errno];
       path_readlink: async () => {
         const fd = data.u32[1];
-        const path_ptr = data.u32[2];
-        const path_len = data.u32[3];
+        const path = this.allocator.get_string(data.u32[2], data.u32[3]);
         const buf_len = data.u32[4];
 
-        const path = new Uint8Array(
-          this.allocator.get_memory(path_ptr, path_len),
-        );
-        this.allocator.free(path_ptr, path_len);
-
-        const path_str = new TextDecoder().decode(path);
-
-        const [buf, error] = this.path_readlink(fd, path_str, buf_len);
+        const [buf, error] = this.path_readlink(fd, path, buf_len);
         if (buf) {
-          await this.allocator.async_write(buf, data.i32, 1);
           data.u32[0] = buf.byteLength;
+          [data.u32[1], data.u32[2]] = await this.allocator.async_write(buf);
         }
         return error;
       },
       // path_remove_directory: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
       path_remove_directory: async () => {
         const fd = data.u32[1];
-        const path_ptr = data.u32[2];
-        const path_len = data.u32[3];
+        const path = this.allocator.get_string(data.u32[2], data.u32[3]);
 
-        const path = new Uint8Array(
-          this.allocator.get_memory(path_ptr, path_len),
-        );
-        this.allocator.free(path_ptr, path_len);
-
-        const path_str = new TextDecoder().decode(path);
-
-        return this.path_remove_directory(fd, path_str);
+        return this.path_remove_directory(fd, path);
       },
       // path_rename: (old_fd: u32, old_path_ptr: pointer, old_path_len: u32, new_fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
       path_rename: async () => {
         const fd = data.u32[1];
-        const old_path_ptr = data.u32[2];
-        const old_path_len = data.u32[3];
+        const old_path = this.allocator.get_string(data.u32[2], data.u32[3]);
         const new_fd = data.u32[4];
-        const new_path_ptr = data.u32[5];
-        const new_path_len = data.u32[6];
+        const new_path = this.allocator.get_string(data.u32[5], data.u32[6]);
 
-        const old_path = new Uint8Array(
-          this.allocator.get_memory(old_path_ptr, old_path_len),
-        );
-        this.allocator.free(old_path_ptr, old_path_len);
-
-        const new_path = new Uint8Array(
-          this.allocator.get_memory(new_path_ptr, new_path_len),
-        );
-        this.allocator.free(new_path_ptr, new_path_len);
-
-        const old_path_str = new TextDecoder().decode(old_path);
-        const new_path_str = new TextDecoder().decode(new_path);
-
-        return this.path_rename(fd, old_path_str, new_fd, new_path_str);
+        return this.path_rename(fd, old_path, new_fd, new_path);
       },
       // path_symlink: (old_path_ptr: pointer, old_path_len: u32, fd: u32, new_path_ptr: pointer, new_path_len: u32) => errno;
       path_symlink: async () => {
-        const old_path_ptr = data.u32[1];
-        const old_path_len = data.u32[2];
+        const old_path = this.allocator.get_string(data.u32[1], data.u32[2]);
         const fd = data.u32[3];
-        const new_path_ptr = data.u32[4];
-        const new_path_len = data.u32[5];
+        const new_path = this.allocator.get_string(data.u32[4], data.u32[5]);
 
-        const old_path = new Uint8Array(
-          this.allocator.get_memory(old_path_ptr, old_path_len),
-        );
-        this.allocator.free(old_path_ptr, old_path_len);
-
-        const new_path = new Uint8Array(
-          this.allocator.get_memory(new_path_ptr, new_path_len),
-        );
-        this.allocator.free(new_path_ptr, new_path_len);
-
-        const old_path_str = new TextDecoder().decode(old_path);
-        const new_path_str = new TextDecoder().decode(new_path);
-
-        return this.path_symlink(old_path_str, fd, new_path_str);
+        return this.path_symlink(old_path, fd, new_path);
       },
       // path_unlink_file: (fd: u32, path_ptr: pointer, path_len: u32) => errno;
       path_unlink_file: async () => {
         const fd = data.u32[1];
-        const path_ptr = data.u32[2];
-        const path_len = data.u32[3];
+        const path = this.allocator.get_string(data.u32[2], data.u32[3]);
 
-        const path = new Uint8Array(
-          this.allocator.get_memory(path_ptr, path_len),
-        );
-        this.allocator.free(path_ptr, path_len);
-
-        const path_str = new TextDecoder().decode(path);
-
-        return this.path_unlink_file(fd, path_str);
+        return this.path_unlink_file(fd, path);
       },
     } as const;
   }
