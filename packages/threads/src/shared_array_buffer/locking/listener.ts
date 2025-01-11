@@ -8,8 +8,9 @@ export enum ListenerState {
   LISTENER_LOCKED = 1,
   CALLER_WORKING = 2,
   CALL_READY = 3,
-  LISTENER_WORKING = 5,
-  CALL_FINISHED = 6,
+  LISTENER_WORKING = 4,
+  LISTENER_FINISHED = 5,
+  CALLER_FINISHING = 6,
 }
 
 export class Listener extends LockingBase {
@@ -55,7 +56,7 @@ export class Listener extends LockingBase {
           this.lock_view,
           0,
           ListenerState.LISTENER_WORKING,
-          ListenerState.CALL_FINISHED,
+          ListenerState.LISTENER_FINISHED,
           true,
         );
       }
