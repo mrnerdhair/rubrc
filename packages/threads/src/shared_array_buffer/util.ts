@@ -34,6 +34,7 @@ export enum FuncNames {
 
 export enum WASIFarmParkFuncNames {
   set_fds_map = 0,
+  get_new_id = 1,
 }
 
 export enum WorkerBackgroundFuncNames {
