@@ -387,7 +387,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
     }
 
     const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
-
     this.allocator.free(buf_ptr, buf_len);
 
     if (nread !== buf_len) {
@@ -538,7 +537,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
         }
 
         const buf = new Uint8Array(this.allocator.get_memory(buf_ptr, buf_len));
-
         this.allocator.free(buf_ptr, buf_len);
 
         return [[buf, buf_used], error];

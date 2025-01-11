@@ -142,23 +142,6 @@ export class AllocatorUseArrayBuffer {
 
   // get memory from pointer and length
   get_memory(ptr: number, len: number): ArrayBuffer {
-    const data = new ArrayBuffer(len);
-    const view = new Uint8Array(data);
-    view.set(new Uint8Array(this.share_arrays_memory).slice(ptr, ptr + len));
-    return data;
-  }
-
-  // Write again to the memory before releasing
-  // Not used because the situation for using it does not exist.
-  use_defined_memory(ptr: number, len: number, data: ArrayBufferLike) {
-    const memory = new Uint8Array(this.share_arrays_memory);
-    memory.set(new Uint8Array(data).slice(0, len), ptr);
-  }
-
-  get_object(): AllocatorUseArrayBufferObject {
-    return {
-      share_arrays_memory: this.share_arrays_memory,
-      share_arrays_memory_lock: this.share_arrays_memory_lock,
-    };
+    return new Uint8Array(this.share_arrays_memory).slice(ptr, ptr + len).buffer;
   }
 }

@@ -116,7 +116,7 @@ export class WorkerBackground {
 
   ref(): WorkerBackgroundRefObject {
     return {
-      allocator: this.allocator.get_object(),
+      allocator: this.allocator.get_ref(),
       locks: this.locks,
     } as WorkerBackgroundRefObject;
   }
@@ -131,8 +131,10 @@ export class WorkerBackground {
         const signature_input = data.i32[0];
         const json_ptr = data.i32[1];
         const json_len = data.i32[2];
+
         const json_buff = this.allocator.get_memory(json_ptr, json_len);
         this.allocator.free(json_ptr, json_len);
+
         const json = new TextDecoder().decode(json_buff);
         const obj = JSON.parse(json);
         if (!obj || typeof obj !== "object" || Array.isArray(obj))

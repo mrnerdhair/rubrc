@@ -328,11 +328,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
             const ptr = data.i32[2];
             const len = data.i32[3];
             const fd_buf = new Uint32Array(this.allocator.get_memory(ptr, len));
-            try {
-              this.set_fds_map(wasi_farm_ref_id, fd_buf);
-            } finally {
-              this.allocator.free(ptr, len);
-            }
+            this.allocator.free(ptr, len);
+            this.set_fds_map(wasi_farm_ref_id, fd_buf);
             break;
           }
           case WASIFarmParkFuncNames.get_new_id: {
@@ -622,8 +619,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
         );
-        const path_str = new TextDecoder().decode(path);
         this.allocator.free(path_ptr, path_len);
+
+        const path_str = new TextDecoder().decode(path);
 
         return this.path_create_directory(fd, path_str);
       },
@@ -637,8 +635,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
         );
-        const path_str = new TextDecoder().decode(path);
         this.allocator.free(path_ptr, path_len);
+
+        const path_str = new TextDecoder().decode(path);
 
         const [filestat, ret] = this.path_filestat_get(fd, flags, path_str);
         if (filestat) {
@@ -666,8 +665,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
         );
-        const path_str = new TextDecoder().decode(path);
         this.allocator.free(path_ptr, path_len);
+
+        const path_str = new TextDecoder().decode(path);
 
         return this.path_filestat_set_times(
           fd,
@@ -691,13 +691,15 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const old_path = new Uint8Array(
           this.allocator.get_memory(old_path_ptr, old_path_len),
         );
-        const old_path_str = new TextDecoder().decode(old_path);
         this.allocator.free(old_path_ptr, old_path_len);
+
         const new_path = new Uint8Array(
           this.allocator.get_memory(new_path_ptr, new_path_len),
         );
-        const new_path_str = new TextDecoder().decode(new_path);
         this.allocator.free(new_path_ptr, new_path_len);
+
+        const old_path_str = new TextDecoder().decode(old_path);
+        const new_path_str = new TextDecoder().decode(new_path);
 
         return this.path_link(
           old_fd,
@@ -721,8 +723,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
         );
-        const path_str = new TextDecoder().decode(path);
         this.allocator.free(path_ptr, path_len);
+
+        const path_str = new TextDecoder().decode(path);
 
         const [opened_fd, error] = await this.path_open(
           fd,
@@ -748,8 +751,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
         );
-        const path_str = new TextDecoder().decode(path);
         this.allocator.free(path_ptr, path_len);
+
+        const path_str = new TextDecoder().decode(path);
 
         const [buf, error] = this.path_readlink(fd, path_str, buf_len);
         if (buf) {
@@ -767,8 +771,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
         );
-        const path_str = new TextDecoder().decode(path);
         this.allocator.free(path_ptr, path_len);
+
+        const path_str = new TextDecoder().decode(path);
 
         return this.path_remove_directory(fd, path_str);
       },
@@ -784,13 +789,15 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const old_path = new Uint8Array(
           this.allocator.get_memory(old_path_ptr, old_path_len),
         );
-        const old_path_str = new TextDecoder().decode(old_path);
         this.allocator.free(old_path_ptr, old_path_len);
+
         const new_path = new Uint8Array(
           this.allocator.get_memory(new_path_ptr, new_path_len),
         );
-        const new_path_str = new TextDecoder().decode(new_path);
         this.allocator.free(new_path_ptr, new_path_len);
+
+        const old_path_str = new TextDecoder().decode(old_path);
+        const new_path_str = new TextDecoder().decode(new_path);
 
         return this.path_rename(fd, old_path_str, new_fd, new_path_str);
       },
@@ -805,13 +812,15 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const old_path = new Uint8Array(
           this.allocator.get_memory(old_path_ptr, old_path_len),
         );
-        const old_path_str = new TextDecoder().decode(old_path);
         this.allocator.free(old_path_ptr, old_path_len);
+
         const new_path = new Uint8Array(
           this.allocator.get_memory(new_path_ptr, new_path_len),
         );
-        const new_path_str = new TextDecoder().decode(new_path);
         this.allocator.free(new_path_ptr, new_path_len);
+
+        const old_path_str = new TextDecoder().decode(old_path);
+        const new_path_str = new TextDecoder().decode(new_path);
 
         return this.path_symlink(old_path_str, fd, new_path_str);
       },
@@ -824,8 +833,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
         const path = new Uint8Array(
           this.allocator.get_memory(path_ptr, path_len),
         );
-        const path_str = new TextDecoder().decode(path);
         this.allocator.free(path_ptr, path_len);
+
+        const path_str = new TextDecoder().decode(path);
 
         return this.path_unlink_file(fd, path_str);
       },
