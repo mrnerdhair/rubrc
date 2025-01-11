@@ -13,7 +13,7 @@ export {
 export { Caller, type Target as CallerTarget } from "./caller";
 export { Listener, type Target as ListenerTarget } from "./listener";
 export { PromiseLocker } from "./promise_locker";
-export { ViewSet } from "./view_set"
+export { ViewSet } from "./view_set";
 
 export function new_caller_listener_target(
   size = 0,
