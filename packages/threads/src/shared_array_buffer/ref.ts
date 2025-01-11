@@ -34,9 +34,9 @@ export type WASIFarmRefUseArrayBufferObject = {
 } & WASIFarmRefObject;
 
 // Transmittable objects to communicate with Park
-export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
+abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
-  private readonly allocator: AllocatorUseArrayBuffer;
+  protected readonly allocator: AllocatorUseArrayBuffer;
   private readonly lock_fds: Array<{
     lock: LockerTarget;
     call: CallerTarget;
@@ -51,7 +51,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   // byte 1: fds_len
   // byte 2: all wasi_farm_ref num
   private readonly fds_len_and_num: SharedArrayBuffer;
-  private readonly fd_func_sig: SharedArrayBuffer;
+  protected readonly fd_func_sig: SharedArrayBuffer;
 
   private readonly locker: Locker;
   private readonly caller: Caller;
@@ -90,21 +90,6 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
   get_fds_len(): number {
     const view = new Int32Array(this.fds_len_and_num);
     return Atomics.load(view, 0);
-  }
-
-  static async init(sl: WASIFarmRefUseArrayBufferObject): Promise<WASIFarmRef> {
-    return new WASIFarmRefUseArrayBuffer(
-      await AllocatorUseArrayBuffer.init(sl.allocator),
-      sl.lock_fds,
-      sl.fds_len_and_num,
-      sl.fd_func_sig,
-      sl.base_func_util_locks,
-      await FdCloseSenderUseArrayBuffer.init(sl.fd_close_receiver),
-      sl.stdin,
-      sl.stdout,
-      sl.stderr,
-      sl.default_fds,
-    );
   }
 
   // set park_fds_map
@@ -161,7 +146,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     });
   }
 
-  private call_fd_func(fd: number): number {
+  protected call_fd_func(fd: number): number {
     this.get_fd_caller(fd).call_and_wait_blocking();
     return this.get_error(fd);
   }
@@ -173,6 +158,57 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRef {
     );
     const errno_offset = fd_func_sig_u32_size - 1;
     return Atomics.load(func_sig_view_i32, errno_offset);
+  }
+}
+
+export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
+  protected constructor(
+    allocator: AllocatorUseArrayBuffer,
+    lock_fds: Array<{
+      lock: LockerTarget;
+      call: CallerTarget;
+    }>,
+    fds_len_and_num: SharedArrayBuffer,
+    fd_func_sig: SharedArrayBuffer,
+    base_func_util_locks: {
+      lock: LockerTarget;
+      call: CallerTarget;
+    },
+    fd_close_receiver: FdCloseSender,
+    stdin: number | undefined,
+    stdout: number | undefined,
+    stderr: number | undefined,
+    default_fds: Array<number>,
+  ) {
+    super(
+      allocator,
+      lock_fds,
+      fds_len_and_num,
+      fd_func_sig,
+      base_func_util_locks,
+      fd_close_receiver,
+      stdin,
+      stdout,
+      stderr,
+      default_fds,
+    );
+  }
+
+  static async init(
+    sl: WASIFarmRefUseArrayBufferObject,
+  ): Promise<WASIFarmRefUseArrayBuffer> {
+    return new WASIFarmRefUseArrayBuffer(
+      await AllocatorUseArrayBuffer.init(sl.allocator),
+      sl.lock_fds,
+      sl.fds_len_and_num,
+      sl.fd_func_sig,
+      sl.base_func_util_locks,
+      await FdCloseSenderUseArrayBuffer.init(sl.fd_close_receiver),
+      sl.stdin,
+      sl.stdout,
+      sl.stderr,
+      sl.default_fds,
+    );
   }
 
   fd_advise(fd: number): number {
