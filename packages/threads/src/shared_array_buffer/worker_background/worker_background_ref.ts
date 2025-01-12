@@ -49,7 +49,7 @@ export class WorkerBackgroundRef {
     args: Array<string>;
     env: Array<string>;
     fd_map: Array<[number, number] | undefined>;
-  }): WorkerRef {
+  }): number {
     return this.locker.lock_blocking(() => {
       const id = this.caller.call_and_wait_blocking(
         (data) => {
@@ -60,7 +60,7 @@ export class WorkerBackgroundRef {
         },
         (data) => data.i32[0],
       );
-      return new WorkerRef(id);
+      return id;
     });
   }
 
@@ -116,17 +116,5 @@ export class WorkerBackgroundRef {
         }
       }
     });
-  }
-}
-
-export class WorkerRef {
-  private id: number;
-
-  constructor(id: number) {
-    this.id = id;
-  }
-
-  get_id(): number {
-    return this.id;
   }
 }

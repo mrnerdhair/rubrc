@@ -39,11 +39,11 @@ export type ThreadSpawnerObject = {
 
 export class ThreadSpawner {
   readonly share_memory: WebAssembly.Memory;
-  private worker_background_ref: WorkerBackgroundRef;
+  private readonly worker_background_ref: WorkerBackgroundRef;
   // inst_default_buffer_kept: WebAssembly.Memory;
 
   // hold the worker to prevent GC.
-  private worker_background_worker?: WorkerBackground;
+  private readonly worker_background_worker?: WorkerBackground;
 
   // https://github.com/rustwasm/wasm-pack/issues/479
 
@@ -133,16 +133,13 @@ export class ThreadSpawner {
     env: Array<string>,
     fd_map: Array<[number, number] | undefined>,
   ): number {
-    const worker = this.worker_background_ref.new_worker({
+    const worker_id = this.worker_background_ref.new_worker({
       start_arg,
       args,
       env,
       fd_map,
     });
-
-    const thread_id = worker.get_id();
-
-    return thread_id;
+    return worker_id;
   }
 
   async async_start_on_thread(
