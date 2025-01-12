@@ -14,46 +14,18 @@ export abstract class WASIFarmRef {
   // please implement this method
   // static async init(sl: WASIFarmRef): Promise<WASIFarmRef>;
 
-  protected stdin: number | undefined;
-  protected stdout: number | undefined;
-  protected stderr: number | undefined;
+  abstract readonly stdin?: number;
+  abstract readonly stdout?: number;
+  abstract readonly stderr?: number;
 
   abstract readonly id: number;
 
-  fd_close_receiver: FdCloseSender;
+  abstract readonly fd_close_receiver: FdCloseSender;
 
-  default_fds: Array<number> = [];
+  abstract readonly default_fds: Array<number>;
 
   abstract set_park_fds_map(fds: Array<number>): void;
   abstract set_park_fds_map_async(fds: Array<number>): Promise<void>;
-
-  constructor(
-    stdin: number | undefined,
-    stdout: number | undefined,
-    stderr: number | undefined,
-    fd_close_receiver: FdCloseSender,
-    default_fds?: Array<number>,
-  ) {
-    this.stdin = stdin;
-    this.stdout = stdout;
-    this.stderr = stderr;
-    this.fd_close_receiver = fd_close_receiver;
-    if (default_fds !== undefined) {
-      this.default_fds = default_fds;
-    }
-  }
-
-  get_stdin(): number | undefined {
-    return this.stdin;
-  }
-
-  get_stdout(): number | undefined {
-    return this.stdout;
-  }
-
-  get_stderr(): number | undefined {
-    return this.stderr;
-  }
 
   abstract fd_advise(fd: number | undefined): number;
   abstract fd_allocate(

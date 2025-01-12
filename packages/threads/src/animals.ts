@@ -125,9 +125,9 @@ export class WASIFarmAnimal {
       const override_fd_map =
         (override_fd_maps ? override_fd_maps[i] : wasi_farm_ref.default_fds) ??
         [];
-      const this_stdin = wasi_farm_ref.get_stdin();
-      const this_stdout = wasi_farm_ref.get_stdout();
-      const this_stderr = wasi_farm_ref.get_stderr();
+      const this_stdin = wasi_farm_ref.stdin;
+      const this_stdout = wasi_farm_ref.stdout;
+      const this_stderr = wasi_farm_ref.stderr;
       if (this_stdin !== undefined && override_fd_map.includes(this_stdin)) {
         out_fd_map[0] ??= [this_stdin, i];
       }

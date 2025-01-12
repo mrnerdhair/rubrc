@@ -49,7 +49,15 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
   private readonly locker: Locker;
   private readonly caller: Caller;
 
+  readonly stdin?: number;
+  readonly stdout?: number;
+  readonly stderr?: number;
+
   readonly id: number;
+
+  readonly fd_close_receiver: FdCloseSender;
+
+  readonly default_fds: Array<number>;
 
   protected constructor(
     id: number,
@@ -68,7 +76,12 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
     stderr: number | undefined,
     default_fds: Array<number>,
   ) {
-    super(stdin, stdout, stderr, fd_close_receiver, default_fds);
+    super();
+    this.stdin = stdin;
+    this.stdout = stdout;
+    this.stderr = stderr;
+    this.fd_close_receiver = fd_close_receiver;
+    this.default_fds = default_fds;
     this.id = id;
     this.allocator = allocator;
     this.lock_fds = lock_fds;
