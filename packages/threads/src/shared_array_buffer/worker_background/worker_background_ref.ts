@@ -64,7 +64,7 @@ export class WorkerBackgroundRef {
     });
   }
 
-  async async_start_on_thread(post_obj: {
+  async start_on_thread(post_obj: {
     args: Array<string>;
     env: Array<string>;
     fd_map: Array<[number, number] | undefined>;

@@ -76,12 +76,12 @@ export class WASIFarmAnimal {
   /// Custom imports are not implemented,
   /// function because it cannot be passed to other threads.
   /// If the sharedObject library someday supports synchronization, it could be used to support this.
-  async async_start_on_thread(): Promise<number> {
+  async start_on_thread(): Promise<number> {
     if (!this.thread_spawner) {
       throw new Error("thread_spawn is not supported");
     }
 
-    return await this.thread_spawner.async_start_on_thread(
+    return await this.thread_spawner.start_on_thread(
       this.args,
       this.env,
       this.fd_map,

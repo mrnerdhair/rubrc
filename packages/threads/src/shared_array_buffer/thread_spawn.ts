@@ -142,7 +142,7 @@ export class ThreadSpawner {
     return worker_id;
   }
 
-  async async_start_on_thread(
+  async start_on_thread(
     args: Array<string>,
     env: Array<string>,
     fd_map: Array<[number, number] | undefined>,
@@ -159,7 +159,7 @@ export class ThreadSpawner {
       throw new Error("worker_background_worker is undefined.");
     }
 
-    return await this.worker_background_ref.async_start_on_thread({
+    return await this.worker_background_ref.start_on_thread({
       args,
       env,
       fd_map,
