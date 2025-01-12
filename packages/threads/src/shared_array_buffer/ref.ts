@@ -109,7 +109,7 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
       this.get_fd_locker(fd1),
       this.get_fd_locker(fd2),
       callback,
-      fd1 < fd2,
+      { early_backoff: fd1 < fd2 },
     );
   }
 
@@ -128,9 +128,9 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
     start_callback: (data: ViewSet<SharedArrayBuffer>) => void,
     finished_callback?: (data: ViewSet<SharedArrayBuffer>, errno: number) => T,
   ): T | number {
-    return this.lock_fd(fd, () => {
-      return this.call_fd_func(fd, start_callback, finished_callback);
-    });
+    return this.lock_fd(fd, () =>
+      this.call_fd_func(fd, start_callback, finished_callback),
+    );
   }
 
   protected call_double_fd(

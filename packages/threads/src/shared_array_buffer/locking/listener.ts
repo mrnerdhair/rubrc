@@ -1,7 +1,7 @@
 import { new_target as new_caller_target } from "./caller";
 import { LockingBase } from "./locking_base";
 import { ViewSet } from "./view_set";
-import type { WaitOnGen } from "./waiter_base";
+import { type WaitOnGenBase, wait_on_gen } from "./waiter";
 
 export enum ListenerState {
   UNLOCKED = 0,
@@ -14,12 +14,11 @@ export enum ListenerState {
 }
 
 export class Listener extends LockingBase {
-  private readonly lock_view: Int32Array<SharedArrayBuffer>;
   private readonly data: ViewSet<SharedArrayBuffer>;
 
   constructor(target: Target) {
-    super();
-    this.lock_view = new Int32Array(target, 0, 1);
+    const lock_view = new Int32Array(target, 0, 1);
+    super(lock_view);
     const offset =
       Math.ceil(
         (1 * Int32Array.BYTES_PER_ELEMENT) / BigInt64Array.BYTES_PER_ELEMENT,
@@ -39,42 +38,38 @@ export class Listener extends LockingBase {
   }
 
   protected listen_inner<T>(callback: (data: ViewSet<SharedArrayBuffer>) => T) {
-    return function* (this: Listener): WaitOnGen<T> {
-      yield this.relock(
-        this.lock_view,
-        0,
-        ListenerState.UNLOCKED,
-        ListenerState.LISTENER_LOCKED,
-      );
-      yield this.relock(
-        this.lock_view,
-        0,
-        ListenerState.CALL_READY,
-        ListenerState.LISTENER_WORKING,
-      );
-
-      try {
-        return (yield callback(this.data)) as Awaited<T>;
-      } finally {
+    return wait_on_gen(
+      function* (this: Listener): WaitOnGenBase<T> {
         yield this.relock(
-          this.lock_view,
-          0,
-          ListenerState.LISTENER_WORKING,
-          ListenerState.LISTENER_FINISHED,
-          true,
+          ListenerState.UNLOCKED,
+          ListenerState.LISTENER_LOCKED,
         );
-      }
-    }.call(this);
+        yield this.relock(
+          ListenerState.CALL_READY,
+          ListenerState.LISTENER_WORKING,
+        );
+
+        try {
+          return (yield callback(this.data)) as T;
+        } finally {
+          yield this.relock(
+            ListenerState.LISTENER_WORKING,
+            ListenerState.LISTENER_FINISHED,
+            { immediate: true },
+          );
+        }
+      }.call(this),
+    );
   }
 
   async listen<T>(
     callback: (data: ViewSet<SharedArrayBuffer>) => T,
   ): Promise<T> {
-    return await this.wait_on_async(this.listen_inner(callback));
+    return await this.listen_inner(callback).waitAsync();
   }
 
   listen_blocking<T>(callback: (data: ViewSet<SharedArrayBuffer>) => T): T {
-    return this.wait_on(this.listen_inner(callback));
+    return this.listen_inner(callback).wait();
   }
 }
 

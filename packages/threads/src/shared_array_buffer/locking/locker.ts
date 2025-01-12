@@ -1,187 +1,144 @@
+import { LockNotReady, LockingBase } from "./locking_base";
 import "./polyfill";
+import {
+  Spin,
+  type WaitOnGen,
+  type WaitOnGenBase,
+  wait_on_gen,
+} from "./waiter";
 
-export class Locker {
-  protected readonly view: Int32Array<SharedArrayBuffer>;
-  protected readonly locked_value: number;
-  protected readonly unlocked_value: number;
-  protected readonly dual_locked_value: number;
+enum LockerState {
+  UNLOCKED = 0,
+  LOCKED = 1,
+  DUAL_LOCKED = 2,
+}
 
-  constructor(
-    target: Target,
-    locked_value = 1,
-    unlocked_value = 0,
-    dual_locked_value = 2,
-  ) {
-    this.view = new Int32Array(target, 0, 1);
-    this.locked_value = locked_value;
-    this.unlocked_value = unlocked_value;
-    this.dual_locked_value = dual_locked_value;
+export class Locker extends LockingBase {
+  constructor(target: Target) {
+    const lock_view = new Int32Array(target, 0, 1);
+    super(lock_view);
   }
 
   get target() {
-    return this.view.buffer as Target;
+    return this.lock_view.buffer as Target;
   }
 
   reset(): void {
-    const old = Atomics.exchange(this.view, 0, this.unlocked_value);
-    if (old !== this.unlocked_value) {
+    const old = Atomics.exchange(this.lock_view, 0, LockerState.UNLOCKED);
+    if (old !== LockerState.UNLOCKED) {
       throw new Error(`locker reset actually did something: ${old}`);
     }
   }
 
-  async lock<T>(callback: () => T | PromiseLike<T>, wait = true): Promise<T> {
-    let spinning = false;
-    while (true) {
-      const old = Atomics.compareExchange(
-        this.view,
-        0,
-        this.unlocked_value,
-        this.locked_value,
-      );
-      if (old === this.unlocked_value) break;
-      if (!wait) throw new LockNotReady();
-      if (spinning) console.warn("spinning async");
-      spinning = true;
-      await Atomics.waitAsync(this.view, 0, old).value;
-    }
-    try {
-      return await callback();
-    } finally {
-      if (
-        Atomics.compareExchange(
-          this.view,
-          0,
-          this.locked_value,
-          this.unlocked_value,
-        ) !== this.locked_value
-      ) {
-        // biome-ignore lint/correctness/noUnsafeFinally: lock failure is a higher-priority error
-        throw new Error("lock was not locked when released");
-      }
-      Atomics.notify(this.view, 0, 1);
-    }
+  async lock<T>(callback: () => T): Promise<T> {
+    return await this.lock_inner(callback).waitAsync();
   }
 
-  lock_blocking<T>(callback: () => T, wait = true): T {
-    let spinning = false;
-    while (true) {
-      const old = Atomics.compareExchange(
-        this.view,
-        0,
-        this.unlocked_value,
-        this.locked_value,
-      );
-      if (old === this.unlocked_value) break;
-      if (!wait) throw new LockNotReady();
-      if (spinning) console.warn("spinning");
-      spinning = true;
-      Atomics.wait(this.view, 0, old);
-    }
-    try {
-      return callback();
-    } finally {
-      if (
-        Atomics.compareExchange(
-          this.view,
-          0,
-          this.locked_value,
-          this.unlocked_value,
-        ) !== this.locked_value
-      ) {
-        // biome-ignore lint/correctness/noUnsafeFinally: lock failure is a higher-priority error
-        throw new Error("lock was not locked when released");
-      }
-      Atomics.notify(this.view, 0, 1);
-    }
+  lock_blocking<T>(callback: () => T): T {
+    return this.lock_inner(callback).wait();
+  }
+
+  protected lock_inner<T>(callback: () => T): WaitOnGen<T> {
+    return wait_on_gen(
+      function* (this: Locker): WaitOnGenBase<T> {
+        yield this.relock(LockerState.UNLOCKED, LockerState.LOCKED);
+
+        try {
+          return (yield callback()) as T;
+        } finally {
+          yield this.relock(LockerState.LOCKED, LockerState.UNLOCKED, {
+            immediate: true,
+          });
+        }
+      }.call(this),
+    );
   }
 
   private equals(other: Locker): boolean {
     return (
-      this.view.buffer === other.view.buffer &&
-      this.view.byteOffset === other.view.byteOffset &&
-      this.view.byteLength === other.view.byteOffset
+      this.lock_view.buffer === other.lock_view.buffer &&
+      this.lock_view.byteOffset === other.lock_view.byteOffset &&
+      this.lock_view.byteLength === other.lock_view.byteOffset
     );
   }
 
   static async dual_lock<T>(
     first: Locker,
     second: Locker,
-    callback: () => T | PromiseLike<T>,
-    early_backoff = false,
+    callback: () => T,
+    opts: Partial<{ early_backoff: boolean }> = {},
   ): Promise<T> {
-    if (first.equals(second)) {
-      return await first.lock(callback);
-    }
-
-    // biome-ignore lint/style/noParameterAssign:
-    first = new Locker(
-      first.view.buffer as Target,
-      first.dual_locked_value,
-      first.unlocked_value,
-      first.dual_locked_value,
-    );
-    // biome-ignore lint/style/noParameterAssign:
-    second = new Locker(
-      second.view.buffer as Target,
-      second.dual_locked_value,
-      second.unlocked_value,
-      second.dual_locked_value,
-    );
-
-    while (true) {
-      try {
-        return await first.lock(async () => {
-          return await second.lock(callback, !early_backoff);
-        });
-      } catch (e) {
-        if (!(e instanceof LockNotReady)) throw e;
-        console.warn("spinning async for deadlock avoidance");
-        await async_yield();
-      }
-    }
+    return await Locker.dual_lock_inner(
+      first,
+      second,
+      callback,
+      opts,
+    ).waitAsync();
   }
 
   static dual_lock_blocking<T>(
     first: Locker,
     second: Locker,
     callback: () => T,
-    early_backoff = false,
+    opts: Partial<{ early_backoff: boolean }> = {},
   ): T {
-    if (first.equals(second)) {
-      return first.lock_blocking(callback);
-    }
-
-    // biome-ignore lint/style/noParameterAssign:
-    first = new Locker(
-      first.view.buffer as Target,
-      first.dual_locked_value,
-      first.unlocked_value,
-      first.dual_locked_value,
-    );
-    // biome-ignore lint/style/noParameterAssign:
-    second = new Locker(
-      second.view.buffer as Target,
-      second.dual_locked_value,
-      second.unlocked_value,
-      second.dual_locked_value,
-    );
-
-    while (true) {
-      try {
-        return first.lock_blocking(() => {
-          return second.lock_blocking(callback, !early_backoff);
-        });
-      } catch (e) {
-        if (!(e instanceof LockNotReady)) throw e;
-        console.warn("spinning for deadlock avoidance");
-      }
-    }
+    return Locker.dual_lock_inner(first, second, callback, opts).wait();
   }
-}
 
-export class LockNotReady {
-  toString(): string {
-    return "lock not ready";
+  private dual_lock_inner<T>(
+    callback: () => T,
+    opts: Partial<{ immediate: boolean }> = {},
+  ) {
+    const immediate = opts.immediate ?? false;
+    return wait_on_gen(
+      function* (this: Locker): WaitOnGenBase<T> {
+        yield this.relock(LockerState.UNLOCKED, LockerState.DUAL_LOCKED, {
+          immediate,
+        });
+
+        try {
+          return (yield callback()) as T;
+        } finally {
+          yield this.relock(LockerState.DUAL_LOCKED, LockerState.UNLOCKED, {
+            immediate: true,
+          });
+        }
+      }.call(this),
+    );
+  }
+
+  static dual_lock_inner<T>(
+    first: Locker,
+    second: Locker,
+    callback: () => T,
+    opts: Partial<{ early_backoff: boolean }> = {},
+  ) {
+    const early_backoff = opts.early_backoff ?? false;
+    return wait_on_gen(
+      function* (this: typeof Locker): WaitOnGenBase<T> {
+        if (first.equals(second)) {
+          return (yield first.lock_inner(callback).wait()) as T;
+        }
+
+        while (true) {
+          try {
+            return (yield first.dual_lock_inner(() =>
+              wait_on_gen(
+                function* (this: typeof Locker): WaitOnGenBase<T> {
+                  return (yield second.dual_lock_inner(callback, {
+                    immediate: early_backoff,
+                  })) as T;
+                }.call(Locker),
+              ),
+            )) as T;
+          } catch (e) {
+            if (!(e instanceof LockNotReady)) throw e;
+            console.warn("spinning async for deadlock avoidance");
+            yield new Spin();
+          }
+        }
+      }.call(Locker),
+    );
   }
 }
 
@@ -189,14 +146,4 @@ declare const targetBrand: unique symbol;
 export type Target = SharedArrayBuffer & { [targetBrand]: never };
 export function new_locker_target(): Target {
   return new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT) as Target;
-}
-
-// kludgy but cross-platform replacement for setImmediate
-function async_yield(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 100));
-  // const { port1, port2 } = new MessageChannel();
-  // const { promise, resolve } = Promise.withResolvers<void>();
-  // port2.onmessage = () => resolve();
-  // port1.postMessage(undefined);
-  // return promise;
 }

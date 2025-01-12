@@ -1,15 +1,19 @@
 import { ListenerState } from "./listener";
 import { LockingBase } from "./locking_base";
 import { ViewSet } from "./view_set";
-import type { WaitOnGen } from "./waiter_base";
+import {
+  type WaitOnGen,
+  type WaitOnGenBase,
+  type Waited,
+  wait_on_gen,
+} from "./waiter";
 
 export class Caller extends LockingBase {
-  private readonly lock_view: Int32Array<SharedArrayBuffer>;
   private readonly data: ViewSet<SharedArrayBuffer>;
 
   constructor(target: Target) {
-    super();
-    this.lock_view = new Int32Array(target, 0, 1);
+    const lock_view = new Int32Array(target, 0, 1);
+    super(lock_view);
     const offset =
       Math.ceil(
         (1 * Int32Array.BYTES_PER_ELEMENT) / BigInt64Array.BYTES_PER_ELEMENT,
@@ -32,60 +36,49 @@ export class Caller extends LockingBase {
     start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
     finished_callback?: (
       data: ViewSet<SharedArrayBuffer>,
-      chain: Awaited<U>,
+      chain: Waited<U>,
     ) => T,
-  ) {
-    return function* (this: Caller): WaitOnGen<T, U> {
-      yield this.relock(
-        this.lock_view,
-        0,
-        ListenerState.LISTENER_LOCKED,
-        ListenerState.CALLER_WORKING,
-      );
-
-      this.data.u64.fill(0n);
-      const start_result = (yield this.recursable(
-        start_callback?.(this.data),
-      )) as Awaited<U>;
-
-      yield this.relock(
-        this.lock_view,
-        0,
-        ListenerState.CALLER_WORKING,
-        ListenerState.CALL_READY,
-        true,
-      );
-
-      if (!finished_callback) {
+  ): WaitOnGen<T> {
+    return wait_on_gen(
+      function* (this: Caller): WaitOnGenBase<T> {
         yield this.relock(
-          this.lock_view,
-          0,
+          ListenerState.LISTENER_LOCKED,
+          ListenerState.CALLER_WORKING,
+        );
+
+        this.data.u64.fill(0n);
+        const start_result = (yield start_callback?.(this.data)) as Waited<U>;
+
+        yield this.relock(
+          ListenerState.CALLER_WORKING,
+          ListenerState.CALL_READY,
+          { immediate: true },
+        );
+
+        if (!finished_callback) {
+          yield this.relock(
+            ListenerState.LISTENER_FINISHED,
+            ListenerState.UNLOCKED,
+          );
+          return undefined as T;
+        }
+
+        yield this.relock(
           ListenerState.LISTENER_FINISHED,
-          ListenerState.UNLOCKED,
-        );
-        return undefined as Awaited<T>;
-      }
-
-      yield this.relock(
-        this.lock_view,
-        0,
-        ListenerState.LISTENER_FINISHED,
-        ListenerState.CALLER_FINISHING,
-      );
-
-      try {
-        return (yield this.recursable(
-          finished_callback?.(this.data, start_result),
-        )) as Awaited<T>;
-      } finally {
-        yield this.relock(
-          this.lock_view,
-          0,
           ListenerState.CALLER_FINISHING,
-          ListenerState.UNLOCKED,
         );
-      }
-    }.call(this);
+
+        try {
+          return (yield finished_callback?.(this.data, start_result)) as T;
+        } finally {
+          yield this.relock(
+            ListenerState.CALLER_FINISHING,
+            ListenerState.UNLOCKED,
+            { immediate: true },
+          );
+        }
+      }.call(this),
+    );
   }
 
   async call_and_wait(
@@ -95,23 +88,24 @@ export class Caller extends LockingBase {
     start_callback: (data: ViewSet<SharedArrayBuffer>) => U,
     finished_callback: (
       data: ViewSet<SharedArrayBuffer>,
-      chain: Awaited<U>,
+      chain: Waited<U>,
     ) => T,
-  ): Promise<Awaited<T>>;
+  ): Promise<T>;
   async call_and_wait<T>(
     start_callback: undefined,
     finished_callback: (data: ViewSet<SharedArrayBuffer>) => T,
-  ): Promise<Awaited<T>>;
+  ): Promise<T>;
   async call_and_wait<T, U>(
     start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
     finished_callback?: (
       data: ViewSet<SharedArrayBuffer>,
-      chain: Awaited<U>,
+      chain: Waited<U>,
     ) => T,
-  ): Promise<Awaited<T>> {
-    return await this.wait_on_async(
-      this.call_and_wait_inner(start_callback, finished_callback),
-    );
+  ): Promise<T> {
+    return await this.call_and_wait_inner(
+      start_callback,
+      finished_callback,
+    ).waitAsync();
   }
 
   call_and_wait_blocking(
@@ -119,7 +113,10 @@ export class Caller extends LockingBase {
   ): void;
   call_and_wait_blocking<T, U>(
     start_callback: (data: ViewSet<SharedArrayBuffer>) => U,
-    finished_callback: (data: ViewSet<SharedArrayBuffer>, chain: U) => T,
+    finished_callback: (
+      data: ViewSet<SharedArrayBuffer>,
+      chain: Waited<U>,
+    ) => T,
   ): T;
   call_and_wait_blocking<T>(
     start_callback: undefined,
@@ -127,11 +124,12 @@ export class Caller extends LockingBase {
   ): T;
   call_and_wait_blocking<T, U>(
     start_callback?: (data: ViewSet<SharedArrayBuffer>) => U,
-    finished_callback?: (data: ViewSet<SharedArrayBuffer>, chain: U) => T,
+    finished_callback?: (
+      data: ViewSet<SharedArrayBuffer>,
+      chain: Waited<U>,
+    ) => T,
   ): T {
-    return this.wait_on(
-      this.call_and_wait_inner(start_callback, finished_callback),
-    );
+    return this.call_and_wait_inner(start_callback, finished_callback).wait();
   }
 }
 
