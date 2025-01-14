@@ -26,6 +26,30 @@ export {
 
 export { Abortable } from "./abortable";
 
+export {
+  Pointer,
+  type Provenance,
+} from "./pointers";
+export { Metadata } from "./metadata";
+export {
+  u8,
+  u16,
+  u32,
+  u64,
+  usize,
+  i8,
+  i16,
+  i32,
+  i64,
+  isize,
+  type Int,
+  type IntBase,
+  type TypedArray,
+  type TypedArrayConstructor,
+  type TypedArrayElement,
+} from "./integers";
+export type { Sized, sized } from "./sized";
+
 export type { WasiP1Imports } from "./wasi_p1_defs_simple";
 
 export function assume<T>(_x: unknown): asserts _x is T {}
