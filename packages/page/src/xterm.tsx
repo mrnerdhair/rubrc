@@ -10,9 +10,9 @@ import {
 } from "@oligami/browser_wasi_shim-threads";
 import { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
-import type { CmdParser, Terminal as OtherTerminal } from "rubrc-util";
 import { rust_file } from "./config";
 import XTerm from "./solid_xterm";
+import type { CmdParser, Terminal as OtherTerminal } from "./util";
 
 // Supress an annoyingly intermittent TS bug that makes this a WorkerNavigator
 declare const navigator: Navigator;

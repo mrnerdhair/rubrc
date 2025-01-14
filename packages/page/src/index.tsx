@@ -12,8 +12,9 @@ import MainWorkerCtor from "./worker_process/worker?worker";
 import "./monaco_worker";
 import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
-import { type CmdParser, type Terminal, wrappedWorkerInit } from "rubrc-util";
+import { wrappedWorkerInit } from "rubrc-util";
 import { CompileAndRun } from "./compile_and_run";
+import type { CmdParser, Terminal } from "./util";
 
 const root = document.getElementById("root");
 

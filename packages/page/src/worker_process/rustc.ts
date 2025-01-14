@@ -7,7 +7,8 @@ import {
 } from "@oligami/browser_wasi_shim-threads";
 import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
 import * as Comlink from "comlink";
-import { type Terminal, setTransferHandlers } from "rubrc-util";
+import { setTransferHandlers } from "rubrc-util";
+import type { Terminal } from "../util";
 
 export class RustcWorker {
   private readonly terminal: Terminal;

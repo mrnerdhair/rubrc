@@ -1,10 +1,10 @@
 import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
-import type { CmdParser, Terminal } from "rubrc-util";
 import { Suspense, createSignal, lazy } from "solid-js";
 import { DownloadButton, RunButton } from "./btn";
 import type { CompileAndRun } from "./compile_and_run";
 import { default_value, rust_file } from "./config";
 import { triples } from "./sysroot";
+import type { CmdParser, Terminal } from "./util";
 import { SetupMyTerminal } from "./xterm";
 
 const Select = lazy(async () => {

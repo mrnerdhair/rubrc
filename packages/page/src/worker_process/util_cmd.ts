@@ -5,9 +5,10 @@ import {
   type WASIFarmRefUseArrayBufferObject,
 } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
-import { type Terminal, type WasiP1Cmd, setTransferHandlers } from "rubrc-util";
+import { type WasiP1Cmd, setTransferHandlers } from "rubrc-util";
 import { get_data } from "../cat";
 import type { CompileAndRun } from "../compile_and_run";
+import type { Terminal } from "../util";
 import lsr from "../wasm/lsr.wasm?url";
 import tre from "../wasm/tre.wasm?url";
 

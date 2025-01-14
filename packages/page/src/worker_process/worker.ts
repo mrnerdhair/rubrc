@@ -15,9 +15,10 @@ import type {
 } from "./util_cmd";
 import UtilCmdWorkerCtor from "./util_cmd?worker";
 
-import { type Terminal, setTransferHandlers } from "rubrc-util";
+import { setTransferHandlers } from "rubrc-util";
 import { wrappedWorkerInit } from "rubrc-util";
 import type { CompileAndRun } from "../compile_and_run";
+import type { Terminal } from "../util";
 
 const rustcWorkerInit = wrappedWorkerInit<RustcWorkerInit>(RustcWorkerCtor);
 const utilCmdWorkerInit =

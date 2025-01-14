@@ -1,4 +1,4 @@
-import type { CmdParser, Terminal } from "rubrc-util";
+import type { CmdParser, Terminal } from "./util";
 
 export class CompileAndRun {
   private readonly cmd_parser: CmdParser;

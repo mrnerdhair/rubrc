@@ -1,4 +1,4 @@
-import type { Terminal } from "rubrc-util";
+import type { Terminal } from "./util";
 import type { MainWorker } from "./worker_process/worker";
 
 export const parser_setup = (
