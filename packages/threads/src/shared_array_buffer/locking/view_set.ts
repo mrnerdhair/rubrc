@@ -1,18 +1,20 @@
-export class ViewSet<T extends ArrayBufferLike = ArrayBufferLike> {
-  readonly buffer: T;
+export class ViewSet<TArrayBuffer extends ArrayBufferLike = ArrayBufferLike>
+  implements ArrayBufferView<TArrayBuffer>
+{
+  readonly buffer: TArrayBuffer;
   readonly byteOffset: number;
   readonly byteLength: number;
-  readonly view: DataView<T>;
-  readonly i8: Int8Array<T>;
-  readonly i16: Int16Array<T>;
-  readonly i32: Int32Array<T>;
-  readonly i64: BigInt64Array<T>;
-  readonly u8: Uint8Array<T>;
-  readonly u16: Uint16Array<T>;
-  readonly u32: Uint32Array<T>;
-  readonly u64: BigUint64Array<T>;
+  readonly view: DataView<TArrayBuffer>;
+  readonly i8: Int8Array<TArrayBuffer>;
+  readonly i16: Int16Array<TArrayBuffer>;
+  readonly i32: Int32Array<TArrayBuffer>;
+  readonly i64: BigInt64Array<TArrayBuffer>;
+  readonly u8: Uint8Array<TArrayBuffer>;
+  readonly u16: Uint16Array<TArrayBuffer>;
+  readonly u32: Uint32Array<TArrayBuffer>;
+  readonly u64: BigUint64Array<TArrayBuffer>;
 
-  constructor(buffer: T, byteOffset: number, byteLength: number) {
+  constructor(buffer: TArrayBuffer, byteOffset: number, byteLength: number) {
     this.buffer = buffer;
     this.byteOffset = byteOffset;
     this.byteLength = byteLength;

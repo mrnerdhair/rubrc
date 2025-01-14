@@ -30,7 +30,7 @@ export class Locker extends LockingBase {
     }
   }
 
-  async lock<T>(callback: () => T): Promise<T> {
+  async lock<T>(callback: () => T): Promise<Awaited<T>> {
     return await this.lock_inner(callback).waitAsync();
   }
 

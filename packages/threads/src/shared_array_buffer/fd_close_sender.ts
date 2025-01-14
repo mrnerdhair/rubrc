@@ -1,53 +1,129 @@
+import { Abortable } from "rubrc-util";
 import type { FdCloseSender } from "../sender";
-import type { LockerTarget } from "./locking";
 import {
-  ToRefSenderUseArrayBuffer,
-  type ToRefSenderUseArrayBufferObject,
-} from "./sender";
+  AllocatorUseArrayBuffer,
+  type AllocatorUseArrayBufferObject,
+} from "./allocator";
+import {
+  Caller,
+  type CallerTarget,
+  Listener,
+  type ListenerTarget,
+  new_caller_listener_target,
+  new_locker_target,
+} from "./locking";
 
 export type FdCloseSenderUseArrayBufferObject = {
-  max_share_arrays_memory?: number;
-} & ToRefSenderUseArrayBufferObject;
+  call: CallerTarget;
+  listen: ListenerTarget;
+  allocator_obj: AllocatorUseArrayBufferObject;
+};
 
 // Object to tell other processes,
 // such as child processes,
 // that the file descriptor has been closed
 export class FdCloseSenderUseArrayBuffer
-  extends ToRefSenderUseArrayBuffer
+  extends Abortable
   implements FdCloseSender
 {
-  // Should be able to change the size of memory as it accumulates more and more on memory
-  protected constructor(
-    max_share_arrays_memory?: number,
-    share_arrays_memory?: SharedArrayBuffer,
-    share_arrays_memory_lock?: LockerTarget,
-  ) {
-    super(
-      4,
-      max_share_arrays_memory,
-      share_arrays_memory,
-      share_arrays_memory_lock,
+  private readonly caller: Caller;
+  private readonly listener: Listener;
+  private readonly map = new Map<number, Set<number>>();
+  private readonly allocator: AllocatorUseArrayBuffer;
+
+  private get_id_set(fd: number): Set<number> {
+    let out = this.map.get(fd);
+    if (!out) {
+      out = new Set<number>();
+      this.map.set(fd, out);
+    }
+    return out;
+  }
+
+  protected constructor({
+    caller,
+    listener,
+    allocator,
+  }: {
+    caller: Caller;
+    listener: Listener;
+    allocator: AllocatorUseArrayBuffer;
+  }) {
+    super();
+    this.caller = caller;
+    this.listener = listener;
+    this.allocator = allocator;
+  }
+
+  private listening = false;
+  private listen() {
+    if (this.listening) return;
+    this.listening = true;
+    this.resolve(
+      this.listener.listen_background(async (data) => {
+        const code = data.u32[0];
+        switch (code) {
+          case 0: {
+            const id = data.u32[1];
+            const id_set = this.get_id_set(id);
+            const removed_fds = Uint32Array.from(id_set.values());
+            id_set.clear();
+            [data.u32[0], data.u32[1]] =
+              await this.allocator.async_write(removed_fds);
+            break;
+          }
+          case 1: {
+            const targets = this.allocator.get_memory(
+              data.u32[1],
+              data.u32[2],
+            ).u32;
+            const fd = data.u32[3];
+            for (const target of targets) {
+              this.get_id_set(target).add(fd);
+            }
+            break;
+          }
+          default: {
+            throw new Error("unexpected code");
+          }
+        }
+      }),
     );
   }
 
   // Send the closed file descriptor to the target process
   async send(targets: Array<number>, fd: number): Promise<void> {
-    if (targets === undefined || targets.length === 0) {
-      throw new Error("targets is empty");
-    }
-    await this.async_send(targets, new Uint32Array([fd]));
+    await this.caller.call_and_wait(async (data) => {
+      data.u32[0] = 1;
+      [data.u32[1], data.u32[2]] = await this.allocator.async_write(
+        Uint32Array.from(targets),
+      );
+      data.u32[3] = fd;
+    });
   }
 
   // Get the closed file descriptor from the target process
   get(id: number): Array<number> | undefined {
-    return this.get_data(id)?.map((x) => x[0]);
+    const out = this.caller.call_and_wait_blocking(
+      (data) => {
+        data.u32[0] = 0;
+        data.u32[1] = id;
+      },
+      (data) => {
+        const [ptr, len] = [data.u32[0], data.u32[1]];
+        const fds = this.allocator.get_memory(ptr, len).u32;
+        const out = Array.from(fds);
+        return out;
+      },
+    );
+    return out.length === 0 ? undefined : out;
   }
 
   get_ref(): FdCloseSenderUseArrayBufferObject {
     return {
-      data_size: this.data_size,
-      share_arrays_memory: this.share_arrays_memory,
-      share_arrays_memory_lock: this.share_arrays_memory_lock,
+      call: this.caller.target,
+      listen: this.listener.target,
+      allocator_obj: this.allocator.get_ref(),
     };
   }
 
@@ -55,11 +131,25 @@ export class FdCloseSenderUseArrayBuffer
   static async init(
     sl?: FdCloseSenderUseArrayBufferObject,
   ): Promise<FdCloseSenderUseArrayBuffer> {
-    if (!sl) return new FdCloseSenderUseArrayBuffer();
-    return new FdCloseSenderUseArrayBuffer(
-      sl.share_arrays_memory.byteLength,
-      sl.share_arrays_memory,
-      sl.share_arrays_memory_lock,
-    );
+    if (!sl) {
+      const [call, listen] = new_caller_listener_target(
+        4 * Uint32Array.BYTES_PER_ELEMENT,
+      );
+      const out = new FdCloseSenderUseArrayBuffer({
+        caller: new Caller(call),
+        listener: new Listener(listen),
+        allocator: await AllocatorUseArrayBuffer.init({
+          share_arrays_memory: new SharedArrayBuffer(64 * 1024),
+          share_arrays_memory_lock: new_locker_target(),
+        }),
+      });
+      out.listen();
+      return out;
+    }
+    return new FdCloseSenderUseArrayBuffer({
+      caller: new Caller(sl.call),
+      listener: new Listener(sl.listen),
+      allocator: await AllocatorUseArrayBuffer.init(sl.allocator_obj),
+    });
   }
 }

@@ -1,13 +1,13 @@
 import type { Fd } from "@bjorn3/browser_wasi_shim";
+import { Abortable } from "rubrc-util";
 import type { WASIFarmPark } from "./park";
 import {
   WASIFarmParkUseArrayBuffer,
   type WASIFarmRefUseArrayBufferObject,
 } from "./shared_array_buffer/index";
 
-export class WASIFarm {
+export class WASIFarm extends Abortable {
   private park: WASIFarmPark;
-  readonly abort: AbortController;
 
   static async init({
     stdin,
@@ -62,24 +62,19 @@ export class WASIFarm {
       options?.allocator_size,
     );
 
-    const abort = new AbortController();
-    park.listen(abort.signal);
-
     return new WASIFarm({
       park,
-      abort,
     });
   }
 
   protected constructor({
     park,
-    abort,
   }: {
     park: WASIFarmParkUseArrayBuffer;
-    abort: AbortController;
   }) {
+    super();
     this.park = park;
-    this.abort = abort;
+    this.resolve(park.listen());
   }
 
   get_ref(): WASIFarmRefUseArrayBufferObject {

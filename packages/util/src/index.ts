@@ -24,6 +24,7 @@ export {
   wrappedWorkerTerminate,
 } from "./comlink";
 
+export { Abortable } from "./abortable";
 
 export type { WasiP1Imports } from "./wasi_p1_defs_simple";
 

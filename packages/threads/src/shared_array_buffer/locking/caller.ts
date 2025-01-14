@@ -60,6 +60,7 @@ export class Caller extends LockingBase {
             ListenerState.LISTENER_FINISHED,
             ListenerState.UNLOCKED,
           );
+          // Overloads require that a missing finished_callback implies T is undefined.
           return undefined as T;
         }
 
@@ -101,7 +102,7 @@ export class Caller extends LockingBase {
       data: ViewSet<SharedArrayBuffer>,
       chain: Waited<U>,
     ) => T,
-  ): Promise<T> {
+  ): Promise<Awaited<T>> {
     return await this.call_and_wait_inner(
       start_callback,
       finished_callback,

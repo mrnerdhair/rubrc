@@ -13,7 +13,7 @@ import {
   wrappedWorkerInit,
   wrappedWorkerTerminate,
 } from "rubrc-util";
-import type { WrappedWorker } from "rubrc-util";
+import { Abortable, type WrappedWorker } from "rubrc-util";
 import { AllocatorUseArrayBuffer } from "../allocator";
 import {
   Caller,
@@ -49,7 +49,7 @@ export type OverrideObject = {
   module: WebAssembly.Module;
 };
 
-export class WorkerBackground {
+export class WorkerBackground extends Abortable {
   private readonly override_object: OverrideObject;
   private readonly allocator: AllocatorUseArrayBuffer;
   private readonly locks: {
@@ -82,13 +82,14 @@ export class WorkerBackground {
     },
     allocator: AllocatorUseArrayBuffer,
   ) {
+    super();
     this.override_object = override_object;
     this.locks = locks;
     this.locker = new Locker(this.locks.lock);
     this.listener = new Listener(this.locks.listen);
     this.done_caller = new Caller(this.locks.done_call);
     this.allocator = allocator;
-    this.listen();
+    this.resolve(this.listen());
   }
 
   static async init(
@@ -121,13 +122,16 @@ export class WorkerBackground {
     } as WorkerBackgroundRefObject;
   }
 
-  async listen(): Promise<void> {
+  private listen(): Abortable {
     this.locker.reset();
 
     const listener = this.listener;
     listener.reset();
-    while (true) {
-      await listener.listen(async (data) => {
+
+    const ready_workers: Array<Promise<WrappedWorker<ThreadSpawnWorker>>> = [];
+
+    return listener
+      .listen_background(async (data) => {
         const signature_input = data.i32[0];
         const json = this.allocator.get_string(data.i32[1], data.i32[2]);
 
@@ -141,11 +145,21 @@ export class WorkerBackground {
         }>(obj);
 
         const gen_worker = async () => {
-          return await threadSpawnWorkerInit({
-            ...this.override_object,
-            ...obj,
-            worker_background_ref: this.ref(),
-          });
+          if (ready_workers.length === 0) {
+            ready_workers.push(
+              ...Array(1)
+                .fill(undefined)
+                .map(() =>
+                  threadSpawnWorkerInit({
+                    ...this.override_object,
+                    ...obj,
+                    worker_background_ref: this.ref(),
+                  }),
+                ),
+            );
+          }
+          // biome-ignore lint/style/noNonNullAssertion: we just checked the array above
+          return await ready_workers.pop()!;
         };
 
         const { promise: donePromise, resolve: doneResolve } =
@@ -300,8 +314,12 @@ export class WorkerBackground {
             break;
           }
         }
+      })
+      .chain(async () => {
+        await Promise.all(
+          ready_workers.map(async (x) => wrappedWorkerTerminate(await x)),
+        );
       });
-    }
   }
 }
 

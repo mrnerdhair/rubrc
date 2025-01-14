@@ -1,4 +1,5 @@
 import { type Fd as BaseFd, wasi } from "@bjorn3/browser_wasi_shim";
+import type { Abortable } from "rubrc-util";
 import { PromiseLocker } from "./shared_array_buffer/locking";
 import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/ref";
 
@@ -13,7 +14,7 @@ export type Fd = Omit<BaseFd, "fd_write"> & {
 
 export abstract class WASIFarmPark {
   abstract get_ref(): WASIFarmRefUseArrayBufferObject;
-  abstract listen(abort: AbortSignal): Promise<void>;
+  abstract listen(): Abortable;
   protected abstract notify_set_fd(fd: number): Promise<void>;
   protected abstract notify_rm_fd(fd: number): Promise<void>;
   protected abstract can_set_new_fd(fd: number): Promise<void>;
@@ -411,19 +412,19 @@ export abstract class WASIFarmPark {
     fs_rights_inheriting: bigint,
     fs_flags: number,
   ): Promise<[number | undefined, number]> {
-    console.log(
-      "path_open",
-      {
-        fd,
-        dirflags,
-        path,
-        oflags,
-        fs_rights_base,
-        fs_rights_inheriting,
-        fs_flags,
-      },
-      this.fds[fd],
-    );
+    // console.log(
+    //   "path_open",
+    //   {
+    //     fd,
+    //     dirflags,
+    //     path,
+    //     oflags,
+    //     fs_rights_base,
+    //     fs_rights_inheriting,
+    //     fs_flags,
+    //   },
+    //   this.fds[fd],
+    // );
     if (this.fds[fd] !== undefined) {
       const { ret, fd_obj } = this.fds[fd].path_open(
         dirflags,

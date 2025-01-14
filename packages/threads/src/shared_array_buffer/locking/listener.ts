@@ -1,3 +1,4 @@
+import { Abortable } from "rubrc-util";
 import { new_target as new_caller_target } from "./caller";
 import { LockingBase } from "./locking_base";
 import { ViewSet } from "./view_set";
@@ -64,12 +65,22 @@ export class Listener extends LockingBase {
 
   async listen<T>(
     callback: (data: ViewSet<SharedArrayBuffer>) => T,
-  ): Promise<T> {
+  ): Promise<Awaited<T>> {
     return await this.listen_inner(callback).waitAsync();
   }
 
   listen_blocking<T>(callback: (data: ViewSet<SharedArrayBuffer>) => T): T {
     return this.listen_inner(callback).wait();
+  }
+
+  listen_background(
+    callback: (data: ViewSet<SharedArrayBuffer>) => void | Promise<void>,
+  ): Abortable {
+    return new Abortable(async (abortable: Abortable) => {
+      while (!abortable.signal.aborted) {
+        await this.listen(callback);
+      }
+    });
   }
 }
 

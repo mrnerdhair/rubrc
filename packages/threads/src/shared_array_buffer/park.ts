@@ -1,4 +1,5 @@
 import { type Fd, wasi } from "@bjorn3/browser_wasi_shim";
+import type { Abortable } from "rubrc-util";
 import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
@@ -97,9 +98,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   private next_id = 0;
 
-  // listen promise keep
-  private readonly listen_fds: Array<Promise<void> | undefined> = [];
-  private readonly abort_fds: Array<AbortController | undefined> = [];
+  private readonly listen_fds: Array<Abortable | undefined> = [];
 
   private readonly base_func_util_locks: {
     lock: LockerTarget;
@@ -265,23 +264,14 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     if (fd >= MAX_FDS_LEN) {
       throw new Error("fd is too big. expand is not supported yet");
     }
-    if (this.listen_fds[fd] !== undefined) {
-      console.warn("fd is already set yet");
-      this.abort_fds[fd]?.abort();
-      await this.listen_fds[fd];
-    }
-    const aborter = new AbortController();
-    this.abort_fds[fd] = aborter;
-    this.listen_fds[fd] = this.listen_fd(fd, aborter.signal);
+    await this.can_set_new_fd(fd);
+    this.listen_fds[fd] = this.listen_fd(fd);
   }
 
   // abstract methods implementation
   // called by fd close ex) fd_close
   protected async notify_rm_fd(fd: number): Promise<void> {
-    this.can_set_new_fd(fd).then(() => {
-      this.abort_fds[fd] = undefined;
-      this.listen_fds[fd] = undefined;
-    });
+    this.can_set_new_fd(fd);
 
     await this.fd_close_receiver.send(this.fds_map[fd], fd);
 
@@ -291,22 +281,21 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // abstract methods implementation
   // wait to close old listener
   protected async can_set_new_fd(fd: number): Promise<void> {
-    this.abort_fds[fd]?.abort();
-    await this.listen_fds[fd];
+    await this.listen_fds[fd]?.abort();
   }
 
   // listen all fds and base
   // Must be called before was_ref_id is instantiated
-  listen(aborter: AbortSignal) {
-    this.abort_fds.length = 0;
-    this.listen_fds.length = 0;
+  listen(): Abortable {
+    const new_listen_fds: Array<Abortable> = [];
     for (let i = 0; i < this.fds.length; i++) {
-      const fd_aborter = new AbortController();
-      aborter.addEventListener("abort", () => fd_aborter.abort());
-      this.abort_fds.push(fd_aborter);
-      this.listen_fds.push(this.listen_fd(i, fd_aborter.signal));
+      new_listen_fds.push(this.listen_fd(i));
     }
-    return this.listen_base(aborter);
+    const out = this.listen_base();
+    out.chain(async (reason?: unknown) => {
+      await Promise.all(new_listen_fds.map((x) => x.abort(reason)));
+    });
+    return out;
   }
 
   // listen base
@@ -314,13 +303,13 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   // if close fd and send to other process,
   // it need targets wasi_farm_ref id
   // so, set fds_map
-  async listen_base(aborter: AbortSignal) {
+  listen_base(): Abortable {
     this.locker.reset();
 
     const listener = this.listener;
     listener.reset();
-    while (!aborter.aborted) {
-      await listener.listen(async (data) => {
+    return listener
+      .listen_background(async (data) => {
         const func_number = data.i32[0];
         switch (func_number) {
           case WASIFarmParkFuncNames.set_fds_map: {
@@ -339,8 +328,10 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
             throw new Error(`unexpected func_number ${func_number}`);
           }
         }
+      })
+      .chain((reason) => {
+        this.fd_close_receiver.abort(reason);
       });
-    }
   }
 
   private set_fds_map(wasi_farm_ref_id: number, fd_buf: Uint32Array) {
@@ -731,29 +722,27 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   }
 
   // listen fd
-  async listen_fd(fd_n: number, aborter: AbortSignal) {
+  listen_fd(fd_n: number): Abortable {
     this.get_fd_locker(fd_n).reset();
 
     const listener = this.get_fd_listener(fd_n);
     listener.reset();
-    while (!aborter.aborted && this.fds[fd_n] !== undefined) {
-      await listener.listen(async (data) => {
-        try {
-          const handlers = this.make_listen_fd_handlers(data);
-          const func_number = data.u32[0];
-          const func_name = FuncNames[func_number] as keyof typeof FuncNames;
-          const handler =
-            handlers[func_name] ??
-            (() => {
-              throw new Error(`Unknown function number: ${func_number}`);
-            });
-          data.i32[data.i32.length - 1] = await handler();
-        } catch (e) {
-          data.i32[16] = -1;
+    return listener.listen_background(async (data) => {
+      try {
+        const handlers = this.make_listen_fd_handlers(data);
+        const func_number = data.u32[0];
+        const func_name = FuncNames[func_number] as keyof typeof FuncNames;
+        const handler =
+          handlers[func_name] ??
+          (() => {
+            throw new Error(`Unknown function number: ${func_number}`);
+          });
+        data.i32[data.i32.length - 1] = await handler();
+      } catch (e) {
+        data.i32[16] = -1;
 
-          throw e;
-        }
-      });
-    }
+        throw e;
+      }
+    });
   }
 }
