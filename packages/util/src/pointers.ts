@@ -143,36 +143,31 @@ export class Pointer<
 
   [Symbol.iterator](
     this: Pointer<T, Provenance>,
-  ): T extends void
-    ? never
-    : T extends Sized
-      ? Generator<T, never, undefined>
-      : never;
-  [Symbol.iterator](
+  ): Generator<T extends void ? never : T, never, undefined>;
+  *[Symbol.iterator](
     this: Pointer<T, Provenance>,
   ): Generator<T, never, undefined> {
-    return function* (
-      this: Pointer<T, Provenance>,
-    ): Generator<T, never, never> {
-      let self = this;
-      while (true) {
-        yield self.read();
+    let self = this;
+    while (true) {
+      const { item, size } = this.metadata.read(
+        new Uint8Array(
+          this.provenance.buffer,
+          this.provenance.byteOffset + this.addr,
+          this.metadata.size_of ?? undefined,
+        ),
+      );
+      yield item;
 
-        if (this.metadata.size_of === undefined) throw new TypeError();
-        self = self.wrapping_add(usize.ONE);
-      }
-    }.call(this);
+      self = self.wrapping_byte_add(size);
+    }
   }
 
   read(this: Pointer<T, Provenance>): T extends void ? never : T;
   read(this: Pointer<T, Provenance>): T {
-    return this.metadata.read(
-      new Uint8Array(
-        this.provenance.buffer,
-        this.provenance.byteOffset + this.addr,
-        this.metadata.size_of ?? undefined,
-      ),
-    );
+    for (const item of this) {
+      return item;
+    }
+    throw undefined;
   }
 
   write(this: Pointer<T, Provenance>, x: T): T extends void ? never : void;

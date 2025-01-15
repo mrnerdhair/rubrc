@@ -18,10 +18,12 @@ export interface Metadata<T extends object | unknown> {
   // biome-ignore lint/suspicious/noConfusingVoidType: <explanation>
   readonly size_of: T extends Sized ? usize : void;
   readonly align_of: usize;
-  readonly read: [T] extends [ZeroSized] ? () => T : (buf: Uint8Array) => T;
+  readonly read: [T] extends [ZeroSized]
+    ? () => { item: T; size: 0 & usize }
+    : (buf: Uint8Array) => { item: T; size: usize };
   readonly write: [T] extends [ZeroSized]
     ? undefined
-    : (buf: Uint8Array, x: T) => void;
+    : (buf: Uint8Array, x: T) => usize;
 }
 
 export namespace Metadata {
@@ -91,16 +93,18 @@ for (const ctor of [
   BigInt64Array,
 ] as const satisfies Array<TypedArrayConstructor>) {
   type T = InstanceType<typeof ctor>;
-  const metadata = {
+  const metadata: Metadata<T> = {
     size_of: undefined,
     align_of: usize(ctor.BYTES_PER_ELEMENT),
-    read(buf: Uint8Array): T {
-      return fromArrayBufferView(ctor, buf);
+    read(buf: Uint8Array) {
+      const item = fromArrayBufferView(ctor, buf);
+      return { item, size: item.byteLength as usize };
     },
-    write(buf: Uint8Array, x: T): void {
+    write(buf: Uint8Array, x: T) {
       buf.set(fromArrayBufferView(Uint8Array, x));
+      return x.byteLength as usize;
     },
-  } satisfies Metadata<T>;
+  };
   Metadata.set(ctor as Pointee<T>, metadata);
 }
 
@@ -128,11 +132,11 @@ for (const int of [
   type TInstance = ReturnType<T>;
 
   const size_of = usize(int.BITS / 8);
-  const metadata = {
+  const metadata: Metadata<TInstance> = {
     size_of: size_of,
     align_of: size_of,
-    read(buf: Uint8Array): TInstance {
-      return new (
+    read(buf: Uint8Array) {
+      const item = new (
         int.typed_array as {
           new (
             buffer: ArrayBufferLike,
@@ -141,10 +145,12 @@ for (const int of [
           ): InstanceType<T["typed_array"]>;
         }
       )(buf.buffer, buf.byteOffset, 1)[0] as TInstance;
+      return { item, size: int.typed_array.BYTES_PER_ELEMENT as usize };
     },
-    write(buf: Uint8Array, x: TInstance): void {
+    write(buf: Uint8Array, x: TInstance) {
       fromArrayBufferView(int.typed_array, buf)[0] = x;
+      return int.typed_array.BYTES_PER_ELEMENT as usize;
     },
-  } satisfies Metadata<TInstance>;
+  };
   Metadata.set<TInstance>(int, metadata);
 }
