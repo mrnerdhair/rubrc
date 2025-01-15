@@ -168,6 +168,30 @@ export class Wait extends Waitable<string> {
       ]),
     ).value;
   }
+
+  static notify(
+    ...args:
+      | [view: Int32Array<ArrayBufferLike>, index: number, count?: number]
+      | [view: BigInt64Array<ArrayBufferLike>, index: number, count?: number]
+  ) {
+    if (args[0] instanceof Int32Array) {
+      Atomics.notify(
+        ...(args as [
+          view: Int32Array<ArrayBufferLike>,
+          index: number,
+          count?: number,
+        ]),
+      );
+    } else {
+      Atomics.notify(
+        ...(args as [
+          view: BigInt64Array<ArrayBufferLike>,
+          index: number,
+          count?: number,
+        ]),
+      );
+    }
+  }
 }
 
 export class Spin extends Waitable<void> {

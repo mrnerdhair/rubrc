@@ -39,7 +39,7 @@ export abstract class LockingBase {
           if (immediate) throw new LockNotReady();
           yield new Wait(this.lock_view, index, old);
         }
-        Atomics.notify(this.lock_view, index, 1);
+        Wait.notify(this.lock_view, index, 1);
         return undefined;
       }.call(this),
     );
