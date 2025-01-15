@@ -44,6 +44,7 @@ class IntBase<
   TCastable extends TypedArrayElement<TConstructor>,
 > {
   readonly #div: (self: TInt, other: TInt | TCastable) => unknown;
+  readonly #hasInstance: (x: unknown) => x is TInt;
   readonly typed_array: TConstructor;
 
   constructor(typed_array: TConstructor) {
@@ -67,7 +68,7 @@ class IntBase<
     if (!uses_bigint) {
       this.ZERO = 0 as TInt;
       this.ONE = 1 as TInt;
-      this.is = (x: unknown): x is TInt => {
+      this.#hasInstance = (x: unknown): x is TInt => {
         if (typeof x !== "number" || !Number.isSafeInteger(x)) return false;
         if (x < this.MIN || x > this.MAX) return false;
         return true;
@@ -84,7 +85,7 @@ class IntBase<
     } else {
       this.ZERO = 0n as TInt;
       this.ONE = 1n as TInt;
-      this.is = (x: unknown): x is TInt => {
+      this.#hasInstance = (x: unknown): x is TInt => {
         if (typeof x !== "bigint") return false;
         if (x < this.MIN || x > this.MAX) return false;
         return true;
@@ -106,7 +107,9 @@ class IntBase<
   readonly MIN: TInt;
   readonly MAX: TInt;
 
-  readonly is: (x: unknown) => x is TInt;
+  [Symbol.hasInstance](x: unknown): x is TInt {
+    return this.#hasInstance(x);
+  }
   readonly cast: (x: number | bigint) => TInt;
 
   is_power_of_two(self: TInt): boolean {
@@ -188,8 +191,8 @@ function make_int_base<
     typed_array_constructor,
   );
   const out = (x: TElement): TInt => {
-    if (!base.is(x)) throw new RangeError();
-    return x as TInt;
+    if (!(x instanceof base)) throw new RangeError();
+    return x;
   };
   Object.assign(out, base);
   Object.freeze(out);
