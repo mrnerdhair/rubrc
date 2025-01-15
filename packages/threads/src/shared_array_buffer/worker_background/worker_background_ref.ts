@@ -1,12 +1,5 @@
 import { AllocatorUseArrayBuffer } from "../allocator";
-import {
-  Caller,
-  type CallerTarget,
-  Listener,
-  type ListenerTarget,
-  Locker,
-  type LockerTarget,
-} from "../locking";
+import { Caller, Listener, Locker } from "../locking";
 import * as Serializer from "../serialize_error";
 import {
   WorkerBackgroundFuncNames,
@@ -16,32 +9,20 @@ import type { WorkerBackgroundRefObject } from "./worker_export";
 
 export class WorkerBackgroundRef {
   private readonly allocator: AllocatorUseArrayBuffer;
-  private readonly locks: {
-    lock: LockerTarget;
-    call: CallerTarget;
-    listen: ListenerTarget;
-    done_call: CallerTarget;
-    done_listen: ListenerTarget;
-  };
   private readonly locker: Locker;
   private readonly caller: Caller;
   private readonly done_listener: Listener;
 
   protected constructor(
     allocator: AllocatorUseArrayBuffer,
-    locks: {
-      lock: LockerTarget;
-      call: CallerTarget;
-      listen: ListenerTarget;
-      done_call: CallerTarget;
-      done_listen: ListenerTarget;
-    },
+    locker: Locker,
+    caller: Caller,
+    done_listener: Listener,
   ) {
     this.allocator = allocator;
-    this.locks = locks;
-    this.locker = new Locker(this.locks.lock);
-    this.caller = new Caller(this.locks.call);
-    this.done_listener = new Listener(this.locks.done_listen);
+    this.locker = locker;
+    this.caller = caller;
+    this.done_listener = done_listener;
   }
 
   new_worker(post_obj: {
@@ -83,10 +64,13 @@ export class WorkerBackgroundRef {
   static async init(
     sl: WorkerBackgroundRefObject,
   ): Promise<WorkerBackgroundRef> {
-    return new WorkerBackgroundRef(
-      await AllocatorUseArrayBuffer.init(sl.allocator),
-      sl.locks,
-    );
+    const [allocator, locker, caller, done_listener] = await Promise.all([
+      AllocatorUseArrayBuffer.init(sl.allocator),
+      Locker.init(sl.lock),
+      Caller.init(sl.call),
+      Listener.init(sl.done_listen),
+    ]);
+    return new WorkerBackgroundRef(allocator, locker, caller, done_listener);
   }
 
   private async async_wait_done_or_error(): Promise<number> {

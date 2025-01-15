@@ -14,9 +14,13 @@ enum LockerState {
 }
 
 export class Locker extends LockingBase {
-  constructor(target: Target) {
-    const lock_view = new Int32Array(target, 0, 1);
+  protected constructor(target: Target) {
+    const lock_view = new Int32Array(target, 0, 2);
     super(lock_view);
+  }
+
+  static async init(target: Target): Promise<Locker> {
+    return new Locker(target);
   }
 
   get target() {

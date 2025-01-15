@@ -10,13 +10,11 @@ import {
 declare const workerBackgroundRefObjectBrand: unique symbol;
 export type WorkerBackgroundRefObject = {
   allocator: AllocatorUseArrayBufferObject;
-  locks: {
-    lock: LockerTarget;
-    call: CallerTarget;
-    listen: ListenerTarget;
-    done_call: CallerTarget;
-    done_listen: ListenerTarget;
-  };
+  lock: LockerTarget;
+  call: CallerTarget;
+  listen: ListenerTarget;
+  done_call: CallerTarget;
+  done_listen: ListenerTarget;
   [workerBackgroundRefObjectBrand]: never;
 };
 
@@ -33,13 +31,11 @@ export const WorkerBackgroundRefObjectConstructor =
         share_arrays_memory: new SharedArrayBuffer(10 * 1024),
         share_arrays_memory_lock: new_locker_target(),
       },
-      locks: {
-        lock: new_locker_target(),
-        call,
-        listen,
-        done_call,
-        done_listen,
-      },
+      lock: new_locker_target(),
+      call,
+      listen,
+      done_call,
+      done_listen,
     } as WorkerBackgroundRefObject;
   };
 

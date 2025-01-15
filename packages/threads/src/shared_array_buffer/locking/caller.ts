@@ -11,14 +11,18 @@ import {
 export class Caller extends LockingBase {
   private readonly data: ViewSet<SharedArrayBuffer>;
 
-  constructor(target: Target) {
-    const lock_view = new Int32Array(target, 0, 1);
+  protected constructor(target: Target) {
+    const lock_view = new Int32Array(target, 0, 2);
     super(lock_view);
     const offset =
       Math.ceil(
         (1 * Int32Array.BYTES_PER_ELEMENT) / BigInt64Array.BYTES_PER_ELEMENT,
       ) * BigInt64Array.BYTES_PER_ELEMENT;
     this.data = new ViewSet(target, offset, target.byteLength - offset);
+  }
+
+  static async init(target: Target): Promise<Caller> {
+    return new Caller(target);
   }
 
   get target() {

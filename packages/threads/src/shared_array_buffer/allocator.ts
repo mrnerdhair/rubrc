@@ -31,18 +31,14 @@ export class AllocatorUseArrayBuffer {
   // Since postMessage makes the class an object,
   // it must be able to receive and assign a SharedArrayBuffer.
   protected constructor({
-    share_arrays_memory,
-    share_arrays_memory_lock,
+    data,
+    locker,
   }: {
-    share_arrays_memory: SharedArrayBuffer;
-    share_arrays_memory_lock: LockerTarget;
+    data: ViewSet<SharedArrayBuffer>;
+    locker: Locker;
   }) {
-    this.data = new ViewSet(
-      share_arrays_memory,
-      0,
-      share_arrays_memory.byteLength,
-    );
-    this.locker = new Locker(share_arrays_memory_lock);
+    this.data = data;
+    this.locker = locker;
     this.data.i32[0] = 0;
     this.data.i32[1] = 0;
     this.data.i32[2] = 12;
@@ -53,7 +49,14 @@ export class AllocatorUseArrayBuffer {
   static async init(
     sl: AllocatorUseArrayBufferObject,
   ): Promise<AllocatorUseArrayBuffer> {
-    return new AllocatorUseArrayBuffer(sl);
+    return new AllocatorUseArrayBuffer({
+      data: new ViewSet(
+        sl.share_arrays_memory,
+        0,
+        sl.share_arrays_memory.byteLength,
+      ),
+      locker: await Locker.init(sl.share_arrays_memory_lock),
+    });
   }
 
   get_ref(): AllocatorUseArrayBufferObject {

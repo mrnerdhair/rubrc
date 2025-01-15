@@ -4,15 +4,12 @@ import { WASIFarmPark } from "../park";
 import { AllocatorUseArrayBuffer } from "./allocator";
 import { FdCloseSenderUseArrayBuffer } from "./fd_close_sender";
 import {
-  type CallerTarget,
   Listener,
-  type ListenerTarget,
   Locker,
-  type LockerTarget,
   new_caller_listener_target,
   new_locker_target,
 } from "./locking";
-import type { ViewSet } from "./locking";
+import { Caller, type ViewSet } from "./locking";
 import type { WASIFarmRefUseArrayBufferObject } from "./ref";
 import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
@@ -85,27 +82,17 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // Lock when you want to use fd
   private readonly lock_fds: Array<{
-    lock: LockerTarget;
-    call: CallerTarget;
-    listen: ListenerTarget;
+    locker: Locker;
+    caller: Caller;
+    listener: Listener;
   }>;
-  private get_fd_locker(fd_n: number): Locker {
-    return new Locker(this.lock_fds[fd_n].lock);
-  }
-  private get_fd_listener(fd_n: number): Listener {
-    return new Listener(this.lock_fds[fd_n].listen);
-  }
 
   private next_id = 0;
 
   private readonly listen_fds: Array<Abortable | undefined> = [];
 
-  private readonly base_func_util_locks: {
-    lock: LockerTarget;
-    call: CallerTarget;
-    listen: ListenerTarget;
-  };
   private readonly locker: Locker;
+  private readonly caller: Caller;
   private readonly listener: Listener;
 
   // tell other processes that the file descriptor has been closed
@@ -142,16 +129,24 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       ),
       share_arrays_memory_lock: new_locker_target(),
     });
-    const lock_fds = new Array(MAX_FDS_LEN).fill(undefined).map(() => {
-      const [call, listen] = new_caller_listener_target(
-        FD_FUNC_SIG_U32_SIZE * Uint32Array.BYTES_PER_ELEMENT,
-      );
-      return {
-        lock: new_locker_target(),
-        call,
-        listen,
-      };
-    });
+    const lock_fds = await Promise.all(
+      new Array(MAX_FDS_LEN).fill(undefined).map(async () => {
+        const locker_target = new_locker_target();
+        const [caller_target, listener_target] = new_caller_listener_target(
+          FD_FUNC_SIG_U32_SIZE * Uint32Array.BYTES_PER_ELEMENT,
+        );
+        const [locker, caller, listener] = await Promise.all([
+          Locker.init(locker_target),
+          Caller.init(caller_target),
+          Listener.init(listener_target),
+        ]);
+        return {
+          locker,
+          caller,
+          listener,
+        };
+      }),
+    );
 
     const fd_close_receiver = await FdCloseSenderUseArrayBuffer.init();
 
@@ -163,8 +158,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       call,
       listen,
     };
-    const locker = new Locker(base_func_util_locks.lock);
-    const listener = new Listener(base_func_util_locks.listen);
+    const locker = await Locker.init(base_func_util_locks.lock);
+    const caller = await Caller.init(base_func_util_locks.call);
+    const listener = await Listener.init(base_func_util_locks.listen);
 
     return new WASIFarmParkUseArrayBuffer({
       fds,
@@ -177,8 +173,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       allocator,
       lock_fds,
       fd_close_receiver,
-      base_func_util_locks,
       locker,
+      caller,
       listener,
     });
   }
@@ -193,8 +189,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     allocator,
     lock_fds,
     fd_close_receiver,
-    base_func_util_locks,
     locker,
+    caller,
     listener,
   }: {
     fds: Array<Fd>;
@@ -210,17 +206,13 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     fds_map: Array<number[]>;
     allocator: AllocatorUseArrayBuffer;
     lock_fds: Array<{
-      lock: LockerTarget;
-      call: CallerTarget;
-      listen: ListenerTarget;
+      locker: Locker;
+      caller: Caller;
+      listener: Listener;
     }>;
     fd_close_receiver: FdCloseSenderUseArrayBuffer;
-    base_func_util_locks: {
-      lock: LockerTarget;
-      call: CallerTarget;
-      listen: ListenerTarget;
-    };
     locker: Locker;
+    caller: Caller;
     listener: Listener;
   }) {
     super();
@@ -234,8 +226,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
     this.allocator = allocator;
     this.lock_fds = lock_fds;
     this.fd_close_receiver = fd_close_receiver;
-    this.base_func_util_locks = base_func_util_locks;
     this.locker = locker;
+    this.caller = caller;
     this.listener = listener;
   }
 
@@ -243,13 +235,17 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   get_ref(): WASIFarmRefUseArrayBufferObject {
     return {
       allocator: this.allocator.get_ref(),
-      lock_fds: this.lock_fds,
-      base_func_util_locks: this.base_func_util_locks,
+      lock_fds: this.lock_fds.map(({ locker, caller }) => ({
+        lock: locker.target,
+        call: caller.target,
+      })),
       fd_close_receiver: this.fd_close_receiver.get_ref(),
       stdin: this.stdin,
       stdout: this.stdout,
       stderr: this.stderr,
       default_fds: this.default_allow_fds,
+      lock: this.locker.target,
+      call: this.caller.target,
     };
   }
 
@@ -723,9 +719,9 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
   // listen fd
   listen_fd(fd_n: number): Abortable {
-    this.get_fd_locker(fd_n).reset();
+    this.lock_fds[fd_n].locker.reset();
 
-    const listener = this.get_fd_listener(fd_n);
+    const listener = this.lock_fds[fd_n].listener;
     listener.reset();
     return listener.listen_background(async (data) => {
       try {

@@ -24,10 +24,8 @@ export type WASIFarmRefUseArrayBufferObject = {
     lock: LockerTarget;
     call: CallerTarget;
   }>;
-  base_func_util_locks: {
-    lock: LockerTarget;
-    call: CallerTarget;
-  };
+  lock: LockerTarget;
+  call: CallerTarget;
   fd_close_receiver: FdCloseSenderUseArrayBufferObject;
 } & WASIFarmRefObject;
 
@@ -36,15 +34,9 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
   protected readonly allocator: AllocatorUseArrayBuffer;
   private readonly lock_fds: Array<{
-    lock: LockerTarget;
-    call: CallerTarget;
+    locker: Locker;
+    caller: Caller;
   }>;
-  private get_fd_locker(fd_n: number): Locker {
-    return new Locker(this.lock_fds[fd_n].lock);
-  }
-  private get_fd_caller(fd_n: number): Caller {
-    return new Caller(this.lock_fds[fd_n].call);
-  }
 
   private readonly locker: Locker;
   private readonly caller: Caller;
@@ -63,18 +55,16 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
     id: number,
     allocator: AllocatorUseArrayBuffer,
     lock_fds: Array<{
-      lock: LockerTarget;
-      call: CallerTarget;
+      locker: Locker;
+      caller: Caller;
     }>,
-    base_func_util_locks: {
-      lock: LockerTarget;
-      call: CallerTarget;
-    },
     fd_close_receiver: FdCloseSender,
     stdin: number | undefined,
     stdout: number | undefined,
     stderr: number | undefined,
     default_fds: Array<number>,
+    locker: Locker,
+    caller: Caller,
   ) {
     super();
     this.stdin = stdin;
@@ -85,8 +75,8 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
     this.id = id;
     this.allocator = allocator;
     this.lock_fds = lock_fds;
-    this.locker = new Locker(base_func_util_locks.lock);
-    this.caller = new Caller(base_func_util_locks.call);
+    this.locker = locker;
+    this.caller = caller;
   }
 
   // set park_fds_map
@@ -114,13 +104,13 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
   }
 
   private lock_fd<T>(fd: number, callback: () => T): T {
-    return this.get_fd_locker(fd).lock_blocking(callback);
+    return this.lock_fds[fd].locker.lock_blocking(callback);
   }
 
   private lock_double_fd<T>(fd1: number, fd2: number, callback: () => T): T {
     return Locker.dual_lock_blocking(
-      this.get_fd_locker(fd1),
-      this.get_fd_locker(fd2),
+      this.lock_fds[fd1].locker,
+      this.lock_fds[fd2].locker,
       callback,
       { early_backoff: fd1 < fd2 },
     );
@@ -174,7 +164,7 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
     start_callback: (data: ViewSet<SharedArrayBuffer>) => void,
     finished_callback?: (data: ViewSet<SharedArrayBuffer>, errno: number) => T,
   ): T | number {
-    return this.get_fd_caller(fd).call_and_wait_blocking(
+    return this.lock_fds[fd].caller.call_and_wait_blocking(
       start_callback,
       (data) => {
         const errno = data.i32[data.i32.length - 1];
@@ -189,50 +179,59 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
     id: number,
     allocator: AllocatorUseArrayBuffer,
     lock_fds: Array<{
-      lock: LockerTarget;
-      call: CallerTarget;
+      locker: Locker;
+      caller: Caller;
     }>,
-    base_func_util_locks: {
-      lock: LockerTarget;
-      call: CallerTarget;
-    },
     fd_close_receiver: FdCloseSender,
     stdin: number | undefined,
     stdout: number | undefined,
     stderr: number | undefined,
     default_fds: Array<number>,
+    locker: Locker,
+    caller: Caller,
   ) {
     super(
       id,
       allocator,
       lock_fds,
-      base_func_util_locks,
       fd_close_receiver,
       stdin,
       stdout,
       stderr,
       default_fds,
+      locker,
+      caller,
     );
   }
 
   static async init(
     sl: WASIFarmRefUseArrayBufferObject,
   ): Promise<WASIFarmRefUseArrayBuffer> {
+    const caller = await Caller.init(sl.call);
     return new WASIFarmRefUseArrayBuffer(
-      await new Caller(sl.base_func_util_locks.call).call_and_wait(
+      await caller.call_and_wait(
         (data) => {
           data.i32[0] = WASIFarmParkFuncNames.get_new_id;
         },
         (data) => data.i32[0],
       ),
       await AllocatorUseArrayBuffer.init(sl.allocator),
-      sl.lock_fds,
-      sl.base_func_util_locks,
+      await Promise.all(
+        sl.lock_fds.map(async ({ lock, call }) => {
+          const [locker, caller] = await Promise.all([
+            Locker.init(lock),
+            Caller.init(call),
+          ]);
+          return { locker, caller };
+        }),
+      ),
       await FdCloseSenderUseArrayBuffer.init(sl.fd_close_receiver),
       sl.stdin,
       sl.stdout,
       sl.stderr,
       sl.default_fds,
+      await Locker.init(sl.lock),
+      caller,
     );
   }
 

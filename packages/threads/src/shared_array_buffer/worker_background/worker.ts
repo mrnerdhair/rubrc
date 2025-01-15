@@ -21,7 +21,6 @@ import {
   Listener,
   type ListenerTarget,
   Locker,
-  type LockerTarget,
 } from "../locking";
 import * as Serializer from "../serialize_error";
 import type { ThreadSpawnerObject } from "../thread_spawn";
@@ -52,17 +51,12 @@ export type OverrideObject = {
 export class WorkerBackground extends Abortable {
   private readonly override_object: OverrideObject;
   private readonly allocator: AllocatorUseArrayBuffer;
-  private readonly locks: {
-    lock: LockerTarget;
-    call: CallerTarget;
-    listen: ListenerTarget;
-    done_call: CallerTarget;
-    done_listen: ListenerTarget;
-  };
 
-  private locker: Locker;
-  private listener: Listener;
-  private done_caller: Caller;
+  private readonly locker: Locker;
+  private readonly call: CallerTarget;
+  private readonly listener: Listener;
+  private readonly done_caller: Caller;
+  private readonly done_listen: ListenerTarget;
 
   // worker_id starts from 1
   private readonly workers: Array<
@@ -73,21 +67,20 @@ export class WorkerBackground extends Abortable {
 
   protected constructor(
     override_object: OverrideObject,
-    locks: {
-      lock: LockerTarget;
-      call: CallerTarget;
-      listen: ListenerTarget;
-      done_call: CallerTarget;
-      done_listen: ListenerTarget;
-    },
     allocator: AllocatorUseArrayBuffer,
+    locker: Locker,
+    call: CallerTarget,
+    listener: Listener,
+    done_caller: Caller,
+    done_listen: ListenerTarget,
   ) {
     super();
     this.override_object = override_object;
-    this.locks = locks;
-    this.locker = new Locker(this.locks.lock);
-    this.listener = new Listener(this.locks.listen);
-    this.done_caller = new Caller(this.locks.done_call);
+    this.locker = locker;
+    this.call = call;
+    this.listener = listener;
+    this.done_caller = done_caller;
+    this.done_listen = done_listen;
     this.allocator = allocator;
     this.resolve(this.listen());
   }
@@ -96,12 +89,20 @@ export class WorkerBackground extends Abortable {
     override_object: OverrideObject,
     worker_background_ref_object: WorkerBackgroundRefObject,
   ): Promise<WorkerBackground> {
+    const [allocator, locker, listener, done_caller] = await Promise.all([
+      AllocatorUseArrayBuffer.init(worker_background_ref_object.allocator),
+      Locker.init(worker_background_ref_object.lock),
+      Listener.init(worker_background_ref_object.listen),
+      Caller.init(worker_background_ref_object.done_call),
+    ]);
     return new WorkerBackground(
       override_object,
-      worker_background_ref_object.locks,
-      await AllocatorUseArrayBuffer.init(
-        worker_background_ref_object.allocator,
-      ),
+      allocator,
+      locker,
+      worker_background_ref_object.call,
+      listener,
+      done_caller,
+      worker_background_ref_object.done_listen,
     );
   }
 
@@ -118,7 +119,11 @@ export class WorkerBackground extends Abortable {
   ref(): WorkerBackgroundRefObject {
     return {
       allocator: this.allocator.get_ref(),
-      locks: this.locks,
+      lock: this.locker.target,
+      call: this.call,
+      listen: this.listener.target,
+      done_call: this.done_caller.target,
+      done_listen: this.done_listen,
     } as WorkerBackgroundRefObject;
   }
 

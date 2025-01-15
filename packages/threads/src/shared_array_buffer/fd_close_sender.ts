@@ -135,20 +135,25 @@ export class FdCloseSenderUseArrayBuffer
       const [call, listen] = new_caller_listener_target(
         4 * Uint32Array.BYTES_PER_ELEMENT,
       );
-      const out = new FdCloseSenderUseArrayBuffer({
-        caller: new Caller(call),
-        listener: new Listener(listen),
-        allocator: await AllocatorUseArrayBuffer.init({
+      const [caller, listener, allocator] = await Promise.all([
+        await Caller.init(call),
+        await Listener.init(listen),
+        await AllocatorUseArrayBuffer.init({
           share_arrays_memory: new SharedArrayBuffer(64 * 1024),
           share_arrays_memory_lock: new_locker_target(),
         }),
+      ]);
+      const out = new FdCloseSenderUseArrayBuffer({
+        caller,
+        listener,
+        allocator,
       });
       out.listen();
       return out;
     }
     return new FdCloseSenderUseArrayBuffer({
-      caller: new Caller(sl.call),
-      listener: new Listener(sl.listen),
+      caller: await Caller.init(sl.call),
+      listener: await Listener.init(sl.listen),
       allocator: await AllocatorUseArrayBuffer.init(sl.allocator_obj),
     });
   }
