@@ -91,106 +91,93 @@ export function wait_on_gen<T extends WaitOnGenBase<any>>(
   return new WaitOnGen<WaitOnGenBaseType<T>>(x);
 }
 
-export class Wait extends Waitable<string> {
-  readonly args:
-    | [
-        view: Int32Array<ArrayBufferLike>,
-        index: number,
-        value: number,
-        timeout?: number,
-      ]
-    | [
-        view: BigInt64Array<ArrayBufferLike>,
-        index: number,
-        value: bigint,
-        timeout?: number,
-      ];
+const wait: unique symbol = Symbol.for("WaitTarget.wait()");
+const waitAsync: unique symbol = Symbol.for("WaitTarget.waitAsync()");
+const waitCtor: unique symbol = Symbol.for("new Wait()");
 
-  constructor(
-    ...args:
-      | [
-          view: Int32Array<ArrayBufferLike>,
-          index: number,
-          value: number,
-          timeout?: number,
-        ]
-      | [
-          view: BigInt64Array<ArrayBufferLike>,
-          index: number,
-          value: bigint,
-          timeout?: number,
-        ]
-  ) {
-    super();
-    this.args = args;
+export class WaitTarget {
+  static readonly BYTE_LENGTH = 1 * Int32Array.BYTES_PER_ELEMENT;
+
+  private readonly view: Int32Array<SharedArrayBuffer>;
+  private readonly index: number;
+
+  protected constructor(view: Int32Array<SharedArrayBuffer>, index: number) {
+    this.view = view;
+    this.index = index;
   }
 
-  wait(): string {
-    const args = this.args;
-    if (args[0] instanceof Int32Array) {
-      return Atomics.wait(
-        ...(args as [
-          view: Int32Array<ArrayBufferLike>,
-          index: number,
-          value: number,
-          timeout?: number,
-        ]),
-      );
-    }
-    return Atomics.wait(
-      ...(args as [
-        view: BigInt64Array<ArrayBufferLike>,
-        index: number,
-        value: bigint,
-        timeout?: number,
-      ]),
+  static async init(view: ArrayBufferView<SharedArrayBuffer>, index: number) {
+    return new WaitTarget(
+      new Int32Array(
+        view.buffer,
+        view.byteOffset,
+        WaitTarget.BYTE_LENGTH / Int32Array.BYTES_PER_ELEMENT,
+      ),
+      index,
     );
   }
 
-  async waitAsync(): Promise<string> {
-    const args = this.args;
-    if (args[0] instanceof Int32Array) {
-      return await Atomics.waitAsync(
-        ...(args as [
-          view: Int32Array<ArrayBufferLike>,
-          index: number,
-          value: number,
-          timeout?: number,
-        ]),
-      ).value;
-    }
-    return await Atomics.waitAsync(
-      ...(args as [
-        view: BigInt64Array<ArrayBufferLike>,
-        index: number,
-        value: bigint,
-        timeout?: number,
-      ]),
-    ).value;
+  equals(other: WaitTarget): boolean {
+    return (
+      this.view.buffer === other.view.buffer &&
+      this.view.byteOffset + this.index * Int32Array.BYTES_PER_ELEMENT ===
+        other.view.byteOffset + other.index * Int32Array.BYTES_PER_ELEMENT &&
+      this.view.byteLength === other.view.byteLength
+    );
   }
 
-  static notify(
-    ...args:
-      | [view: Int32Array<ArrayBufferLike>, index: number, count?: number]
-      | [view: BigInt64Array<ArrayBufferLike>, index: number, count?: number]
-  ) {
-    if (args[0] instanceof Int32Array) {
-      Atomics.notify(
-        ...(args as [
-          view: Int32Array<ArrayBufferLike>,
-          index: number,
-          count?: number,
-        ]),
-      );
-    } else {
-      Atomics.notify(
-        ...(args as [
-          view: BigInt64Array<ArrayBufferLike>,
-          index: number,
-          count?: number,
-        ]),
-      );
-    }
+  wait(value: number, timeout?: number): Wait {
+    return Wait[waitCtor](this, value, timeout);
+  }
+
+  notify(count?: number): void {
+    Atomics.notify(this.view, this.index, count);
+  }
+
+  exchange(value: number): number {
+    return Atomics.exchange(this.view, this.index, value);
+  }
+
+  compareExchange(expectedValue: number, replacementValue: number): number {
+    return Atomics.compareExchange(
+      this.view,
+      this.index,
+      expectedValue,
+      replacementValue,
+    );
+  }
+
+  [wait](value: number, timeout?: number): string {
+    return Atomics.wait(this.view, this.index, value, timeout);
+  }
+
+  async [waitAsync](value: number, timeout?: number): Promise<string> {
+    return await Atomics.waitAsync(this.view, this.index, value, timeout).value;
+  }
+}
+
+export class Wait extends Waitable<string> {
+  readonly target: WaitTarget;
+  readonly value: number;
+  readonly timeout?: number;
+
+  protected constructor(target: WaitTarget, value: number, timeout?: number) {
+    super();
+    this.target = target;
+    this.value = value;
+    this.timeout = timeout;
+  }
+
+  static [waitCtor](target: WaitTarget, value: number, timeout?: number): Wait {
+    return new Wait(target, value, timeout);
+  }
+
+  wait(): string {
+    return this.target[wait](this.value, this.timeout);
+  }
+
+  async waitAsync(): Promise<string> {
+    return await this.target[waitAsync](this.value, this.timeout);
   }
 }
 

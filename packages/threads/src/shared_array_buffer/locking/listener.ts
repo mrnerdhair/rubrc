@@ -1,8 +1,7 @@
 import { Abortable } from "rubrc-util";
-import { new_target as new_caller_target } from "./caller";
 import { LockingBase } from "./locking_base";
 import { ViewSet } from "./view_set";
-import { type WaitOnGenBase, wait_on_gen } from "./waiter";
+import { type WaitOnGenBase, WaitTarget, wait_on_gen } from "./waiter";
 
 export enum ListenerState {
   UNLOCKED = 0,
@@ -15,28 +14,33 @@ export enum ListenerState {
 }
 
 export class Listener extends LockingBase {
+  readonly target: Target;
   private readonly data: ViewSet<SharedArrayBuffer>;
 
-  protected constructor(target: Target) {
-    const lock_view = new Int32Array(target, 0, 2);
-    super(lock_view);
-    const offset =
-      Math.ceil(
-        (1 * Int32Array.BYTES_PER_ELEMENT) / BigInt64Array.BYTES_PER_ELEMENT,
-      ) * BigInt64Array.BYTES_PER_ELEMENT;
-    this.data = new ViewSet(target, offset, target.byteLength - offset);
+  protected constructor(
+    wait_target: WaitTarget,
+    target: Target,
+    data: ViewSet<SharedArrayBuffer>,
+  ) {
+    super(wait_target);
+    this.target = target;
+    this.data = data;
   }
 
   static async init(target: Target): Promise<Listener> {
-    return new Listener(target);
-  }
-
-  get target() {
-    return this.lock_view.buffer as Target;
+    const offset =
+      Math.ceil(WaitTarget.BYTE_LENGTH / BigInt64Array.BYTES_PER_ELEMENT) *
+      BigInt64Array.BYTES_PER_ELEMENT;
+    const data = new ViewSet(
+      target.buffer,
+      target.byteOffset + offset,
+      target.byteLength - offset,
+    );
+    return new Listener(await WaitTarget.init(target, 0), target, data);
   }
 
   reset() {
-    const old = Atomics.exchange(this.lock_view, 0, ListenerState.UNLOCKED);
+    const old = this.wait_target.exchange(ListenerState.UNLOCKED);
     if (old !== ListenerState.UNLOCKED) {
       throw new Error(`listener reset did something: ${old}`);
     }
@@ -89,9 +93,6 @@ export class Listener extends LockingBase {
 }
 
 declare const targetBrand: unique symbol;
-export type Target = SharedArrayBuffer & { [targetBrand]: never };
-export function new_target(size = 0): Target {
-  return new_caller_target(
-    size,
-  ) satisfies SharedArrayBuffer as unknown as Target;
-}
+export type Target = ArrayBufferView<SharedArrayBuffer> & {
+  [targetBrand]: never;
+};

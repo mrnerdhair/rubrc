@@ -7,7 +7,7 @@ import type { Target as ListenerTarget } from "./listener";
 export {
   Locker,
   type Target as LockerTarget,
-  new_locker_target,
+  new_target as new_locker_target,
 } from "./locker";
 export { Caller, type Target as CallerTarget } from "./caller";
 export { Listener, type Target as ListenerTarget } from "./listener";

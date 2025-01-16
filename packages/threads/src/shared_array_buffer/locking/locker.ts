@@ -4,6 +4,7 @@ import {
   Spin,
   type WaitOnGen,
   type WaitOnGenBase,
+  WaitTarget,
   wait_on_gen,
 } from "./waiter";
 
@@ -14,21 +15,19 @@ enum LockerState {
 }
 
 export class Locker extends LockingBase {
-  protected constructor(target: Target) {
-    const lock_view = new Int32Array(target, 0, 2);
-    super(lock_view);
+  readonly target: Target;
+
+  protected constructor(wait_target: WaitTarget, target: Target) {
+    super(wait_target);
+    this.target = target;
   }
 
   static async init(target: Target): Promise<Locker> {
-    return new Locker(target);
-  }
-
-  get target() {
-    return this.lock_view.buffer as Target;
+    return new Locker(await WaitTarget.init(target, 0), target);
   }
 
   reset(): void {
-    const old = Atomics.exchange(this.lock_view, 0, LockerState.UNLOCKED);
+    const old = this.wait_target.exchange(LockerState.UNLOCKED);
     if (old !== LockerState.UNLOCKED) {
       throw new Error(`locker reset actually did something: ${old}`);
     }
@@ -59,11 +58,7 @@ export class Locker extends LockingBase {
   }
 
   private equals(other: Locker): boolean {
-    return (
-      this.lock_view.buffer === other.lock_view.buffer &&
-      this.lock_view.byteOffset === other.lock_view.byteOffset &&
-      this.lock_view.byteLength === other.lock_view.byteOffset
-    );
+    return this.wait_target.equals(other.wait_target);
   }
 
   static async dual_lock<T>(
@@ -147,7 +142,17 @@ export class Locker extends LockingBase {
 }
 
 declare const targetBrand: unique symbol;
-export type Target = SharedArrayBuffer & { [targetBrand]: never };
-export function new_locker_target(): Target {
-  return new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT) as Target;
+export type Target = ArrayBufferView<SharedArrayBuffer> & {
+  [targetBrand]: never;
+};
+export function new_target(size = 0): Target {
+  const headerLenPadded =
+    Math.ceil(WaitTarget.BYTE_LENGTH / BigInt64Array.BYTES_PER_ELEMENT) *
+    BigInt64Array.BYTES_PER_ELEMENT;
+  const sizePadded =
+    Math.ceil(size / BigInt64Array.BYTES_PER_ELEMENT) *
+    BigInt64Array.BYTES_PER_ELEMENT;
+  return new Int32Array(
+    new SharedArrayBuffer(headerLenPadded + sizePadded),
+  ) as ArrayBufferView<SharedArrayBuffer> as Target;
 }
