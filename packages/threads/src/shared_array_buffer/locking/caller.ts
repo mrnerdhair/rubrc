@@ -13,30 +13,22 @@ export class Caller extends LockingBase {
   readonly target: Target;
   private readonly data: ViewSet<SharedArrayBuffer>;
 
-  protected constructor(
-    wait_target: WaitTarget,
-    target: Target,
-    data: ViewSet<SharedArrayBuffer>,
-  ) {
-    super(wait_target);
+  protected constructor(target: Target) {
+    super(target.wait_target);
     this.target = target;
-    this.data = data;
+    this.data = new ViewSet(
+      target.data.buffer,
+      target.data.byteOffset,
+      target.data.byteLength,
+    );
   }
 
   static async init(target: Target): Promise<Caller> {
-    const offset =
-      Math.ceil(WaitTarget.BYTE_LENGTH / BigInt64Array.BYTES_PER_ELEMENT) *
-      BigInt64Array.BYTES_PER_ELEMENT;
-    const data = new ViewSet(
-      target.buffer,
-      target.byteOffset + offset,
-      target.byteLength - offset,
-    );
-    return new Caller(await WaitTarget.init(target, 0), target, data);
+    return new Caller(target);
   }
 
   reset() {
-    const old = this.wait_target.exchange(ListenerState.UNLOCKED);
+    const old = WaitTarget.exchange(this.wait_target, ListenerState.UNLOCKED);
     if (old !== ListenerState.UNLOCKED) {
       throw new Error(`caller reset did something: ${old}`);
     }
@@ -145,17 +137,22 @@ export class Caller extends LockingBase {
 }
 
 declare const targetBrand: unique symbol;
-export type Target = ArrayBufferView<SharedArrayBuffer> & {
+export type Target = {
+  wait_target: WaitTarget;
+  data: ArrayBufferView<SharedArrayBuffer>;
   [targetBrand]: never;
 };
-export function new_target(size = 0): Target {
+export async function new_target(size = 0): Promise<Target> {
   const headerLenPadded =
     Math.ceil(WaitTarget.BYTE_LENGTH / BigInt64Array.BYTES_PER_ELEMENT) *
     BigInt64Array.BYTES_PER_ELEMENT;
   const sizePadded =
     Math.ceil(size / BigInt64Array.BYTES_PER_ELEMENT) *
     BigInt64Array.BYTES_PER_ELEMENT;
-  return new Int32Array(
-    new SharedArrayBuffer(headerLenPadded + sizePadded),
-  ) as ArrayBufferView<SharedArrayBuffer> as Target;
+  const buf = new SharedArrayBuffer(headerLenPadded + sizePadded);
+  const out: Omit<Target, typeof targetBrand> = {
+    wait_target: await WaitTarget.init(new Int32Array(buf), 0),
+    data: new ViewSet(buf, headerLenPadded, sizePadded),
+  };
+  return out as Target;
 }

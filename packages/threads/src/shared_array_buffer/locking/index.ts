@@ -2,7 +2,10 @@ import {
   type Target as CallerTarget,
   new_target as new_caller_target,
 } from "./caller";
-import type { Target as ListenerTarget } from "./listener";
+import {
+  type Target as ListenerTarget,
+  new_target as new_listener_target,
+} from "./listener";
 
 export {
   Locker,
@@ -23,9 +26,10 @@ export {
 } from "./waiter";
 export type { Waited, WaitOnGenBase } from "./waiter";
 
-export function new_caller_listener_target(
+export async function new_caller_listener_target(
   size = 0,
-): [CallerTarget, ListenerTarget] {
-  const caller_target = new_caller_target(size);
-  return [caller_target, caller_target as unknown as ListenerTarget];
+): Promise<[CallerTarget, ListenerTarget]> {
+  const caller_target = await new_caller_target(size);
+  const listener_target = await new_listener_target(caller_target);
+  return [caller_target, listener_target];
 }

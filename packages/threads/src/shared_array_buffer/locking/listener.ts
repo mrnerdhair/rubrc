@@ -1,4 +1,5 @@
 import { Abortable } from "rubrc-util";
+import type { Target as CallerTarget } from "./caller";
 import { LockingBase } from "./locking_base";
 import { ViewSet } from "./view_set";
 import { type WaitOnGenBase, WaitTarget, wait_on_gen } from "./waiter";
@@ -17,30 +18,22 @@ export class Listener extends LockingBase {
   readonly target: Target;
   private readonly data: ViewSet<SharedArrayBuffer>;
 
-  protected constructor(
-    wait_target: WaitTarget,
-    target: Target,
-    data: ViewSet<SharedArrayBuffer>,
-  ) {
-    super(wait_target);
+  protected constructor(target: Target) {
+    super(target.wait_target);
     this.target = target;
-    this.data = data;
+    this.data = new ViewSet(
+      target.data.buffer,
+      target.data.byteOffset,
+      target.data.byteLength,
+    );
   }
 
   static async init(target: Target): Promise<Listener> {
-    const offset =
-      Math.ceil(WaitTarget.BYTE_LENGTH / BigInt64Array.BYTES_PER_ELEMENT) *
-      BigInt64Array.BYTES_PER_ELEMENT;
-    const data = new ViewSet(
-      target.buffer,
-      target.byteOffset + offset,
-      target.byteLength - offset,
-    );
-    return new Listener(await WaitTarget.init(target, 0), target, data);
+    return new Listener(target);
   }
 
   reset() {
-    const old = this.wait_target.exchange(ListenerState.UNLOCKED);
+    const old = WaitTarget.exchange(this.wait_target, ListenerState.UNLOCKED);
     if (old !== ListenerState.UNLOCKED) {
       throw new Error(`listener reset did something: ${old}`);
     }
@@ -93,6 +86,9 @@ export class Listener extends LockingBase {
 }
 
 declare const targetBrand: unique symbol;
-export type Target = ArrayBufferView<SharedArrayBuffer> & {
+export type Target = CallerTarget & {
   [targetBrand]: never;
 };
+export async function new_target(caller_target: CallerTarget): Promise<Target> {
+  return caller_target as Target;
+}

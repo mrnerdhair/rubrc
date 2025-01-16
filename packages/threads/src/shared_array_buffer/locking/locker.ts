@@ -17,17 +17,17 @@ enum LockerState {
 export class Locker extends LockingBase {
   readonly target: Target;
 
-  protected constructor(wait_target: WaitTarget, target: Target) {
-    super(wait_target);
+  protected constructor(target: Target) {
+    super(target.wait_target);
     this.target = target;
   }
 
   static async init(target: Target): Promise<Locker> {
-    return new Locker(await WaitTarget.init(target, 0), target);
+    return new Locker(target);
   }
 
   reset(): void {
-    const old = this.wait_target.exchange(LockerState.UNLOCKED);
+    const old = WaitTarget.exchange(this.wait_target, LockerState.UNLOCKED);
     if (old !== LockerState.UNLOCKED) {
       throw new Error(`locker reset actually did something: ${old}`);
     }
@@ -58,7 +58,7 @@ export class Locker extends LockingBase {
   }
 
   private equals(other: Locker): boolean {
-    return this.wait_target.equals(other.wait_target);
+    return WaitTarget.equals(this.wait_target, other.wait_target);
   }
 
   static async dual_lock<T>(
@@ -142,17 +142,15 @@ export class Locker extends LockingBase {
 }
 
 declare const targetBrand: unique symbol;
-export type Target = ArrayBufferView<SharedArrayBuffer> & {
+export type Target = {
+  wait_target: WaitTarget;
   [targetBrand]: never;
 };
-export function new_target(size = 0): Target {
-  const headerLenPadded =
-    Math.ceil(WaitTarget.BYTE_LENGTH / BigInt64Array.BYTES_PER_ELEMENT) *
-    BigInt64Array.BYTES_PER_ELEMENT;
-  const sizePadded =
-    Math.ceil(size / BigInt64Array.BYTES_PER_ELEMENT) *
-    BigInt64Array.BYTES_PER_ELEMENT;
-  return new Int32Array(
-    new SharedArrayBuffer(headerLenPadded + sizePadded),
-  ) as ArrayBufferView<SharedArrayBuffer> as Target;
+export async function new_target(): Promise<Target> {
+  return {
+    wait_target: await WaitTarget.init(
+      new Int32Array(new SharedArrayBuffer(WaitTarget.BYTE_LENGTH)),
+      0,
+    ),
+  } satisfies Omit<Target, typeof targetBrand> as Target;
 }

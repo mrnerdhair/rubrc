@@ -61,7 +61,8 @@ export class ThreadSpawner {
     const worker_background_worker_init = worker_background_ref_object
       ? undefined
       : workerBackgroundInit;
-    worker_background_ref_object ??= WorkerBackgroundRefObjectConstructor();
+    worker_background_ref_object ??=
+      await WorkerBackgroundRefObjectConstructor();
     const worker_background_ref = await WorkerBackgroundRef.init(
       worker_background_ref_object,
     );

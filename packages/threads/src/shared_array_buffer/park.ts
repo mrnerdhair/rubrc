@@ -127,14 +127,17 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       share_arrays_memory: new SharedArrayBuffer(
         allocator_size ?? 10 * 1024 * 1024,
       ),
-      share_arrays_memory_lock: new_locker_target(),
+      share_arrays_memory_lock: await new_locker_target(),
     });
     const lock_fds = await Promise.all(
       new Array(MAX_FDS_LEN).fill(undefined).map(async () => {
-        const locker_target = new_locker_target();
-        const [caller_target, listener_target] = new_caller_listener_target(
-          FD_FUNC_SIG_U32_SIZE * Uint32Array.BYTES_PER_ELEMENT,
-        );
+        const [locker_target, [caller_target, listener_target]] =
+          await Promise.all([
+            new_locker_target(),
+            new_caller_listener_target(
+              FD_FUNC_SIG_U32_SIZE * Uint32Array.BYTES_PER_ELEMENT,
+            ),
+          ]);
         const [locker, caller, listener] = await Promise.all([
           Locker.init(locker_target),
           Caller.init(caller_target),
@@ -150,11 +153,12 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
 
     const fd_close_receiver = await FdCloseSenderUseArrayBuffer.init();
 
-    const [call, listen] = new_caller_listener_target(
-      4 * Int32Array.BYTES_PER_ELEMENT,
-    );
+    const [lock, [call, listen]] = await Promise.all([
+      new_locker_target(),
+      new_caller_listener_target(4 * Int32Array.BYTES_PER_ELEMENT),
+    ]);
     const base_func_util_locks = {
-      lock: new_locker_target(),
+      lock,
       call,
       listen,
     };

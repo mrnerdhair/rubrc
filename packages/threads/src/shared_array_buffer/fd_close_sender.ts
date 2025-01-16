@@ -132,16 +132,17 @@ export class FdCloseSenderUseArrayBuffer
     sl?: FdCloseSenderUseArrayBufferObject,
   ): Promise<FdCloseSenderUseArrayBuffer> {
     if (!sl) {
-      const [call, listen] = new_caller_listener_target(
+      const [call, listen] = await new_caller_listener_target(
         4 * Uint32Array.BYTES_PER_ELEMENT,
       );
       const [caller, listener, allocator] = await Promise.all([
-        await Caller.init(call),
-        await Listener.init(listen),
-        await AllocatorUseArrayBuffer.init({
-          share_arrays_memory: new SharedArrayBuffer(64 * 1024),
-          share_arrays_memory_lock: new_locker_target(),
-        }),
+        Caller.init(call),
+        Listener.init(listen),
+        (async () =>
+          await AllocatorUseArrayBuffer.init({
+            share_arrays_memory: new SharedArrayBuffer(64 * 1024),
+            share_arrays_memory_lock: await new_locker_target(),
+          }))(),
       ]);
       const out = new FdCloseSenderUseArrayBuffer({
         caller,
@@ -151,10 +152,15 @@ export class FdCloseSenderUseArrayBuffer
       out.listen();
       return out;
     }
+    const [caller, listener, allocator] = await Promise.all([
+      Caller.init(sl.call),
+      Listener.init(sl.listen),
+      AllocatorUseArrayBuffer.init(sl.allocator_obj),
+    ]);
     return new FdCloseSenderUseArrayBuffer({
-      caller: await Caller.init(sl.call),
-      listener: await Listener.init(sl.listen),
-      allocator: await AllocatorUseArrayBuffer.init(sl.allocator_obj),
+      caller,
+      listener,
+      allocator,
     });
   }
 }
