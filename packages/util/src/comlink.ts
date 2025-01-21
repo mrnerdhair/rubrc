@@ -43,7 +43,7 @@ export function setTransferHandlers() {
   if (transferHandlersSet) return;
   transferHandlersSet = true;
 
-  Comlink.transferHandlers.set("proxyTransferHandler", {
+  Comlink.transferHandlers.set("fallback", {
     canHandle(obj: unknown): obj is Indexable {
       return (
         !isStructuredClonable(obj) &&
@@ -60,6 +60,7 @@ export function setTransferHandlers() {
       return [port2, [port2]];
     },
     deserialize(port: MessagePort): Indexable {
+      port.start();
       return Comlink.wrap<Indexable>(port);
     },
   });
