@@ -1,7 +1,7 @@
 import {
   type WaitOnGen,
   type WaitOnGenBase,
-  WaitTarget,
+  type WaitTarget,
   wait_on_gen,
 } from "./waiter";
 
@@ -25,8 +25,7 @@ export abstract class LockingBase {
     return wait_on_gen(
       function* (this: LockingBase): WaitOnGenBase<void> {
         while (true) {
-          const old = WaitTarget.compareExchange(
-            this.wait_target,
+          const old = this.wait_target.compareExchange(
             expectedValue,
             replacementValue,
           );
@@ -34,9 +33,9 @@ export abstract class LockingBase {
             break;
           }
           if (immediate) throw new LockNotReady();
-          yield WaitTarget.wait(this.wait_target, old);
+          yield this.wait_target.wait(old);
         }
-        WaitTarget.notify(this.wait_target, 1);
+        this.wait_target.notify(1);
         return undefined;
       }.call(this),
     );

@@ -1,3 +1,5 @@
+import * as Comlink from "comlink";
+
 export abstract class Waitable<T> {
   abstract wait(): T;
   abstract waitAsync(): Promise<Awaited<T>>;
@@ -91,155 +93,170 @@ export function wait_on_gen<T extends WaitOnGenBase<any>>(
   return new WaitOnGen<WaitOnGenBaseType<T>>(x);
 }
 
-const waitInner: unique symbol = Symbol.for("WaitTarget.wait()");
-const waitAsyncInner: unique symbol = Symbol.for("WaitTarget.waitAsync()");
+const wait: unique symbol = Symbol.for("WaitTarget.wait()");
+const waitAsync: unique symbol = Symbol.for("WaitTarget.waitAsync()");
 const waitCtor: unique symbol = Symbol.for("new Wait()");
 
-declare const waitTargetBrand: unique symbol;
-export type WaitTarget = {
-  view: Int32Array<SharedArrayBuffer>;
-  index: number;
-  [waitTargetBrand]: never;
-};
+export class WaitTarget {
+  static readonly BYTE_LENGTH = 1 * Int32Array.BYTES_PER_ELEMENT;
 
-export namespace WaitTarget {
-  export const BYTE_LENGTH = 1 * Int32Array.BYTES_PER_ELEMENT;
-
+  private readonly view: Int32Array<SharedArrayBuffer>;
+  private readonly index: number;
   // private static readonly bc = new BroadcastChannel("waitAsync");
   // private readonly bc = WaitTarget.bc;
 
-  export async function init(
+  protected constructor({
+    view,
+    index,
+  }: { view: Int32Array<SharedArrayBuffer>; index: number }) {
+    this.view = view;
+    this.index = index;
+  }
+
+  static async init(
+    view: Int32Array<SharedArrayBuffer>,
+    index: number,
+  ): Promise<WaitTarget> {
+    return new WaitTarget({ view, index });
+  }
+
+  static {
+    type Obj = {
+      view: Int32Array<SharedArrayBuffer>;
+      index: number;
+    };
+    Comlink.transferHandlers.set("WaitTarget", {
+      canHandle(obj: unknown): obj is WaitTarget {
+        return obj instanceof WaitTarget;
+      },
+      serialize(obj: WaitTarget): [Obj, Transferable[]] {
+        return [
+          {
+            view: obj.view,
+            index: obj.index,
+          },
+          [],
+        ];
+      },
+      deserialize(obj: Obj): WaitTarget {
+        return new WaitTarget(obj);
+      },
+    });
+  }
+
+  async init(
     view: ArrayBufferView<SharedArrayBuffer>,
     index: number,
   ): Promise<WaitTarget> {
-    const out: Omit<WaitTarget, typeof waitTargetBrand> = {
+    return new WaitTarget({
       view: new Int32Array(
         view.buffer,
         view.byteOffset,
         WaitTarget.BYTE_LENGTH / Int32Array.BYTES_PER_ELEMENT,
       ),
       index,
-    };
-    return out as WaitTarget;
+    });
   }
 
-  export function equals(self: WaitTarget, other: WaitTarget): boolean {
+  equals(other: WaitTarget): boolean {
     return (
-      self.view.buffer === other.view.buffer &&
-      self.view.byteOffset + self.index * Int32Array.BYTES_PER_ELEMENT ===
+      this.view.buffer === other.view.buffer &&
+      this.view.byteOffset + this.index * Int32Array.BYTES_PER_ELEMENT ===
         other.view.byteOffset + other.index * Int32Array.BYTES_PER_ELEMENT &&
-      self.view.byteLength === other.view.byteLength
+      this.view.byteLength === other.view.byteLength
     );
   }
 
-  export function notify(self: WaitTarget, count?: number): void {
-    Atomics.notify(self.view, self.index, count);
+  notify(count?: number): void {
+    Atomics.notify(this.view, this.index, count);
     // console.log(`Wait.bc.postMessage([${id}, ${args[1]}, ${args[2]}]`);
     // Wait.bc.postMessage([id, args[1], args[2]]);
   }
 
-  export function exchange(self: WaitTarget, value: number): number {
-    return Atomics.exchange(self.view, self.index, value);
+  exchange(value: number): number {
+    return Atomics.exchange(this.view, this.index, value);
   }
 
-  export function compareExchange(
-    self: WaitTarget,
-    expectedValue: number,
-    replacementValue: number,
-  ): number {
+  compareExchange(expectedValue: number, replacementValue: number): number {
     return Atomics.compareExchange(
-      self.view,
-      self.index,
+      this.view,
+      this.index,
       expectedValue,
       replacementValue,
     );
   }
 
-  export function wait(
-    self: WaitTarget,
-    value: number,
-    timeout?: number,
-  ): Wait {
-    return Wait[waitCtor](self, value, timeout);
+  wait(value: number, timeout?: number): Wait {
+    return Wait[waitCtor](this, value, timeout);
   }
 
-  export const _inner = {
-    [waitInner]: (
-      self: WaitTarget,
-      value: number,
-      timeout?: number,
-    ): string => {
-      return Atomics.wait(self.view, self.index, value, timeout);
-    },
-    [waitAsyncInner]: async (
-      self: WaitTarget,
-      value: number,
-      timeout?: number,
-    ): Promise<string> => {
-      return await Atomics.waitAsync(self.view, self.index, value, timeout)
-        .value;
-      // if (this.args[0] instanceof Int32Array) {
-      //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
-      //     return "not-equal";
-      // } else {
-      //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
-      //     return "not-equal";
-      // }
-      // while (true) {
-      //   await new Promise((resolve) => {
-      //     Wait.bc.addEventListener("message", () => resolve(), {
-      //       once: true,
-      //       passive: true,
-      //     });
-      //   });
-      //   if (this.args[0] instanceof Int32Array) {
-      //     if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
-      //       return "ok";
-      //   } else {
-      //     if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
-      //       return "ok";
-      //   }
-      // }
+  [wait](value: number, timeout?: number): string {
+    return Atomics.wait(this.view, this.index, value, timeout);
+  }
 
-      // const aborter = new AbortController();
-      // const foo = new Promise<string>((resolve) => {
-      //   const eventListener = (_ev: MessageEvent) => {
-      //     // console.log("eventListener", this.id, this.args, ev.data);
-      //     // const [id, index, _count] = ev.data as [
-      //     //   number,
-      //     //   number,
-      //     //   number | undefined,
-      //     // ];
-      //     // if (id !== this.id || index !== this.args[1]) return;
-      //     // console.log("eventListener notified", this.id);
-      //     if (this.args[0] instanceof Int32Array) {
-      //       if (Atomics.load(this.args[0], this.args[1]) === this.args[2]) return;
-      //     } else {
-      //       if (Atomics.load(this.args[0], this.args[1]) === this.args[2]) return;
-      //     }
-      //     console.log("eventListener resolve", this.id);
-      //     resolve("ok");
-      //     Wait.bc.removeEventListener("message", eventListener);
-      //     clearInterval(bar);
-      //   };
-      //   aborter.signal.addEventListener("abort", () => Wait.bc.removeEventListener("message", eventListener));
-      //   Wait.bc.addEventListener("message", eventListener);
-      //   const bar = setInterval(eventListener, 100);
-      // });
-      // if (this.args[0] instanceof Int32Array) {
-      //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2]) {
-      //     aborter.abort();
-      //     return "not-equal";
-      //   }
-      // } else {
-      //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2]) {
-      //     aborter.abort();
-      //     return "not-equal";
-      //   }
-      // }
-      // return await foo;
-    },
-  };
+  async [waitAsync](value: number, timeout?: number): Promise<string> {
+    return await Atomics.waitAsync(this.view, this.index, value, timeout).value;
+    // if (this.args[0] instanceof Int32Array) {
+    //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
+    //     return "not-equal";
+    // } else {
+    //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
+    //     return "not-equal";
+    // }
+    // while (true) {
+    //   await new Promise((resolve) => {
+    //     Wait.bc.addEventListener("message", () => resolve(), {
+    //       once: true,
+    //       passive: true,
+    //     });
+    //   });
+    //   if (this.args[0] instanceof Int32Array) {
+    //     if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
+    //       return "ok";
+    //   } else {
+    //     if (Atomics.load(this.args[0], this.args[1]) !== this.args[2])
+    //       return "ok";
+    //   }
+    // }
+
+    // const aborter = new AbortController();
+    // const foo = new Promise<string>((resolve) => {
+    //   const eventListener = (_ev: MessageEvent) => {
+    //     // console.log("eventListener", this.id, this.args, ev.data);
+    //     // const [id, index, _count] = ev.data as [
+    //     //   number,
+    //     //   number,
+    //     //   number | undefined,
+    //     // ];
+    //     // if (id !== this.id || index !== this.args[1]) return;
+    //     // console.log("eventListener notified", this.id);
+    //     if (this.args[0] instanceof Int32Array) {
+    //       if (Atomics.load(this.args[0], this.args[1]) === this.args[2]) return;
+    //     } else {
+    //       if (Atomics.load(this.args[0], this.args[1]) === this.args[2]) return;
+    //     }
+    //     console.log("eventListener resolve", this.id);
+    //     resolve("ok");
+    //     Wait.bc.removeEventListener("message", eventListener);
+    //     clearInterval(bar);
+    //   };
+    //   aborter.signal.addEventListener("abort", () => Wait.bc.removeEventListener("message", eventListener));
+    //   Wait.bc.addEventListener("message", eventListener);
+    //   const bar = setInterval(eventListener, 100);
+    // });
+    // if (this.args[0] instanceof Int32Array) {
+    //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2]) {
+    //     aborter.abort();
+    //     return "not-equal";
+    //   }
+    // } else {
+    //   if (Atomics.load(this.args[0], this.args[1]) !== this.args[2]) {
+    //     aborter.abort();
+    //     return "not-equal";
+    //   }
+    // }
+    // return await foo;
+  }
 }
 
 export class Wait extends Waitable<string> {
@@ -259,15 +276,11 @@ export class Wait extends Waitable<string> {
   }
 
   wait(): string {
-    return WaitTarget._inner[waitInner](this.target, this.value, this.timeout);
+    return this.target[wait](this.value, this.timeout);
   }
 
   async waitAsync(): Promise<string> {
-    return await WaitTarget._inner[waitAsyncInner](
-      this.target,
-      this.value,
-      this.timeout,
-    );
+    return await this.target[waitAsync](this.value, this.timeout);
   }
 }
 

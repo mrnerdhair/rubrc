@@ -2,7 +2,7 @@ import { Abortable } from "rubrc-util";
 import type { Target as CallerTarget } from "./caller";
 import { LockingBase } from "./locking_base";
 import { ViewSet } from "./view_set";
-import { type WaitOnGenBase, WaitTarget, wait_on_gen } from "./waiter";
+import { type WaitOnGenBase, wait_on_gen } from "./waiter";
 
 export enum ListenerState {
   UNLOCKED = 0,
@@ -33,7 +33,7 @@ export class Listener extends LockingBase {
   }
 
   reset() {
-    const old = WaitTarget.exchange(this.wait_target, ListenerState.UNLOCKED);
+    const old = this.wait_target.exchange(ListenerState.UNLOCKED);
     if (old !== ListenerState.UNLOCKED) {
       throw new Error(`listener reset did something: ${old}`);
     }

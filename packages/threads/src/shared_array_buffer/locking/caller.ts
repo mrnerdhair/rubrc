@@ -28,7 +28,7 @@ export class Caller extends LockingBase {
   }
 
   reset() {
-    const old = WaitTarget.exchange(this.wait_target, ListenerState.UNLOCKED);
+    const old = this.wait_target.exchange(ListenerState.UNLOCKED);
     if (old !== ListenerState.UNLOCKED) {
       throw new Error(`caller reset did something: ${old}`);
     }

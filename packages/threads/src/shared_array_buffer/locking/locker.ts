@@ -27,7 +27,7 @@ export class Locker extends LockingBase {
   }
 
   reset(): void {
-    const old = WaitTarget.exchange(this.wait_target, LockerState.UNLOCKED);
+    const old = this.wait_target.exchange(LockerState.UNLOCKED);
     if (old !== LockerState.UNLOCKED) {
       throw new Error(`locker reset actually did something: ${old}`);
     }
@@ -58,7 +58,7 @@ export class Locker extends LockingBase {
   }
 
   private equals(other: Locker): boolean {
-    return WaitTarget.equals(this.wait_target, other.wait_target);
+    return this.wait_target.equals(other.wait_target);
   }
 
   static async dual_lock<T>(
