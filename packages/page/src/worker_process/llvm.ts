@@ -73,5 +73,5 @@ export class LlvmWorker {
 
 export type LlvmWorkerInit = typeof LlvmWorker.init;
 
-setTransferHandlers();
+await setTransferHandlers();
 Comlink.expose(LlvmWorker.init, self);

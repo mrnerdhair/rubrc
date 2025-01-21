@@ -167,5 +167,5 @@ export class UtilCmdWorker {
 
 export type UtilCmdWorkerInit = typeof UtilCmdWorker.init;
 
-setTransferHandlers();
+await setTransferHandlers();
 Comlink.expose(UtilCmdWorker.init, self);

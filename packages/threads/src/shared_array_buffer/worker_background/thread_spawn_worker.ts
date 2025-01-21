@@ -86,5 +86,5 @@ export class ThreadSpawnWorker {
 
 export type ThreadSpawnWorkerInit = typeof ThreadSpawnWorker.init;
 
-setTransferHandlers();
+await setTransferHandlers();
 Comlink.expose(ThreadSpawnWorker.init, self);

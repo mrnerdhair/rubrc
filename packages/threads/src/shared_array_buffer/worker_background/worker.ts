@@ -330,5 +330,5 @@ export class WorkerBackground extends Abortable {
 
 export type WorkerBackgroundInit = typeof WorkerBackground.init;
 
-setTransferHandlers();
+await setTransferHandlers();
 Comlink.expose(WorkerBackground.init, self);

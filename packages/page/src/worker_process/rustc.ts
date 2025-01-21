@@ -65,5 +65,5 @@ export class RustcWorker {
 
 export type RustcWorkerInit = typeof RustcWorker.init;
 
-setTransferHandlers();
+await setTransferHandlers();
 Comlink.expose(RustcWorker.init, self);

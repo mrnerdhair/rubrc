@@ -108,5 +108,5 @@ export class MainWorker {
 
 export type MainWorkerInit = typeof MainWorker.init;
 
-setTransferHandlers();
+await setTransferHandlers();
 Comlink.expose(MainWorker.init, self);
