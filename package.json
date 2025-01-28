@@ -21,11 +21,15 @@
     "check": "npx @biomejs/biome check && tsc --build --verbose --noEmit",
     "check-fix": "npx @biomejs/biome check --fix && tsc --build --verbose --noEmit",
     "lint": "npx @biomejs/biome lint .",
-    "dev": "npm run --workspace=rubrc dev"
+    "dev": "npm run --workspace=rubrc dev",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@vitest/coverage-v8": "^3.0.4",
     "better-typescript-lib": "^2.10.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.4"
   }
 }

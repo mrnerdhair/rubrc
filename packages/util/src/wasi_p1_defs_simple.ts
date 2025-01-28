@@ -280,7 +280,7 @@ export type fdstat = Alignment8<
     fs_filetype: filetype,
     fs_flags: fdflags,
     fs_rights_base: rights,
-    fd_rights_inheriting: rights,
+    fs_rights_inheriting: rights,
   ]
 >;
 export type device = u64;

@@ -1,3 +1,17 @@
+import type { LittleEndianDataView } from "./endian_data_view";
+import { type Int, type i64 as s64, u8, u16, u32, u64 } from "./integers";
+
+export {
+  i8 as s8,
+  i16 as s16,
+  i32 as s32,
+  i64 as s64,
+  u8,
+  u16,
+  u32,
+  u64,
+} from "./integers";
+
 declare const type: unique symbol;
 declare const alignment: unique symbol;
 declare const flags: unique symbol;
@@ -6,35 +20,25 @@ type Subtype<T, U extends { readonly [type]: unknown }> = T & {
   readonly [type]?: U[typeof type];
 };
 
-type Alignment<
+export type Alignment<
   T extends number,
   U extends [...unknown[]],
-  V extends { readonly [type]: unknown },
+  V extends { readonly [type]: unknown } = { readonly [type]: unknown },
 > = Subtype<U & { readonly [alignment]?: T }, V>;
 
 type ValueOf<
-  T extends { readonly [type]?: unknown },
-  U extends Record<string, Omit<T[typeof type], typeof type>>,
-  V extends { readonly [type]: unknown },
+  T extends Int,
+  U extends Record<string, T>,
+  V extends { readonly [type]: unknown } = { readonly [type]: unknown },
 > = {
   [K in keyof U]: Subtype<U[K] & T, V>;
 }[keyof U];
 
 type Flags<
-  T extends { readonly [type]?: unknown },
-  U extends Record<string, Omit<T[typeof type], typeof type>>,
-  V extends { readonly [type]: unknown },
+  T extends Int,
+  U extends Record<string, T>,
+  V extends { readonly [type]: unknown } = { readonly [type]: unknown },
 > = Subtype<T, V> & { readonly [flags]?: U };
-
-export type s8 = Subtype<number, { readonly [type]: s8 }>;
-export type s16 = Subtype<number, { readonly [type]: s16 }>;
-export type s32 = Subtype<number, { readonly [type]: s32 }>;
-export type s64 = Subtype<bigint, { readonly [type]: s64 }>;
-
-export type u8 = Subtype<number, { readonly [type]: u8 }>;
-export type u16 = Subtype<number, { readonly [type]: u16 }>;
-export type u32 = Subtype<number, { readonly [type]: u32 }>;
-export type u64 = Subtype<bigint, { readonly [type]: u64 }>;
 
 export type Pointer<T> = Subtype<u32, { readonly [type]: Pointer<T> }>;
 export type ConstPointer<T> = Subtype<
@@ -51,201 +55,201 @@ export type clockid = ValueOf<
   { readonly [type]: clockid }
 >;
 export const clockid = {
-  realtime: 0,
-  monotonic: 1,
-  process_cputime_id: 2,
-  thread_cputime_id: 3,
+  realtime: u32(0),
+  monotonic: u32(1),
+  process_cputime_id: u32(2),
+  thread_cputime_id: u32(3),
 } as const;
 export type errno = ValueOf<u16, typeof errno, { readonly [type]: errno }>;
 export const errno = {
   // No error occurred. System call completed successfully.
-  success: 0,
+  success: u16(0),
   // Argument list too long.
-  _2big: 1,
+  _2big: u16(1),
   // Permission denied.
-  acces: 2,
+  acces: u16(2),
   // Address in use.
-  addrinuse: 3,
+  addrinuse: u16(3),
   // Address not available.
-  addrnotavail: 4,
+  addrnotavail: u16(4),
   // Address family not supported.
-  afnosupport: 5,
+  afnosupport: u16(5),
   // Resource unavailable, or operation would block.
-  again: 6,
+  again: u16(6),
   // Connection already in progress.
-  already: 7,
+  already: u16(7),
   // Bad file descriptor.
-  badf: 8,
+  badf: u16(8),
   // Bad message.
-  badmsg: 9,
+  badmsg: u16(9),
   // Device or resource busy.
-  busy: 10,
+  busy: u16(10),
   // Operation canceled.
-  canceled: 11,
+  canceled: u16(11),
   // No child processes.
-  child: 12,
+  child: u16(12),
   // Connection aborted.
-  connaborted: 13,
+  connaborted: u16(13),
   // Connection refused.
-  connrefused: 14,
+  connrefused: u16(14),
   // Connection reset.
-  connreset: 15,
+  connreset: u16(15),
   // Resource deadlock would occur.
-  deadlk: 16,
+  deadlk: u16(16),
   // Destination address required.
-  destaddrreq: 17,
+  destaddrreq: u16(17),
   // Mathematics argument out of domain of function.
-  dom: 18,
+  dom: u16(18),
   // Reserved.
-  dquot: 19,
+  dquot: u16(19),
   // File exists.
-  exist: 20,
+  exist: u16(20),
   // Bad address.
-  fault: 21,
+  fault: u16(21),
   // File too large.
-  fbig: 22,
+  fbig: u16(22),
   // Host is unreachable.
-  hostunreach: 23,
+  hostunreach: u16(23),
   // Identifier removed.
-  idrm: 24,
+  idrm: u16(24),
   // Illegal byte sequence.
-  ilseq: 25,
+  ilseq: u16(25),
   // Operation in progress.
-  inprogress: 26,
+  inprogress: u16(26),
   // Interrupted function.
-  intr: 27,
+  intr: u16(27),
   // Invalid argument.
-  inval: 28,
+  inval: u16(28),
   // I/O error.
-  io: 29,
+  io: u16(29),
   // Socket is connected.
-  isconn: 30,
+  isconn: u16(30),
   // Is a directory.
-  isdir: 31,
+  isdir: u16(31),
   // Too many levels of symbolic links.
-  loop: 32,
+  loop: u16(32),
   // File descriptor value too large.
-  mfile: 33,
+  mfile: u16(33),
   // Too many links.
-  mlink: 34,
+  mlink: u16(34),
   // Message too large.
-  msgsize: 35,
+  msgsize: u16(35),
   // Reserved.
-  multihop: 36,
+  multihop: u16(36),
   // Filename too long.
-  nametoolong: 37,
+  nametoolong: u16(37),
   // Network is down.
-  netdown: 38,
+  netdown: u16(38),
   // Connection aborted by network.
-  netreset: 39,
+  netreset: u16(39),
   // Network unreachable.
-  netunreach: 40,
+  netunreach: u16(40),
   // Too many files open in system.
-  nfile: 41,
+  nfile: u16(41),
   // No buffer space available.
-  nobufs: 42,
+  nobufs: u16(42),
   // No such device.
-  nodev: 43,
+  nodev: u16(43),
   // No such file or directory.
-  noent: 44,
+  noent: u16(44),
   // Executable file format error.
-  noexec: 45,
+  noexec: u16(45),
   // No locks available.
-  nolck: 46,
+  nolck: u16(46),
   // Reserved.
-  nolink: 47,
+  nolink: u16(47),
   // Not enough space.
-  nomem: 48,
+  nomem: u16(48),
   // No message of the desired type.
-  nomsg: 49,
+  nomsg: u16(49),
   // Protocol not available.
-  noprotoopt: 50,
+  noprotoopt: u16(50),
   // No space left on device.
-  nospc: 51,
+  nospc: u16(51),
   // Function not supported.
-  nosys: 52,
+  nosys: u16(52),
   // The socket is not connected.
-  notconn: 53,
+  notconn: u16(53),
   // Not a directory or a symbolic link to a directory.
-  notdir: 54,
+  notdir: u16(54),
   // Directory not empty.
-  notempty: 55,
+  notempty: u16(55),
   // State not recoverable.
-  notrecoverable: 56,
+  notrecoverable: u16(56),
   // Not a socket.
-  notsock: 57,
+  notsock: u16(57),
   // Not supported, or operation not supported on socket.
-  notsup: 58,
+  notsup: u16(58),
   // Inappropriate I/O control operation.
-  notty: 59,
+  notty: u16(59),
   // No such device or address.
-  nxio: 60,
+  nxio: u16(60),
   // Value too large to be stored in data type.
-  overflow: 61,
+  overflow: u16(61),
   // Previous owner died.
-  ownerdead: 62,
+  ownerdead: u16(62),
   // Operation not permitted.
-  perm: 63,
+  perm: u16(63),
   // Broken pipe.
-  pipe: 64,
+  pipe: u16(64),
   // Protocol error.
-  proto: 65,
+  proto: u16(65),
   // Protocol not supported.
-  protonosupport: 66,
+  protonosupport: u16(66),
   // Protocol wrong type for socket.
-  prototype: 67,
+  prototype: u16(67),
   // Result too large.
-  range: 68,
+  range: u16(68),
   // Read-only file system.
-  rofs: 69,
+  rofs: u16(69),
   // Invalid seek.
-  spipe: 70,
+  spipe: u16(70),
   // No such process.
-  srch: 71,
+  srch: u16(71),
   // Reserved.
-  stale: 72,
+  stale: u16(72),
   // Connection timed out.
-  timedout: 73,
+  timedout: u16(73),
   // Text file busy.
-  txtbsy: 74,
+  txtbsy: u16(74),
   // Cross-device link.
-  xdev: 75,
+  xdev: u16(75),
   // Extension: Capabilities insufficient.
-  notcapable: 76,
+  notcapable: u16(76),
 } as const;
 export type rights = Flags<u64, typeof rights, { readonly [type]: rights }>;
 export const rights = {
-  none: 0x0000000000000000n,
-  fd_datasync: 0x0000000000000001n,
-  fd_read: 0x0000000000000002n,
-  fd_seek: 0x0000000000000004n,
-  fd_fdstat_set_flags: 0x0000000000000008n,
-  fd_sync: 0x0000000000000010n,
-  fd_tell: 0x0000000000000020n,
-  fd_write: 0x0000000000000040n,
-  fd_advise: 0x0000000000000080n,
-  fd_allocate: 0x0000000000000100n,
-  path_create_directory: 0x0000000000000200n,
-  path_create_file: 0x0000000000000400n,
-  path_link_source: 0x0000000000000800n,
-  path_link_target: 0x0000000000001000n,
-  path_open: 0x0000000000002000n,
-  fd_readdir: 0x0000000000004000n,
-  path_readlink: 0x0000000000008000n,
-  path_rename_source: 0x0000000000010000n,
-  path_rename_target: 0x0000000000020000n,
-  path_filestat_get: 0x0000000000040000n,
-  path_filestat_set_size: 0x0000000000080000n,
-  path_filestat_set_times: 0x0000000000100000n,
-  fd_filestat_get: 0x0000000000200000n,
-  fd_filestat_set_size: 0x0000000000400000n,
-  fd_filestat_set_times: 0x0000000000800000n,
-  path_symlink: 0x0000000001000000n,
-  path_remove_directory: 0x0000000002000000n,
-  path_unlink_file: 0x0000000004000000n,
-  poll_fd_readwrite: 0x0000000008000000n,
-  sock_shutdown: 0x0000000010000000n,
-  sock_accept: 0x0000000020000000n,
+  none: u64(0x0000000000000000n),
+  fd_datasync: u64(0x0000000000000001n),
+  fd_read: u64(0x0000000000000002n),
+  fd_seek: u64(0x0000000000000004n),
+  fd_fdstat_set_flags: u64(0x0000000000000008n),
+  fd_sync: u64(0x0000000000000010n),
+  fd_tell: u64(0x0000000000000020n),
+  fd_write: u64(0x0000000000000040n),
+  fd_advise: u64(0x0000000000000080n),
+  fd_allocate: u64(0x0000000000000100n),
+  path_create_directory: u64(0x0000000000000200n),
+  path_create_file: u64(0x0000000000000400n),
+  path_link_source: u64(0x0000000000000800n),
+  path_link_target: u64(0x0000000000001000n),
+  path_open: u64(0x0000000000002000n),
+  fd_readdir: u64(0x0000000000004000n),
+  path_readlink: u64(0x0000000000008000n),
+  path_rename_source: u64(0x0000000000010000n),
+  path_rename_target: u64(0x0000000000020000n),
+  path_filestat_get: u64(0x0000000000040000n),
+  path_filestat_set_size: u64(0x0000000000080000n),
+  path_filestat_set_times: u64(0x0000000000100000n),
+  fd_filestat_get: u64(0x0000000000200000n),
+  fd_filestat_set_size: u64(0x0000000000400000n),
+  fd_filestat_set_times: u64(0x0000000000800000n),
+  path_symlink: u64(0x0000000001000000n),
+  path_remove_directory: u64(0x0000000002000000n),
+  path_unlink_file: u64(0x0000000004000000n),
+  poll_fd_readwrite: u64(0x0000000008000000n),
+  sock_shutdown: u64(0x0000000010000000n),
+  sock_accept: u64(0x0000000020000000n),
 } as const;
 export type fd = Subtype<u32, { readonly [type]: fd }>;
 export type iovec = Alignment<
@@ -253,17 +257,61 @@ export type iovec = Alignment<
   [buf: Pointer<u8>, buf_len: size],
   { readonly [type]: iovec }
 >;
+export namespace iovec {
+  export const SIZE: size = (4 * 2) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<iovec>,
+    value: iovec,
+  ) {
+    const iter = view.stride(byteOffset, 4, 2);
+    iter.next().value.setUint32(0, value[0]);
+    iter.next().value.setUint32(0, value[1]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<iovec>,
+  ): iovec {
+    const iter = view.stride(byteOffset, 4, 2);
+    return [
+      iter.next().value.getUint32(0) as Pointer<u8>,
+      iter.next().value.getUint32(0) as size,
+    ];
+  }
+}
 export type ciovec = Alignment<
   4,
   [buf: ConstPointer<u8>, buf_len: size],
   { readonly [type]: ciovec }
 >;
+export namespace ciovec {
+  export const SIZE: size = (4 * 2) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<ciovec>,
+    value: ciovec,
+  ) {
+    const iter = view.stride(byteOffset, 4, 2);
+    iter.next().value.setUint32(0, value[0]);
+    iter.next().value.setUint32(0, value[1]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<ciovec>,
+  ): ciovec {
+    const iter = view.stride(byteOffset, 4, 2);
+    return [
+      iter.next().value.getUint32(0) as ConstPointer<u8>,
+      iter.next().value.getUint32(0) as size,
+    ];
+  }
+}
 export type filedelta = Subtype<s64, { readonly [type]: filedelta }>;
 export type whence = ValueOf<u8, typeof whence, { readonly [type]: whence }>;
 export const whence = {
-  set: 0,
-  cur: 1,
-  end: 2,
+  set: u8(0),
+  cur: u8(1),
+  end: u8(2),
 } as const;
 export type dircookie = Subtype<u64, { readonly [type]: dircookie }>;
 export type dirnamlen = Subtype<u32, { readonly [type]: dirnamlen }>;
@@ -275,50 +323,76 @@ export type filetype = ValueOf<
 >;
 export const filetype = {
   // The type of the file descriptor or file is unknown or is different from any of the other types specified.
-  unknown: 0,
+  unknown: u8(0),
   // The file descriptor or file refers to a block device inode.
-  block_device: 1,
+  block_device: u8(1),
   // The file descriptor or file refers to a character device inode.
-  character_device: 2,
+  character_device: u8(2),
   // The file descriptor or file refers to a directory inode.
-  directory: 3,
+  directory: u8(3),
   // The file descriptor or file refers to a regular file inode.
-  regular_file: 4,
+  regular_file: u8(4),
   // The file descriptor or file refers to a datagram socket.
-  socket_dgram: 5,
+  socket_dgram: u8(5),
   // The file descriptor or file refers to a byte-stream socket.
-  socket_stream: 6,
+  socket_stream: u8(6),
   // The file refers to a symbolic link inode.
-  symbolic_link: 7,
+  symbolic_link: u8(7),
 } as const;
 export type dirent = Alignment<
   8,
   [d_next: dircookie, d_ino: inode, d_namlen: dirnamlen, d_type: filetype],
   { readonly [type]: dirent }
 >;
+export namespace dirent {
+  export const SIZE: size = (8 * 4) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<dirent>,
+    value: dirent,
+  ) {
+    const iter = view.stride(byteOffset, 8, 4);
+    iter.next().value.setBigUint64(0, value[0]);
+    iter.next().value.setBigUint64(0, value[1]);
+    iter.next().value.setUint32(0, value[2]);
+    iter.next().value.setUint8(0, value[3]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<dirent>,
+  ): dirent {
+    const iter = view.stride(byteOffset, 8, 4);
+    return [
+      iter.next().value.getBigUint64(0) as dircookie,
+      iter.next().value.getBigUint64(0) as inode,
+      iter.next().value.getUint32(0) as dirnamlen,
+      iter.next().value.getUint8(0) as filetype,
+    ];
+  }
+}
 export type advice = ValueOf<u8, typeof advice, { readonly [type]: advice }>;
 export const advice = {
   // The application has no advice to give on its behavior with respect to the specified data.
-  normal: 0,
+  normal: u8(0),
   // The application expects to access the specified data sequentially from lower offsets to higher offsets.
-  sequential: 1,
+  sequential: u8(1),
   // The application expects to access the specified data in a random order.
-  random: 2,
+  random: u8(2),
   // The application expects to access the specified data in the near future.
-  willneed: 3,
+  willneed: u8(3),
   // The application expects that it will not access the specified data in the near future.
-  dontneed: 4,
+  dontneed: u8(4),
   // The application expects to access the specified data once and then not reuse it thereafter.
-  noreuse: 5,
+  noreuse: u8(5),
 } as const;
 export type fdflags = Flags<u16, typeof fdflags, { readonly [type]: fdflags }>;
 export const fdflags = {
-  none: 0x0000,
-  append: 0x0001,
-  dsync: 0x0002,
-  nonblock: 0x0004,
-  rsync: 0x0008,
-  sync: 0x0010,
+  none: u16(0x0000),
+  append: u16(0x0001),
+  dsync: u16(0x0002),
+  nonblock: u16(0x0004),
+  rsync: u16(0x0008),
+  sync: u16(0x0010),
 } as const;
 export type fdstat = Alignment<
   8,
@@ -326,10 +400,36 @@ export type fdstat = Alignment<
     fs_filetype: filetype,
     fs_flags: fdflags,
     fs_rights_base: rights,
-    fd_rights_inheriting: rights,
+    fs_rights_inheriting: rights,
   ],
   { readonly [type]: fdstat }
 >;
+export namespace fdstat {
+  export const SIZE: size = (8 * 4) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<fdstat>,
+    value: fdstat,
+  ) {
+    const iter = view.stride(byteOffset, 8, 4);
+    iter.next().value.setUint8(0, value[0]);
+    iter.next().value.setUint16(0, value[1]);
+    iter.next().value.setBigUint64(0, value[2]);
+    iter.next().value.setBigUint64(0, value[3]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<fdstat>,
+  ): fdstat {
+    const iter = view.stride(byteOffset, 8, 4);
+    return [
+      iter.next().value.getUint8(0) as filetype,
+      iter.next().value.getUint16(0) as fdflags,
+      iter.next().value.getBigUint64(0) as rights,
+      iter.next().value.getBigUint64(0) as rights,
+    ];
+  }
+}
 export type device = Subtype<u64, { readonly [type]: device }>;
 export type fstflags = Flags<
   u16,
@@ -337,11 +437,11 @@ export type fstflags = Flags<
   { readonly [type]: fstflags }
 >;
 export const fstflags = {
-  none: 0x0000,
-  atim: 0x0001,
-  atim_now: 0x0002,
-  mtim: 0x0004,
-  mtim_now: 0x0008,
+  none: u16(0x0000),
+  atim: u16(0x0001),
+  atim_now: u16(0x0002),
+  mtim: u16(0x0004),
+  mtim_now: u16(0x0008),
 } as const;
 export type lookupflags = Flags<
   u32,
@@ -349,16 +449,16 @@ export type lookupflags = Flags<
   { readonly [type]: lookupflags }
 >;
 export const lookupflags = {
-  none: 0x00000000,
-  symlink_follow: 0x00000001,
+  none: u32(0x00000000),
+  symlink_follow: u32(0x00000001),
 } as const;
 export type oflags = Flags<u16, typeof oflags, { readonly [type]: oflags }>;
 export const oflags = {
-  none: 0x0000,
-  creat: 0x0001,
-  directory: 0x0002,
-  excl: 0x0004,
-  trunc: 0x0008,
+  none: u16(0x0000),
+  creat: u16(0x0001),
+  directory: u16(0x0002),
+  excl: u16(0x0004),
+  trunc: u16(0x0008),
 } as const;
 export type linkcount = Subtype<u64, { readonly [type]: linkcount }>;
 export type filestat = Alignment<
@@ -375,6 +475,40 @@ export type filestat = Alignment<
   ],
   { readonly [type]: filestat }
 >;
+export namespace filestat {
+  export const SIZE: size = (8 * 8) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<filestat>,
+    value: filestat,
+  ) {
+    const iter = view.stride(byteOffset, 8, 8);
+    iter.next().value.setBigUint64(0, value[0]);
+    iter.next().value.setBigUint64(0, value[1]);
+    iter.next().value.setUint8(0, value[2]);
+    iter.next().value.setBigUint64(0, value[3]);
+    iter.next().value.setUint32(0, value[4]);
+    iter.next().value.setBigUint64(0, value[5]);
+    iter.next().value.setBigUint64(0, value[6]);
+    iter.next().value.setBigUint64(0, value[7]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<filestat>,
+  ): filestat {
+    const iter = view.stride(byteOffset, 8, 8);
+    return [
+      iter.next().value.getBigUint64(0) as device,
+      iter.next().value.getBigUint64(0) as inode,
+      iter.next().value.getUint8(0) as filetype,
+      iter.next().value.getBigUint64(0) as linkcount,
+      iter.next().value.getUint32(0) as filesize,
+      iter.next().value.getBigUint64(0) as timestamp,
+      iter.next().value.getBigUint64(0) as timestamp,
+      iter.next().value.getBigUint64(0) as timestamp,
+    ];
+  }
+}
 export type userdata = Subtype<u64, { readonly [type]: userdata }>;
 export type eventtype = ValueOf<
   u8,
@@ -382,9 +516,9 @@ export type eventtype = ValueOf<
   { readonly [type]: eventtype }
 >;
 export const eventtype = {
-  clock: 0,
-  fd_read: 1,
-  fd_write: 2,
+  clock: u8(0),
+  fd_read: u8(1),
+  fd_write: u8(2),
 } as const;
 export type eventrwflags = Flags<
   u16,
@@ -392,14 +526,36 @@ export type eventrwflags = Flags<
   { readonly [type]: eventrwflags }
 >;
 export const eventrwflags = {
-  none: 0x0000,
-  fd_readwrite_hangup: 0x0001,
+  none: u16(0x0000),
+  fd_readwrite_hangup: u16(0x0001),
 } as const;
 export type event_fd_readwrite = Alignment<
   8,
   [nbytes: filesize, flags: eventrwflags],
   { readonly [type]: event_fd_readwrite }
 >;
+export namespace event_fd_readwrite {
+  export const SIZE: size = (8 * 2) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<event_fd_readwrite>,
+    value: event_fd_readwrite,
+  ) {
+    const iter = view.stride(byteOffset, 8, 2);
+    iter.next().value.setUint32(0, value[0]);
+    iter.next().value.setUint16(0, value[1]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<event_fd_readwrite>,
+  ): event_fd_readwrite {
+    const iter = view.stride(byteOffset, 8, 2);
+    return [
+      iter.next().value.getUint32(0) as filesize,
+      iter.next().value.getUint16(0) as eventrwflags,
+    ];
+  }
+}
 export type event = Alignment<
   8,
   [
@@ -410,34 +566,112 @@ export type event = Alignment<
   ],
   { readonly [type]: event }
 >;
+export namespace event {
+  export const SIZE: size = (8 * 3 +
+    Math.ceil(event_fd_readwrite.SIZE / 8) * 8) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<event>,
+    value: event,
+  ) {
+    const iter = view.stride(byteOffset, 8, 3);
+    iter.next().value.setBigUint64(0, value[0]);
+    iter.next().value.setUint16(0, value[1]);
+    iter.next().value.setUint8(0, value[2]);
+    event_fd_readwrite.write(
+      iter.next().value,
+      0 as Pointer<event_fd_readwrite>,
+      value[3],
+    );
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<event>,
+  ): event {
+    const iter = view.stride(byteOffset, 8, 3);
+    return [
+      iter.next().value.getBigUint64(0) as userdata,
+      iter.next().value.getUint16(0) as errno,
+      iter.next().value.getUint8(0) as eventtype,
+      event_fd_readwrite.read(
+        iter.next().value,
+        0 as Pointer<event_fd_readwrite>,
+      ),
+    ];
+  }
+}
 export type subclockflags = Flags<
   u16,
   typeof subclockflags,
   { readonly [type]: subclockflags }
 >;
 export const subclockflags = {
-  none: 0x0000,
-  subscription_clock_abstime: 0x0001,
+  none: u16(0x0000),
+  subscription_clock_abstime: u16(0x0001),
 } as const;
 export type subscription_clock = Alignment<
   8,
   [id: clockid, timeout: timestamp, precision: timestamp, flags: subclockflags],
   { readonly [type]: subscription_clock }
 >;
+export namespace subscription_clock {
+  export const SIZE: size = (8 * 4) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription_clock>,
+    value: subscription_clock,
+  ) {
+    const iter = view.stride(byteOffset, 8, 4);
+    iter.next().value.setUint32(0, value[0]);
+    iter.next().value.setBigUint64(0, value[1]);
+    iter.next().value.setBigUint64(0, value[2]);
+    iter.next().value.setUint16(0, value[3]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription_clock>,
+  ): subscription_clock {
+    const iter = view.stride(byteOffset, 8, 4);
+    return [
+      iter.next().value.getUint32(0) as clockid,
+      iter.next().value.getBigUint64(0) as timestamp,
+      iter.next().value.getBigUint64(0) as timestamp,
+      iter.next().value.getUint16(0) as subclockflags,
+    ];
+  }
+}
 export type subscription_fd_readwrite = Alignment<
   4,
   [file_descriptor: fd],
   { readonly [type]: subscription_fd_readwrite }
 >;
+export namespace subscription_fd_readwrite {
+  export const SIZE: size = (4 * 1) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription_fd_readwrite>,
+    value: subscription_fd_readwrite,
+  ) {
+    const iter = view.stride(byteOffset, 4, 1);
+    iter.next().value.setUint32(0, value[0]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription_fd_readwrite>,
+  ): subscription_fd_readwrite {
+    const iter = view.stride(byteOffset, 4, 1);
+    return [iter.next().value.getUint32(0) as fd];
+  }
+}
 export type subscription_u_discriminator = ValueOf<
   u8,
   typeof subscription_u_discriminator,
   { readonly [type]: unique symbol }
 >;
 export const subscription_u_discriminator = {
-  clock: 0,
-  fd_read: 1,
-  fd_write: 2,
+  clock: u8(0),
+  fd_read: u8(1),
+  fd_write: u8(2),
 } as const;
 export type subscription_u = Alignment<
   8,
@@ -446,11 +680,110 @@ export type subscription_u = Alignment<
   | [typeof subscription_u_discriminator.fd_write, subscription_fd_readwrite],
   { readonly [type]: subscription_u }
 >;
+export namespace subscription_u {
+  export const SIZE: size = (8 * 1 +
+    Math.max(
+      Math.ceil(subscription_clock.SIZE / 8) * 8,
+      Math.ceil(subscription_fd_readwrite.SIZE / 8) * 8,
+    )) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription_u>,
+    value: subscription_u,
+  ) {
+    const iter = view.stride(byteOffset, 8, 1);
+    iter.next().value.setUint8(0, value[0]);
+    switch (value[0]) {
+      case subscription_u_discriminator.clock: {
+        subscription_clock.write(
+          iter.next().value,
+          0 as Pointer<subscription_clock>,
+          value[1] as subscription_clock,
+        );
+        break;
+      }
+      case subscription_u_discriminator.fd_read:
+      case subscription_u_discriminator.fd_write: {
+        subscription_fd_readwrite.write(
+          iter.next().value,
+          0 as Pointer<subscription_fd_readwrite>,
+          value[1] as subscription_fd_readwrite,
+        );
+        break;
+      }
+      default:
+        throw new RangeError();
+    }
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription_u>,
+  ): subscription_u {
+    const iter = view.stride(byteOffset, 8, 1);
+    const discriminator = iter
+      .next()
+      .value.getUint32(0) as subscription_u_discriminator;
+    switch (discriminator) {
+      case subscription_u_discriminator.clock:
+        return [
+          discriminator,
+          subscription_clock.read(
+            iter.next().value,
+            0 as Pointer<subscription_clock>,
+          ),
+        ];
+      case subscription_u_discriminator.fd_read:
+        return [
+          discriminator,
+          subscription_fd_readwrite.read(
+            iter.next().value,
+            0 as Pointer<subscription_fd_readwrite>,
+          ),
+        ];
+      case subscription_u_discriminator.fd_write:
+        return [
+          discriminator,
+          subscription_fd_readwrite.read(
+            iter.next().value,
+            0 as Pointer<subscription_fd_readwrite>,
+          ),
+        ];
+      default:
+        throw new RangeError();
+    }
+  }
+}
 export type subscription = Alignment<
   8,
   [userdata: userdata, u: subscription_u],
   { readonly [type]: unique symbol }
 >;
+export namespace subscription {
+  export const SIZE: size = (8 * 1 + subscription_u.SIZE) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription>,
+    value: subscription,
+  ) {
+    const iter = view.stride(byteOffset, 8, 1);
+    iter.next().value.setBigUint64(0, value[0]);
+    subscription_u.write(
+      iter.next().value,
+      0 as Pointer<subscription_u>,
+      value[1],
+    );
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<subscription>,
+  ): subscription {
+    const iter = view.stride(byteOffset, 8, 1);
+    return [
+      iter.next().value.getBigUint64(0) as userdata,
+      subscription_u.read(iter.next().value, 0 as Pointer<subscription_u>),
+    ];
+  }
+}
 export type exitcode = Subtype<u32, { readonly [type]: exitcode }>;
 export type signal = ValueOf<
   u8,
@@ -459,88 +792,88 @@ export type signal = ValueOf<
 >;
 export const signal = {
   // No signal. Note that POSIX has special semantics for kill(pid, 0), so this value is reserved.
-  none: 0,
+  none: u8(0),
   // Hangup. Action: Terminates the process.
-  hup: 1,
+  hup: u8(1),
   // Terminate interrupt signal. Action: Terminates the process.
-  int: 2,
+  int: u8(2),
   // Terminal quit signal. Action: Terminates the process.
-  quit: 3,
+  quit: u8(3),
   // Illegal instruction. Action: Terminates the process.
-  ill: 4,
+  ill: u8(4),
   // Trace/breakpoint trap. Action: Terminates the process.
-  trap: 5,
+  trap: u8(5),
   // Process abort signal. Action: Terminates the process.
-  abrt: 6,
+  abrt: u8(6),
   // Access to an undefined portion of a memory object. Action: Terminates the process.
-  bus: 7,
+  bus: u8(7),
   // Erroneous arithmetic operation. Action: Terminates the process.
-  fpe: 8,
+  fpe: u8(8),
   // Kill. Action: Terminates the process.
-  kill: 9,
+  kill: u8(9),
   // User-defined signal 1. Action: Terminates the process.
-  usr1: 10,
+  usr1: u8(10),
   // Invalid memory reference. Action: Terminates the process.
-  segv: 11,
+  segv: u8(11),
   // User-defined signal 2. Action: Terminates the process.
-  usr2: 12,
+  usr2: u8(12),
   // Write on a pipe with no one to read it. Action: Ignored.
-  pipe: 13,
+  pipe: u8(13),
   // Alarm clock. Action: Terminates the process.
-  alrm: 14,
+  alrm: u8(14),
   // Termination signal. Action: Terminates the process.
-  term: 15,
+  term: u8(15),
   // Child process terminated, stopped, or continued. Action: Ignored.
-  chld: 16,
+  chld: u8(16),
   // Continue executing, if stopped. Action: Continues executing, if stopped.
-  cont: 17,
+  cont: u8(17),
   // Stop executing. Action: Stops executing.
-  stop: 18,
+  stop: u8(18),
   // Terminal stop signal. Action: Stops executing.
-  tstp: 19,
+  tstp: u8(19),
   // Background process attempting read. Action: Stops executing.
-  ttin: 20,
+  ttin: u8(20),
   // Background process attempting write. Action: Stops executing.
-  ttou: 21,
+  ttou: u8(21),
   // High bandwidth data is available at a socket. Action: Ignored.
-  urg: 22,
+  urg: u8(22),
   // CPU time limit exceeded. Action: Terminates the process.
-  xcpu: 23,
+  xcpu: u8(23),
   // File size limit exceeded. Action: Terminates the process.
-  xfsz: 24,
+  xfsz: u8(24),
   // Virtual timer expired. Action: Terminates the process.
-  vtalrm: 25,
+  vtalrm: u8(25),
   // Profiling timer expired. Action: Terminates the process.
-  prof: 26,
+  prof: u8(26),
   // Window changed. Action: Ignored.
-  winch: 27,
+  winch: u8(27),
   // I/O possible. Action: Terminates the process.
-  poll: 28,
+  poll: u8(28),
   // Power failure. Action: Terminates the process.
-  pwr: 29,
+  pwr: u8(29),
   // Bad system call. Action: Terminates the process.
-  sys: 30,
+  sys: u8(30),
 } as const;
 export type riflags = Flags<u16, typeof riflags, { readonly [type]: riflags }>;
 export const riflags = {
-  none: 0x0000,
-  recv_peek: 0x0001,
-  recv_waitall: 0x0002,
+  none: u16(0x0000),
+  recv_peek: u16(0x0001),
+  recv_waitall: u16(0x0002),
 } as const;
 export type roflags = Flags<u16, typeof roflags, { readonly [type]: roflags }>;
 export const roflags = {
-  none: 0x0000,
-  recv_data_truncated: 0x0001,
+  none: u16(0x0000),
+  recv_data_truncated: u16(0x0001),
 } as const;
 export type siflags = Flags<u16, typeof siflags, { readonly [type]: siflags }>;
 export const siflags = {
-  none: 0x0000,
+  none: u16(0x0000),
 } as const;
 export type sdflags = Flags<u8, typeof sdflags, { readonly [type]: sdflags }>;
 export const sdflags = {
-  none: 0x00,
-  rd: 0x01,
-  wr: 0x02,
+  none: u8(0x00),
+  rd: u8(0x01),
+  wr: u8(0x02),
 } as const;
 export type preopentype = ValueOf<
   u8,
@@ -548,73 +881,176 @@ export type preopentype = ValueOf<
   { readonly [type]: preopentype }
 >;
 export const preopentype = {
-  dir: 0,
+  dir: u8(0),
 } as const;
 export type prestat_dir = Alignment<
   4,
   [pr_name_len: size],
   { readonly [type]: prestat_dir }
 >;
+export namespace prestat_dir {
+  export const SIZE: size = (4 * 1) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<prestat_dir>,
+    value: prestat_dir,
+  ) {
+    const iter = view.stride(byteOffset, 4, 1);
+    iter.next().value.setUint32(0, value[0]);
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<prestat_dir>,
+  ): prestat_dir {
+    const iter = view.stride(byteOffset, 4, 1);
+    return [iter.next().value.getUint32(0) as size];
+  }
+}
 export type prestat_discriminator = ValueOf<
   u8,
   typeof prestat_discriminator,
   { readonly [type]: prestat_discriminator }
 >;
 export const prestat_discriminator = {
-  dir: 0,
+  dir: u8(0),
 } as const;
 export type prestat = Alignment<
   4,
   [typeof prestat_discriminator.dir, prestat_dir],
   { readonly [type]: prestat }
 >;
+export namespace prestat {
+  export const SIZE: size = (4 * 1 +
+    Math.max(Math.ceil(prestat_dir.SIZE / 4) * 4)) as size;
+  export function write(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<prestat>,
+    value: prestat,
+  ) {
+    const iter = view.stride(byteOffset, 4, 1);
+    iter.next().value.setUint8(0, value[0]);
+    switch (value[0]) {
+      case prestat_discriminator.dir: {
+        prestat_dir.write(
+          iter.next().value,
+          0 as Pointer<prestat_dir>,
+          value[1] as prestat_dir,
+        );
+        break;
+      }
+      default:
+        throw new RangeError();
+    }
+  }
+  export function read(
+    view: LittleEndianDataView,
+    byteOffset: Pointer<prestat>,
+  ): prestat {
+    const iter = view.stride(byteOffset, 4, 1);
+    const discriminator = iter
+      .next()
+      .value.getUint8(0) as prestat_discriminator;
+    switch (discriminator) {
+      case prestat_discriminator.dir:
+        return [
+          discriminator,
+          prestat_dir.read(iter.next().value, 0 as Pointer<prestat_dir>),
+        ];
+      default:
+        throw new RangeError();
+    }
+  }
+}
 
-export interface WasiP1Imports {
-  args_get(argv: Pointer<Pointer<u8>>, argv_buf: Pointer<u8>): errno;
+export interface WasiP1Imports
+  extends WasiP1FilesystemImports,
+    WasiP1SocketImports {
+  args_get(
+    this: void,
+    argv: Pointer<Pointer<u8>>,
+    argv_buf: Pointer<u8>,
+  ): errno;
   args_sizes_get(
+    this: void,
     out_ptr_arg_count: Pointer<size>,
     out_ptr_argv_buf_size: Pointer<size>,
   ): errno;
-  environ_get(environ: Pointer<Pointer<u8>>, environ_buf: Pointer<u8>): errno;
+  environ_get(
+    this: void,
+    environ: Pointer<Pointer<u8>>,
+    environ_buf: Pointer<u8>,
+  ): errno;
   environ_sizes_get(
+    this: void,
     out_ptr_environ_count: Pointer<size>,
     out_ptr_environ_buf_size: Pointer<size>,
   ): errno;
-  clock_res_get(id: clockid, out_ptr: Pointer<timestamp>): errno;
+  clock_res_get(this: void, id: clockid, out_ptr: Pointer<timestamp>): errno;
   clock_time_get(
+    this: void,
     id: clockid,
     precision: timestamp,
     out_ptr: Pointer<timestamp>,
   ): errno;
-  fd_advise(fd: fd, offset: filesize, len: filesize, advice: advice): errno;
-  fd_allocate(fd: fd, offset: filesize, len: filesize): errno;
-  fd_close(fd: fd): errno;
-  fd_datasync(fd: fd): errno;
-  fd_fdstat_get(fd: fd, out_ptr: Pointer<fdstat>): errno;
-  fd_fdstat_set_flags(fd: fd, flags: fdflags): errno;
+
+  poll_oneoff(
+    this: void,
+    in_: ConstPointer<subscription>,
+    out: Pointer<event>,
+    nsubscriptions: size,
+    out_ptr: Pointer<size>,
+  ): errno;
+  proc_exit(this: void, rval: exitcode): never;
+  proc_raise(this: void, sig: signal): errno;
+  sched_yield(this: void): errno;
+  random_get(this: void, buf: Pointer<u8>, buf_len: size): errno;
+}
+
+export interface WasiP1FilesystemImports {
+  fd_advise(
+    this: void,
+    fd: fd,
+    offset: filesize,
+    len: filesize,
+    advice: advice,
+  ): errno;
+  fd_allocate(this: void, fd: fd, offset: filesize, len: filesize): errno;
+  fd_close(this: void, fd: fd): errno;
+  fd_datasync(this: void, fd: fd): errno;
+  fd_fdstat_get(this: void, fd: fd, out_ptr: Pointer<fdstat>): errno;
+  fd_fdstat_set_flags(this: void, fd: fd, flags: fdflags): errno;
   fd_fdstat_set_rights(
+    this: void,
     fd: fd,
     fs_rights_base: rights,
     fs_rights_inheriting: rights,
   ): errno;
-  fd_filestat_get(fd: fd, out_ptr: Pointer<filestat>): errno;
-  fd_filestat_set_size(fd: fd, size: filesize): errno;
+  fd_filestat_get(this: void, fd: fd, out_ptr: Pointer<filestat>): errno;
+  fd_filestat_set_size(this: void, fd: fd, size: filesize): errno;
   fd_filestat_set_times(
+    this: void,
     fd: fd,
     atim: timestamp,
     mtim: timestamp,
     fst_flags: fstflags,
   ): errno;
   fd_pread(
+    this: void,
     fd: fd,
     iovs_ptr: Pointer<iovec>,
     iovs_len: size,
     offset: filesize,
     out_ptr: Pointer<size>,
   ): errno;
-  fd_prestat_get(fd: fd, out_ptr: Pointer<prestat>): errno;
-  fd_prestat_dir_name(fd: fd, path: Pointer<u8>, path_len: size): errno;
+  fd_prestat_get(this: void, fd: fd, out_ptr: Pointer<prestat>): errno;
+  fd_prestat_dir_name(
+    this: void,
+    fd: fd,
+    path: Pointer<u8>,
+    path_len: size,
+  ): errno;
   fd_pwrite(
+    this: void,
     fd: fd,
     iovs_ptr: Pointer<ciovec>,
     iovs_len: size,
@@ -622,35 +1058,45 @@ export interface WasiP1Imports {
     out_ptr: Pointer<size>,
   ): errno;
   fd_read(
+    this: void,
     fd: fd,
     iovs_ptr: Pointer<iovec>,
     iovs_len: size,
     out_ptr: Pointer<size>,
   ): errno;
   fd_readdir(
+    this: void,
     fd: fd,
     buf: Pointer<u8>,
     buf_len: size,
     cookie: dircookie,
     out_ptr: Pointer<size>,
   ): errno;
-  fd_renumber(fd: fd, to: fd): errno;
+  fd_renumber(this: void, fd: fd, to: fd): errno;
   fd_seek(
+    this: void,
     fd: fd,
     offset: filedelta,
     whence: whence,
     out_ptr: Pointer<filesize>,
   ): errno;
-  fd_sync(fd: fd): errno;
-  fd_tell(fd: fd, out_ptr: Pointer<filesize>): errno;
+  fd_sync(this: void, fd: fd): errno;
+  fd_tell(this: void, fd: fd, out_ptr: Pointer<filesize>): errno;
   fd_write(
+    this: void,
     fd: fd,
     iovs_ptr: Pointer<ciovec>,
     iovs_len: size,
     out_ptr: Pointer<size>,
   ): errno;
-  path_create_directory(fd: fd, path_ptr: Pointer<u8>, path_len: size): errno;
+  path_create_directory(
+    this: void,
+    fd: fd,
+    path_ptr: Pointer<u8>,
+    path_len: size,
+  ): errno;
   path_filestat_get(
+    this: void,
     fd: fd,
     flags: lookupflags,
     path_ptr: Pointer<u8>,
@@ -658,8 +1104,9 @@ export interface WasiP1Imports {
     out_ptr: Pointer<filestat>,
   ): errno;
   path_filestat_set_times(
+    this: void,
     fd: fd,
-    flags: number,
+    flags: lookupflags,
     path_ptr: Pointer<u8>,
     path_len: size,
     atim: timestamp,
@@ -667,6 +1114,7 @@ export interface WasiP1Imports {
     fst_flags: fstflags,
   ): errno;
   path_link(
+    this: void,
     old_fd: fd,
     old_flags: lookupflags,
     old_path_ptr: Pointer<u8>,
@@ -676,6 +1124,7 @@ export interface WasiP1Imports {
     new_path_len: size,
   ): errno;
   path_open(
+    this: void,
     fd: fd,
     dirflags: lookupflags,
     path_ptr: Pointer<u8>,
@@ -687,6 +1136,7 @@ export interface WasiP1Imports {
     out_ptr: Pointer<fd>,
   ): errno;
   path_readlink(
+    this: void,
     fd: fd,
     path_ptr: Pointer<u8>,
     path_len: size,
@@ -694,8 +1144,14 @@ export interface WasiP1Imports {
     buf_len: size,
     out_ptr: Pointer<size>,
   ): errno;
-  path_remove_directory(fd: fd, path_ptr: Pointer<u8>, path_len: size): errno;
+  path_remove_directory(
+    this: void,
+    fd: fd,
+    path_ptr: Pointer<u8>,
+    path_len: size,
+  ): errno;
   path_rename(
+    this: void,
     fd: fd,
     old_path_ptr: Pointer<u8>,
     old_path_len: size,
@@ -704,25 +1160,25 @@ export interface WasiP1Imports {
     new_path_len: size,
   ): errno;
   path_symlink(
+    this: void,
     old_path_ptr: Pointer<u8>,
     old_path_len: size,
     fd: fd,
     new_path_ptr: Pointer<u8>,
     new_path_len: size,
   ): errno;
-  path_unlink_file(fd: fd, path_ptr: Pointer<u8>, path_len: size): errno;
-  poll_oneoff(
-    in_: ConstPointer<subscription>,
-    out: Pointer<event>,
-    nsubscriptions: size,
-    out_ptr: Pointer<size>,
+  path_unlink_file(
+    this: void,
+    fd: fd,
+    path_ptr: Pointer<u8>,
+    path_len: size,
   ): errno;
-  proc_exit(rval: exitcode): never;
-  proc_raise(sig: signal): errno;
-  sched_yield(): errno;
-  random_get(buf: Pointer<u8>, buf_len: size): errno;
-  sock_accept(fd: fd, flags: fdflags, out_ptr: Pointer<fd>): errno;
+}
+
+export interface WasiP1SocketImports {
+  sock_accept(this: void, fd: fd, flags: fdflags, out_ptr: Pointer<fd>): errno;
   sock_recv(
+    this: void,
     fd: fd,
     ri_data_ptr: Pointer<iovec>,
     ri_data_len: size,
@@ -731,11 +1187,12 @@ export interface WasiP1Imports {
     out_ptr_roflags: Pointer<roflags>,
   ): errno;
   sock_send(
+    this: void,
     fd: fd,
     si_data_ptr: Pointer<ciovec>,
     si_data_len: size,
     si_flags: siflags,
     out_ptr: Pointer<size>,
   ): errno;
-  sock_shutdown(fd: fd, how: sdflags): errno;
+  sock_shutdown(this: void, fd: fd, how: sdflags): errno;
 }

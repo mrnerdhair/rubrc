@@ -190,7 +190,7 @@ function make_int_base<
   const base = new IntBase<TConstructor, TInt, TIntUnsigned, TCastable>(
     typed_array_constructor,
   );
-  const out = (x: TElement): TInt => {
+  const out = <T extends TElement = TElement>(x: T): T & TInt => {
     if (!(x instanceof base)) throw new RangeError();
     return x;
   };
@@ -200,11 +200,11 @@ function make_int_base<
 }
 
 declare const int: unique symbol;
-export interface Int<T extends symbol> {
+export interface Int<T extends symbol = symbol> {
   readonly [int]: T;
 }
 
-namespace Int {
+export namespace Int {
   export declare const u8: unique symbol;
   export declare const u16: unique symbol;
   export declare const u32: unique symbol;

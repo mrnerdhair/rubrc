@@ -10,8 +10,8 @@ import {
   u32,
   u64,
   usize,
-} from "./integers";
-import type { Pointee } from "./pointers";
+} from "../integers";
+import type { Pointee } from "./pointer";
 import type { Sized, ZeroSized } from "./sized";
 
 export interface Metadata<T extends object | unknown> {
@@ -108,7 +108,7 @@ for (const ctor of [
   Metadata.set(ctor as Pointee<T>, metadata);
 }
 
-declare module "./integers" {
+declare module "../integers" {
   interface IntBase<TConstructor, TInt, TIntUnsigned, TCastable>
     extends Pointee<TInt>,
       Sized {}

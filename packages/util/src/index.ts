@@ -29,8 +29,10 @@ export { Abortable } from "./abortable";
 export {
   Pointer,
   type Provenance,
+  Metadata,
+  type Sized,
+  type sized,
 } from "./pointers";
-export { Metadata } from "./metadata";
 export {
   u8,
   u16,
@@ -48,7 +50,6 @@ export {
   type TypedArrayConstructor,
   type TypedArrayElement,
 } from "./integers";
-export type { Sized, sized } from "./sized";
 
 export type { WasiP1Imports } from "./wasi_p1_defs_simple";
 

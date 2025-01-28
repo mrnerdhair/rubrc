@@ -1,37 +1,27 @@
-import { errno } from "./wasi_p1_defs_simple";
-import type {
-  ConstPointer,
-  Pointer,
-  WasiP1Imports,
-  advice,
-  ciovec,
+import {
+  type ConstPointer,
+  type Pointer,
+  type WasiP1FilesystemImports,
+  type WasiP1Imports,
+  type ciovec,
   clockid,
-  dircookie,
-  event,
-  exitcode,
-  fd,
-  fdflags,
-  fdstat,
-  filedelta,
-  filesize,
-  filestat,
-  fstflags,
-  iovec,
-  lookupflags,
-  oflags,
-  prestat,
-  riflags,
-  rights,
-  roflags,
-  sdflags,
-  siflags,
-  signal,
-  size,
-  subscription,
-  timestamp,
-  u8,
-  whence,
-} from "./wasi_p1_defs_simple";
+  errno,
+  type event,
+  type exitcode,
+  type fd,
+  type fdflags,
+  type iovec,
+  type riflags,
+  type roflags,
+  type sdflags,
+  type siflags,
+  type signal,
+  type size,
+  type subscription,
+  type timestamp,
+  type u8,
+  u32,
+} from "./wasi_p1_defs";
 
 export class WasiP1ProcExit {
   readonly rval: exitcode;
@@ -41,18 +31,18 @@ export class WasiP1ProcExit {
 }
 
 export class WasiP1 implements WasiP1Imports {
-  protected readonly memory: WebAssembly.Memory;
   protected readonly view: DataView;
   protected readonly args: readonly Uint8Array[];
   protected readonly environ: readonly Uint8Array[];
+  protected readonly fs: WasiP1FilesystemImports;
 
   constructor(
-    memory: WebAssembly.Memory,
+    view: ArrayBufferView,
     args: string[],
     environ: Record<string, string>,
+    fs: WasiP1FilesystemImports,
   ) {
-    this.memory = memory;
-    this.view = new DataView(this.memory.buffer);
+    this.view = new DataView(view.buffer, view.byteOffset, view.byteLength);
     this.args = Array.from(args)
       .map((x) => {
         if (x.includes("\0")) throw new Error("args can't include NUL");
@@ -69,10 +59,11 @@ export class WasiP1 implements WasiP1Imports {
       })
       .map(([key, value]) => `${key}=${value}\0`)
       .map((x) => new TextEncoder().encode(x));
+    this.fs = fs;
   }
 
   protected memcpy(ptr: Pointer<u8>, source: Uint8Array) {
-    new Uint8Array(this.memory.buffer, ptr, source.byteLength).set(source);
+    new Uint8Array(this.view.buffer, ptr, source.byteLength).set(source);
   }
 
   readonly args_get = (
@@ -80,12 +71,12 @@ export class WasiP1 implements WasiP1Imports {
     argv_buf: Pointer<u8>,
   ): errno => {
     for (const arg of this.args) {
-      this.view.setUint32(argv, argv_buf);
+      this.view.setUint32(argv, argv_buf, true);
       this.memcpy(argv_buf, arg);
       // biome-ignore lint/style/noParameterAssign: more confusing the other way
-      argv += 4;
+      argv = u32.add(argv, u32(4));
       // biome-ignore lint/style/noParameterAssign: more confusing the other way
-      argv_buf += arg.byteLength;
+      argv_buf = u32.add(argv_buf, u32(arg.byteLength));
     }
     return errno.success;
   };
@@ -93,10 +84,11 @@ export class WasiP1 implements WasiP1Imports {
     out_ptr_arg_count: Pointer<size>,
     out_ptr_argv_buf_size: Pointer<size>,
   ): errno => {
-    this.view.setUint32(out_ptr_arg_count, this.args.length);
+    this.view.setUint32(out_ptr_arg_count, this.args.length, true);
     this.view.setUint32(
       out_ptr_argv_buf_size,
       this.args.reduce((a, x) => a + x.byteLength, 0),
+      true,
     );
     return errno.success;
   };
@@ -106,12 +98,12 @@ export class WasiP1 implements WasiP1Imports {
     environ_buf: Pointer<u8>,
   ): errno => {
     for (const this_environ of this.environ) {
-      this.view.setUint32(environ, environ_buf);
+      this.view.setUint32(environ, environ_buf, true);
       this.memcpy(environ_buf, this_environ);
       // biome-ignore lint/style/noParameterAssign: more confusing the other way
-      environ += 4;
+      environ = u32.add(environ, u32(4));
       // biome-ignore lint/style/noParameterAssign: more confusing the other way
-      environ_buf += this_environ.byteLength;
+      environ_buf = u32.add(environ_buf, u32(this_environ.byteLength));
     }
     return errno.success;
   };
@@ -119,241 +111,142 @@ export class WasiP1 implements WasiP1Imports {
     out_ptr_environ_count: Pointer<size>,
     out_ptr_environ_buf_size: Pointer<size>,
   ): errno => {
-    this.view.setUint32(out_ptr_environ_count, this.environ.length);
+    this.view.setUint32(out_ptr_environ_count, this.environ.length, true);
     this.view.setUint32(
       out_ptr_environ_buf_size,
       this.environ.reduce((a, x) => a + x.byteLength, 0),
+      true,
     );
     return errno.success;
   };
 
   readonly clock_res_get = (
-    _id: clockid,
-    _out_ptr: Pointer<timestamp>,
+    id: clockid,
+    out_ptr: Pointer<timestamp>,
   ): errno => {
-    throw new Error("todo");
+    switch (id) {
+      case clockid.realtime: {
+        // There are a million nanoseconds in a millisecond, which is the resolution of Date.now()
+        this.view.setBigUint64(out_ptr, 1000000n, true);
+        return errno.success;
+      }
+      default: {
+        return errno.inval;
+      }
+    }
   };
   readonly clock_time_get = (
-    _id: clockid,
-    _precision: timestamp,
-    _out_ptr: Pointer<timestamp>,
+    id: clockid,
+    precision: timestamp,
+    out_ptr: Pointer<timestamp>,
   ): errno => {
-    throw new Error("todo");
+    switch (id) {
+      case clockid.realtime: {
+        // There are a million nanoseconds in a millisecond, which is the resolution of Date.now()
+        if (precision < 1000000n) return errno.inval;
+        const now = BigInt(Date.now()) * 1000000n;
+        this.view.setBigUint64(out_ptr, now, true);
+        return errno.success;
+      }
+      default: {
+        return errno.inval;
+      }
+    }
   };
 
-  readonly fd_advise = (
-    _fd: fd,
-    _offset: filesize,
-    _len: filesize,
-    _advice: advice,
-  ): errno => {
-    return errno.success;
-  };
-  readonly fd_allocate = (
-    _fd: fd,
-    _offset: filesize,
-    _len: filesize,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_close = (_fd: fd): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_datasync = (_fd: fd): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_fdstat_get = (_fd: fd, _out_ptr: Pointer<fdstat>): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_fdstat_set_flags = (_fd: fd, _flags: fdflags): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_fdstat_set_rights = (
-    _fd: fd,
-    _fs_rights_base: rights,
-    _fs_rights_inheriting: rights,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_filestat_get = (_fd: fd, _out_ptr: Pointer<filestat>): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_filestat_set_size = (_fd: fd, _size: filesize): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_filestat_set_times = (
-    _fd: fd,
-    _atim: timestamp,
-    _mtim: timestamp,
-    _fst_flags: fstflags,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_pread = (
-    _fd: fd,
-    _iovs_ptr: Pointer<iovec>,
-    _iovs_len: size,
-    _offset: filesize,
-    _out_ptr: Pointer<size>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_prestat_get = (_fd: fd, _out_ptr: Pointer<prestat>): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_prestat_dir_name = (
-    _fd: fd,
-    _path: Pointer<u8>,
-    _path_len: size,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_pwrite = (
-    _fd: fd,
-    _iovs_ptr: Pointer<ciovec>,
-    _iovs_len: size,
-    _offset: filesize,
-    _out_ptr: Pointer<size>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_read = (
-    _fd: fd,
-    _iovs_ptr: Pointer<iovec>,
-    _iovs_len: size,
-    _out_ptr: Pointer<size>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_readdir = (
-    _fd: fd,
-    _buf: Pointer<u8>,
-    _buf_len: size,
-    _cookie: dircookie,
-    _out_ptr: Pointer<size>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_renumber = (_fd: fd, _to: fd): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_seek = (
-    _fd: fd,
-    _offset: filedelta,
-    _whence: whence,
-    _out_ptr: Pointer<filesize>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_sync = (_fd: fd): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_tell = (_fd: fd, _out_ptr: Pointer<filesize>): errno => {
-    throw new Error("todo");
-  };
-  readonly fd_write = (
-    _fd: fd,
-    _iovs_ptr: Pointer<ciovec>,
-    _iovs_len: size,
-    _out_ptr: Pointer<size>,
-  ): errno => {
-    throw new Error("todo");
-  };
-
-  readonly path_create_directory = (
-    _fd: fd,
-    _path_ptr: Pointer<u8>,
-    _path_len: size,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_filestat_get = (
-    _fd: fd,
-    _flags: lookupflags,
-    _path_ptr: Pointer<u8>,
-    _path_len: size,
-    _out_ptr: Pointer<filestat>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_filestat_set_times = (
-    _fd: fd,
-    _flags: number,
-    _path_ptr: Pointer<u8>,
-    _path_len: size,
-    _atim: timestamp,
-    _mtim: timestamp,
-    _fst_flags: fstflags,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_link = (
-    _old_fd: fd,
-    _old_flags: lookupflags,
-    _old_path_ptr: Pointer<u8>,
-    _old_path_len: size,
-    _new_fd: fd,
-    _new_path_ptr: Pointer<u8>,
-    _new_path_len: size,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_open = (
-    _fd: fd,
-    _dirflags: lookupflags,
-    _path_ptr: Pointer<u8>,
-    _path_len: size,
-    _oflags: oflags,
-    _fs_rights_base: rights,
-    _fs_rights_inheriting: rights,
-    _fdflags: fdflags,
-    _out_ptr: Pointer<fd>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_readlink = (
-    _fd: fd,
-    _path_ptr: Pointer<u8>,
-    _path_len: size,
-    _buf: Pointer<u8>,
-    _buf_len: size,
-    _out_ptr: Pointer<size>,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_remove_directory = (
-    _fd: fd,
-    _path_ptr: Pointer<u8>,
-    _path_len: size,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_rename = (
-    _fd: fd,
-    _old_path_ptr: Pointer<u8>,
-    _old_path_len: size,
-    _new_fd: fd,
-    _new_path_ptr: Pointer<u8>,
-    _new_path_len: size,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_symlink = (
-    _old_path_ptr: Pointer<u8>,
-    _old_path_len: size,
-    _fd: fd,
-    _new_path_ptr: Pointer<u8>,
-    _new_path_len: size,
-  ): errno => {
-    throw new Error("todo");
-  };
-  readonly path_unlink_file = (
-    _fd: fd,
-    _path_ptr: Pointer<u8>,
-    _path_len: size,
-  ): errno => {
-    throw new Error("todo");
-  };
+  get fd_advise() {
+    return this.fs.fd_advise;
+  }
+  get fd_allocate() {
+    return this.fs.fd_allocate;
+  }
+  get fd_close() {
+    return this.fs.fd_close;
+  }
+  get fd_datasync() {
+    return this.fs.fd_datasync;
+  }
+  get fd_fdstat_get() {
+    return this.fs.fd_fdstat_get;
+  }
+  get fd_fdstat_set_flags() {
+    return this.fs.fd_fdstat_set_flags;
+  }
+  get fd_fdstat_set_rights() {
+    return this.fs.fd_fdstat_set_rights;
+  }
+  get fd_filestat_get() {
+    return this.fs.fd_filestat_get;
+  }
+  get fd_filestat_set_size() {
+    return this.fs.fd_filestat_set_size;
+  }
+  get fd_filestat_set_times() {
+    return this.fs.fd_filestat_set_times;
+  }
+  get fd_pread() {
+    return this.fs.fd_pread;
+  }
+  get fd_prestat_get() {
+    return this.fs.fd_prestat_get;
+  }
+  get fd_prestat_dir_name() {
+    return this.fs.fd_prestat_dir_name;
+  }
+  get fd_pwrite() {
+    return this.fs.fd_pwrite;
+  }
+  get fd_read() {
+    return this.fs.fd_read;
+  }
+  get fd_readdir() {
+    return this.fs.fd_readdir;
+  }
+  get fd_renumber() {
+    return this.fs.fd_renumber;
+  }
+  get fd_seek() {
+    return this.fs.fd_seek;
+  }
+  get fd_sync() {
+    return this.fs.fd_sync;
+  }
+  get fd_tell() {
+    return this.fs.fd_tell;
+  }
+  get fd_write() {
+    return this.fs.fd_write;
+  }
+  get path_create_directory() {
+    return this.fs.path_create_directory;
+  }
+  get path_filestat_get() {
+    return this.fs.path_filestat_get;
+  }
+  get path_filestat_set_times() {
+    return this.fs.path_filestat_set_times;
+  }
+  get path_link() {
+    return this.fs.path_link;
+  }
+  get path_open() {
+    return this.fs.path_open;
+  }
+  get path_readlink() {
+    return this.fs.path_readlink;
+  }
+  get path_remove_directory() {
+    return this.fs.path_remove_directory;
+  }
+  get path_rename() {
+    return this.fs.path_rename;
+  }
+  get path_symlink() {
+    return this.fs.path_symlink;
+  }
+  get path_unlink_file() {
+    return this.fs.path_unlink_file;
+  }
 
   readonly poll_oneoff = (
     _in_: ConstPointer<subscription>,
@@ -373,7 +266,7 @@ export class WasiP1 implements WasiP1Imports {
     return errno.success;
   };
   readonly random_get = (buf: Pointer<u8>, buf_len: size): errno => {
-    crypto.getRandomValues(new Uint8Array(this.memory.buffer, buf, buf_len));
+    crypto.getRandomValues(new Uint8Array(this.view.buffer, buf, buf_len));
     return errno.success;
   };
 

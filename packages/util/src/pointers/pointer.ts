@@ -1,4 +1,4 @@
-import { i64, isize, usize } from "./integers";
+import { i64, isize, usize } from "../integers";
 import { Metadata } from "./metadata";
 import type { Sized } from "./sized";
 

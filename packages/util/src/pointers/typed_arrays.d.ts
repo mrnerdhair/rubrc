@@ -1,4 +1,4 @@
-import type { Pointee } from "./pointers";
+import type { Pointee } from "./pointer";
 
 declare global {
   interface Uint8Array<TArrayBuffer>
