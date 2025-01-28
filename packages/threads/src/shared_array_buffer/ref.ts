@@ -1,6 +1,6 @@
 import { wasi } from "@bjorn3/browser_wasi_shim";
+import * as Comlink from "comlink";
 import { WASIFarmRef, type WASIFarmRefObject } from "../ref";
-import type { FdCloseSender } from "../sender";
 import {
   AllocatorUseArrayBuffer,
   type AllocatorUseArrayBufferObject,
@@ -18,7 +18,7 @@ import {
 } from "./locking";
 import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
-export type WASIFarmRefUseArrayBufferObject = {
+type WASIFarmRefUseArrayBufferObject = {
   allocator: AllocatorUseArrayBufferObject;
   lock_fds: Array<{
     lock: LockerTarget;
@@ -33,13 +33,13 @@ export type WASIFarmRefUseArrayBufferObject = {
 abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
   // For more information on member variables, see . See /park.ts
   protected readonly allocator: AllocatorUseArrayBuffer;
-  private readonly lock_fds: Array<{
+  protected readonly lock_fds: Array<{
     locker: Locker;
     caller: Caller;
   }>;
 
-  private readonly locker: Locker;
-  private readonly caller: Caller;
+  protected readonly locker: Locker;
+  protected readonly caller: Caller;
 
   readonly stdin?: number;
   readonly stdout?: number;
@@ -47,7 +47,7 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
 
   readonly id: number;
 
-  readonly fd_close_receiver: FdCloseSender;
+  readonly fd_close_receiver: FdCloseSenderUseArrayBuffer;
 
   readonly default_fds: Array<number>;
 
@@ -58,7 +58,7 @@ abstract class WASIFarmRefUseArrayBufferBase extends WASIFarmRef {
       locker: Locker;
       caller: Caller;
     }>,
-    fd_close_receiver: FdCloseSender,
+    fd_close_receiver: FdCloseSenderUseArrayBuffer,
     stdin: number | undefined,
     stdout: number | undefined,
     stderr: number | undefined,
@@ -182,7 +182,7 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       locker: Locker;
       caller: Caller;
     }>,
-    fd_close_receiver: FdCloseSender,
+    fd_close_receiver: FdCloseSenderUseArrayBuffer,
     stdin: number | undefined,
     stdout: number | undefined,
     stderr: number | undefined,
@@ -202,6 +202,44 @@ export class WASIFarmRefUseArrayBuffer extends WASIFarmRefUseArrayBufferBase {
       locker,
       caller,
     );
+  }
+
+  static {
+    Comlink.transferHandlers.set("WASIFarmRefUseArrayBuffer", {
+      canHandle(x: unknown): x is WASIFarmRefUseArrayBuffer {
+        return x instanceof WASIFarmRefUseArrayBuffer;
+      },
+      serialize(
+        x: WASIFarmRefUseArrayBuffer,
+      ): [WASIFarmRefUseArrayBufferObject, Transferable[]] {
+        const out = {
+          allocator: x.allocator.get_ref(),
+          lock_fds: x.lock_fds.map(({ locker, caller }) => ({
+            lock: locker.target,
+            call: caller.target,
+          })),
+          lock: x.locker.target,
+          call: x.caller.target,
+          fd_close_receiver: x.fd_close_receiver.get_ref(),
+          stdin: x.stdin,
+          stdout: x.stdout,
+          stderr: x.stderr,
+          default_fds: x.default_fds,
+        };
+        const handler = Comlink.transferHandlers.get("recursive");
+        if (!handler || !handler.canHandle(out)) throw new Error();
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        return handler.serialize(out) as any;
+      },
+      deserialize(
+        x: WASIFarmRefUseArrayBufferObject,
+      ): Promise<WASIFarmRefUseArrayBuffer> {
+        const handler = Comlink.transferHandlers.get("recursive");
+        if (!handler) throw new Error();
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        return WASIFarmRefUseArrayBuffer.init(handler.deserialize(x) as any);
+      },
+    });
   }
 
   static async init(

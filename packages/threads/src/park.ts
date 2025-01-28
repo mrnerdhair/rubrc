@@ -1,7 +1,7 @@
 import { type Fd as BaseFd, wasi } from "@bjorn3/browser_wasi_shim";
 import type { Abortable } from "rubrc-util";
 import { PromiseLocker } from "./shared_array_buffer/locking";
-import type { WASIFarmRefUseArrayBufferObject } from "./shared_array_buffer/ref";
+import type { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer/ref";
 
 // Not sure why we're special-casing this possibly being async, but there was runtime
 // code to handle it in place already, and it's better to have an explicit type definition
@@ -13,7 +13,7 @@ export type Fd = Omit<BaseFd, "fd_write"> & {
 };
 
 export abstract class WASIFarmPark {
-  abstract get_ref(): WASIFarmRefUseArrayBufferObject;
+  abstract get_ref(): Promise<WASIFarmRefUseArrayBuffer>;
   abstract listen(): Abortable;
   protected abstract notify_set_fd(fd: number): Promise<void>;
   protected abstract notify_rm_fd(fd: number): Promise<void>;

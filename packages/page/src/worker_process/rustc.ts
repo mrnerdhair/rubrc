@@ -3,7 +3,7 @@
 import {
   ThreadSpawner,
   WASIFarmAnimal,
-  type WASIFarmRefUseArrayBufferObject,
+  type WASIFarmRefUseArrayBuffer,
 } from "@oligami/browser_wasi_shim-threads";
 import { get_rustc_wasm } from "@oligami/rustc-browser-wasi_shim";
 import * as Comlink from "comlink";
@@ -24,7 +24,7 @@ export class RustcWorker {
 
   static async init(
     terminal: Terminal,
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
+    wasi_farm_refs: WASIFarmRefUseArrayBuffer[],
   ): Promise<RustcWorker> {
     terminal.write("loading rustc\r\n");
     const module = await get_rustc_wasm();

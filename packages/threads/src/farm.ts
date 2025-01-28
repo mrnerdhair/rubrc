@@ -3,7 +3,7 @@ import { Abortable } from "rubrc-util";
 import type { WASIFarmPark } from "./park";
 import {
   WASIFarmParkUseArrayBuffer,
-  type WASIFarmRefUseArrayBufferObject,
+  type WASIFarmRefUseArrayBuffer,
 } from "./shared_array_buffer/index";
 
 export class WASIFarm extends Abortable {
@@ -77,7 +77,7 @@ export class WASIFarm extends Abortable {
     this.resolve(park.listen());
   }
 
-  get_ref(): WASIFarmRefUseArrayBufferObject {
-    return this.park.get_ref();
+  async get_ref(): Promise<WASIFarmRefUseArrayBuffer> {
+    return await this.park.get_ref();
   }
 }

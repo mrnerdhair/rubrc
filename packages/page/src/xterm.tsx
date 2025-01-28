@@ -6,7 +6,7 @@ import {
 } from "@bjorn3/browser_wasi_shim";
 import {
   WASIFarm,
-  type WASIFarmRefUseArrayBufferObject,
+  type WASIFarmRefUseArrayBuffer,
 } from "@oligami/browser_wasi_shim-threads";
 import { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
@@ -50,9 +50,7 @@ const makeTerminal = (xterm: Promise<Terminal>): OtherTerminal => {
 export const SetupMyTerminal = (props: {
   cmd_parser: CmdParser;
   terminal_callback: (value: OtherTerminal) => void;
-  terminal_wasi_ref_callback: (
-    wasi_ref: WASIFarmRefUseArrayBufferObject,
-  ) => void;
+  terminal_wasi_ref_callback: (wasi_ref: WASIFarmRefUseArrayBuffer) => void;
 }) => {
   const fit_addon = new FitAddon();
 
@@ -134,7 +132,7 @@ export const SetupMyTerminal = (props: {
 const get_ref = async (
   term: Terminal,
   other_term: OtherTerminal,
-): Promise<WASIFarmRefUseArrayBufferObject> => {
+): Promise<WASIFarmRefUseArrayBuffer> => {
   class XtermStdio extends Fd {
     term: Terminal;
 
@@ -213,5 +211,5 @@ const get_ref = async (
     fds: [root_dir],
   });
 
-  return farm.get_ref();
+  return await farm.get_ref();
 };

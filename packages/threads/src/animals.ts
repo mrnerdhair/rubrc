@@ -9,10 +9,9 @@ import {
   as_wasi_p1_thread,
 } from "rubrc-util";
 import type { WASIFarmRef } from "./ref";
-import { WASIFarmRefUseArrayBuffer } from "./shared_array_buffer";
 import type {
   ThreadSpawner,
-  WASIFarmRefUseArrayBufferObject,
+  WASIFarmRefUseArrayBuffer,
 } from "./shared_array_buffer";
 
 export class WASIFarmAnimal {
@@ -224,7 +223,7 @@ export class WASIFarmAnimal {
     override_fd_maps,
     thread_spawner,
   }: {
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[];
+    wasi_farm_refs: WASIFarmRefUseArrayBuffer[];
     args: Array<string>;
     env: Array<string>;
     override_fd_maps?: Array<number[]>;
@@ -236,15 +235,11 @@ export class WASIFarmAnimal {
       throw new Error("Non SharedArrayBuffer is not supported yet");
     }
 
-    const wasi_farm_refs_out = await Promise.all(
-      wasi_farm_refs.map(async (x) => await WASIFarmRefUseArrayBuffer.init(x)),
-    );
-
     return new WASIFarmAnimal({
-      wasi_farm_refs: wasi_farm_refs_out,
+      wasi_farm_refs: wasi_farm_refs,
       thread_spawner,
       mapping_fds: await WASIFarmAnimal.mapping_fds(
-        wasi_farm_refs_out,
+        wasi_farm_refs,
         override_fd_maps,
       ),
       args,

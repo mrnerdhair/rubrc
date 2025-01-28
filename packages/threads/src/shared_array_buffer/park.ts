@@ -10,7 +10,7 @@ import {
   new_locker_target,
 } from "./locking";
 import { Caller, type ViewSet } from "./locking";
-import type { WASIFarmRefUseArrayBufferObject } from "./ref";
+import { WASIFarmRefUseArrayBuffer } from "./ref";
 import { FuncNames, WASIFarmParkFuncNames } from "./util";
 
 // The largest size is u32 * 18 + 1
@@ -236,8 +236,8 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
   }
 
   /// Send this return by postMessage.
-  get_ref(): WASIFarmRefUseArrayBufferObject {
-    return {
+  async get_ref(): Promise<WASIFarmRefUseArrayBuffer> {
+    return await WASIFarmRefUseArrayBuffer.init({
       allocator: this.allocator.get_ref(),
       lock_fds: this.lock_fds.map(({ locker, caller }) => ({
         lock: locker.target,
@@ -250,7 +250,7 @@ export class WASIFarmParkUseArrayBuffer extends WASIFarmPark {
       default_fds: this.default_allow_fds,
       lock: this.locker.target,
       call: this.caller.target,
-    };
+    });
   }
 
   // abstract methods implementation

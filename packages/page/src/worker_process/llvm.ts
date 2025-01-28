@@ -3,7 +3,7 @@
 import { ThreadSpawner } from "@oligami/browser_wasi_shim-threads";
 import {
   WASIFarmAnimal,
-  type WASIFarmRefUseArrayBufferObject,
+  type WASIFarmRefUseArrayBuffer,
 } from "@oligami/browser_wasi_shim-threads";
 import { get_llvm_wasm } from "@oligami/rustc-browser-wasi_shim";
 import * as Comlink from "comlink";
@@ -29,7 +29,7 @@ export class LlvmWorker {
   }
 
   static async init(
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
+    wasi_farm_refs: WASIFarmRefUseArrayBuffer[],
   ): Promise<LlvmWorker> {
     console.log("loading llvm");
 

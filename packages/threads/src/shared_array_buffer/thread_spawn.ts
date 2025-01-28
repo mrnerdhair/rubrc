@@ -15,7 +15,7 @@
 //  (import "wasi" "thread-spawn" (func $fimport$27 (param i32) (result i32)))
 
 import { wrappedWorkerInit } from "rubrc-util";
-import type { WASIFarmRefUseArrayBufferObject } from "./ref";
+import type { WASIFarmRefUseArrayBuffer } from "./ref";
 import type { WorkerBackgroundRefObject } from "./worker_background/index";
 import { WorkerBackgroundRef } from "./worker_background/index";
 import type {
@@ -30,7 +30,7 @@ const workerBackgroundInit =
 
 export type ThreadSpawnerObject = {
   share_memory?: WebAssembly.Memory;
-  wasi_farm_refs: Array<WASIFarmRefUseArrayBufferObject>;
+  wasi_farm_refs: Array<WASIFarmRefUseArrayBuffer>;
   MIN_STACK?: number;
   worker_background_ref_object?: WorkerBackgroundRefObject;
   module: WebAssembly.Module;

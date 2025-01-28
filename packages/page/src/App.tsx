@@ -1,4 +1,4 @@
-import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
+import type { WASIFarmRefUseArrayBuffer } from "@oligami/browser_wasi_shim-threads";
 import { Suspense, createSignal, lazy } from "solid-js";
 import { DownloadButton, RunButton } from "./btn";
 import type { CompileAndRun } from "./compile_and_run";
@@ -25,7 +25,7 @@ const App = (props: {
   compile_and_run: Promise<CompileAndRun>;
   load_additional_sysroot_callback: (value: string) => void;
   terminal_callback: (value: Terminal) => void;
-  terminal_wasi_ref_callback: (value: WASIFarmRefUseArrayBufferObject) => void;
+  terminal_wasi_ref_callback: (value: WASIFarmRefUseArrayBuffer) => void;
 }) => {
   const handleMount = (_monaco: unknown, _editor: unknown) => {
     // Use monaco and editor instances here

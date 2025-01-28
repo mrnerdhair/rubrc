@@ -2,7 +2,7 @@
 
 import {
   WASIFarmAnimal,
-  type WASIFarmRefUseArrayBufferObject,
+  type WASIFarmRefUseArrayBuffer,
 } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
 import { type WasiP1Cmd, setTransferHandlers } from "rubrc-util";
@@ -60,7 +60,7 @@ export class UtilCmdWorker {
   static async init(
     terminal: Terminal,
     compile_and_run: CompileAndRun,
-    wasi_farm_refs: WASIFarmRefUseArrayBufferObject[],
+    wasi_farm_refs: WASIFarmRefUseArrayBuffer[],
   ): Promise<UtilCmdWorker> {
     console.log("loading lsr and tre");
 

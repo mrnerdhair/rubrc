@@ -10,7 +10,7 @@ import type {
 } from "./worker_process/worker";
 import MainWorkerCtor from "./worker_process/worker?worker";
 import "./monaco_worker";
-import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
+import type { WASIFarmRefUseArrayBuffer } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
 import { wrappedWorkerInit } from "rubrc-util";
 import { CompileAndRun } from "./compile_and_run";
@@ -33,7 +33,7 @@ const { promise: cmd_parser_promise, resolve: set_cmd_parser } =
 const { promise: terminal_promise, resolve: set_terminal } =
   Promise.withResolvers<Terminal>();
 const { promise: terminal_wasi_ref_promise, resolve: set_terminal_wasi_ref } =
-  Promise.withResolvers<WASIFarmRefUseArrayBufferObject>();
+  Promise.withResolvers<WASIFarmRefUseArrayBuffer>();
 const { promise: compile_and_run_promise, resolve: set_compile_and_run } =
   Promise.withResolvers<CompileAndRun>();
 

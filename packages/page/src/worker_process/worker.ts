@@ -3,7 +3,7 @@
 import { sysroot } from "@oligami/rustc-browser-wasi_shim";
 import get_default_sysroot_wasi_farm = sysroot.get_default_sysroot_wasi_farm;
 import load_additional_sysroot = sysroot.load_additional_sysroot;
-import type { WASIFarmRefUseArrayBufferObject } from "@oligami/browser_wasi_shim-threads";
+import type { WASIFarmRefUseArrayBuffer } from "@oligami/browser_wasi_shim-threads";
 import * as Comlink from "comlink";
 import type { LlvmWorkerInit, LlvmWorker as LlvmWorkerType } from "./llvm";
 import LlvmWorkerCtor from "./llvm?worker";
@@ -50,7 +50,7 @@ export class MainWorker {
 
   static async init(
     terminal: Terminal,
-    terminal_wasi_ref: WASIFarmRefUseArrayBufferObject,
+    terminal_wasi_ref: WASIFarmRefUseArrayBuffer,
     compile_and_run: CompileAndRun,
   ): Promise<MainWorker> {
     terminal.write("loading sysroot\r\n");
@@ -59,7 +59,7 @@ export class MainWorker {
 
     terminal.write("loaded sysroot\r\n");
 
-    const farm_wasi_ref = farm.get_ref();
+    const farm_wasi_ref = await farm.get_ref();
     const wasi_refs = [farm_wasi_ref, terminal_wasi_ref];
 
     const [rustc_worker, llvm_worker, util_worker] = await Promise.all([
