@@ -1,6 +1,8 @@
-import { assume } from "rubrc-util";
+import type { ErrorCode } from "../../../../output/interfaces/wasi-filesystem-types";
+import { assume } from "../index";
 import { errno, type fd, rights } from "../wasi_p1_defs";
 import type { FdRec } from "./fd_rec";
+import { errorCodeToErrno } from "./p2_adapters";
 
 // biome-ignore lint/suspicious/noExplicitAny: any is correct in generic type constraints
 export type FsImport<T extends (...args: any) => void> = T & {
@@ -111,15 +113,26 @@ export namespace wasiP1FsImport {
       const fdRec = fdResolver(fd);
       if (fdRec === undefined) return errno.badf;
       fdRec.checkRights(rights);
-      if (fileOnly && fdRec.isDir()) return errno.isdir;
+      if (fileOnly) {
+        if (fdRec.isDir()) return errno.isdir;
+        if (!fdRec.isFile()) return errno.nodev;
+      }
       if (dirOnly && !fdRec.isDir()) return errno.notdir;
       args[fdIndex] = fdRec;
       try {
         method.apply(this_, args);
         return errno.success;
       } catch (e) {
-        if (typeof e !== "number") throw e;
-        return e as errno;
+        if (typeof e === "number") return e as errno;
+        if (typeof e === "string") return errorCodeToErrno(e as ErrorCode);
+        if (
+          typeof e === "object" &&
+          e !== null &&
+          "payload" in e &&
+          typeof e.payload === "string"
+        )
+          return errorCodeToErrno(e.payload as ErrorCode);
+        throw e;
       }
     };
   }

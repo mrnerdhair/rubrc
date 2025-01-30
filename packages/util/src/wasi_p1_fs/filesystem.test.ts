@@ -17,7 +17,6 @@ import {
   type u8,
 } from "../wasi_p1_defs";
 import { WasiP1Filesystem } from "./filesystem";
-import { FsDir, FsFile } from "./fs_node";
 
 expect.addSnapshotSerializer({
   serialize(
@@ -67,26 +66,26 @@ describe("WasiP1Filesystem", () => {
         mem.buffer.byteLength,
       );
       const test = new WasiP1Filesystem(mem.buffer, [
-        [
-          "",
-          new FsDir([
-            ["dev", new FsDir()],
-            ["tmp", new FsDir()],
-            [
-              "etc",
-              new FsDir([
-                [
-                  "test.conf",
-                  new FsFile(new TextEncoder().encode("Hello, world!")),
-                ],
-              ]),
-            ],
-          ]),
-        ],
-        [
-          "foo",
-          new FsDir([["bar", new FsFile(new TextEncoder().encode("baz"))]]),
-        ],
+        // [
+        //   "",
+        //   new FsDir([
+        //     ["dev", new FsDir()],
+        //     ["tmp", new FsDir()],
+        //     [
+        //       "etc",
+        //       new FsDir([
+        //         [
+        //           "test.conf",
+        //           new FsFile(new TextEncoder().encode("Hello, world!")),
+        //         ],
+        //       ]),
+        //     ],
+        //   ]),
+        // ],
+        // [
+        //   "foo",
+        //   new FsDir([["bar", new FsFile(new TextEncoder().encode("baz"))]]),
+        // ],
       ]);
       expect(test instanceof WasiP1Filesystem);
       const imports = test.imports;

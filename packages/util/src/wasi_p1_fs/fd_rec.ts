@@ -1,19 +1,21 @@
+import type { Descriptor } from "../../../../output/interfaces/wasi-filesystem-types";
 import { type Lazy, lazy } from "../decorators/lazy";
-import { validate } from "../decorators/validate";
 import {
-  type advice,
+  type device,
   errno,
   type fd,
   fdflags,
   type fdstat,
   type filesize,
+  filetype,
+  type inode,
+  lookupflags,
   type prestat,
   prestat_discriminator,
   rights,
   type size,
-  type timestamp,
 } from "../wasi_p1_defs";
-import { FsFile, FsNode } from "./fs_node";
+import { descriptorTypeToFiletype, p2FilesizeToFilesize } from "./p2_adapters";
 import { hasFlag } from "./util";
 
 const allRights = (rights.fd_datasync |
@@ -47,78 +49,140 @@ const allRights = (rights.fd_datasync |
   rights.sock_shutdown |
   rights.sock_accept) as rights;
 
-export class FdRec<TFsNode extends FsNode = FsNode> {
+// cyrb53 (c) 2018 bryc (github.com/bryc). License: Public domain. Attribution appreciated.
+// A fast and simple 64-bit (or 53-bit) string hash function with decent collision resistance.
+// Largely inspired by MurmurHash2/3, but with a focus on speed/simplicity.
+// See https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript/52171480#52171480
+// https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js
+// (Converted herein to bigint)
+function cyrb64(str: string, seed = 0n): bigint {
+  let h1 = Number(BigInt.asUintN(32, 0xdeadbeefn ^ seed));
+  let h2 = Number(BigInt.asUintN(32, 0x41c6ce57n ^ (seed >> 32n)));
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  // For a single 53-bit numeric return value we could return
+  // 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  // but we instead return the full 64-bit value:
+  return BigInt(h2) << (32n + BigInt(h1));
+}
+
+export class FdRec {
   fd: fd;
 
-  fs_flags: fdflags = fdflags.none;
+  fs_flags: fdflags;
+  readonly #descriptorSync: boolean;
+  readonly #descriptorDsync: boolean;
 
-  @validate(function (this: FdRec<TFsNode>, value: rights) {
-    if (hasFlag(value, ~this.fs_rights_base)) throw errno.notcapable;
-  })
-  accessor fs_rights_base: rights = allRights;
-
-  @validate(function (this: FdRec<TFsNode>, value: rights) {
-    if (hasFlag(value, ~this.fs_rights_inheriting)) throw errno.notcapable;
-    if (hasFlag(value, ~this.fs_rights_base)) throw errno.notcapable;
-  })
-  accessor fs_rights_inheriting: rights = this.fs_rights_base;
+  fs_rights_base: rights;
+  fs_rights_inheriting: rights;
 
   offset: filesize = 0 as filesize;
 
-  parent: FsNode.Dir;
-  name: string;
+  readonly descriptor: Descriptor;
+  readonly device: device;
+  readonly inode: inode;
+
+  @lazy
+  accessor type: Lazy<filetype> = lazy(() =>
+    descriptorTypeToFiletype(this.descriptor.getType()),
+  );
 
   constructor(
     fd: fd,
-    parent: FsNode.Dir,
-    name: string,
+    device: device,
+    inode: inode,
+    descriptor: Descriptor,
     fs_rights_base?: rights,
     fs_rights_inheriting?: rights,
+    fs_flags: fdflags = fdflags.none,
   ) {
     this.fd = fd;
-    this.parent = parent;
-    this.name = name;
+    this.device = device;
+    this.inode = inode;
+    this.descriptor = descriptor;
+    this.fs_flags = fs_flags;
+    const { fileIntegritySync, dataIntegritySync } = this.descriptor.getFlags();
+    this.#descriptorSync = fileIntegritySync ?? false;
+    this.#descriptorDsync = dataIntegritySync ?? false;
 
     this.fs_rights_base = fs_rights_base ?? allRights;
     this.fs_rights_inheriting = fs_rights_inheriting ?? this.fs_rights_base;
 
-    if (!parent.has(name)) {
-      parent.set(name, new FsFile());
+    if (hasFlag(this.fs_rights_inheriting, ~this.fs_rights_base)) {
+      throw errno.inval;
     }
+  }
+
+  // Calculate synthetic path-based inodes
+  inodeForPath(flags: lookupflags, path: string): inode {
+    const normalized = [];
+
+    let expandedPath: string | undefined = path;
+    if (hasFlag(flags, lookupflags.symlink_follow)) {
+      while (
+        this.descriptor.statAt({}, expandedPath).type === "symbolic-link"
+      ) {
+        const contents = this.descriptor.readlinkAt(expandedPath);
+        // absolute symlinks can't be resolved in WASI. that makes this a broken link, which we won't resolve further.
+        if (contents.startsWith("/")) break;
+        expandedPath += `/${contents}`;
+      }
+    }
+
+    for (const segment of expandedPath.split("/")) {
+      switch (segment) {
+        case "":
+        case ".": {
+          break;
+        }
+        case "..": {
+          normalized.pop();
+          break;
+        }
+        default: {
+          normalized.push(segment);
+        }
+      }
+    }
+
+    let out: bigint = this.inode;
+    for (const segment of normalized) {
+      out = cyrb64(segment, out);
+    }
+
+    return out as inode;
   }
 
   fdstat(): fdstat {
     return [
-      this.node.filetype,
+      this.type,
       this.fs_flags,
       this.fs_rights_base,
       this.fs_rights_inheriting,
     ];
   }
 
-  get node(): TFsNode {
-    const out = this.parent.get(this.name) as TFsNode;
-    if (out === undefined) throw new Error("node missing");
-    return out;
-  }
-  set node(value: TFsNode) {
-    this.parent.set(this.name, value);
-  }
-
   get size(): filesize {
-    return FsNode.filesize(this.node);
+    return p2FilesizeToFilesize(this.descriptor.stat().size);
   }
   set size(value: filesize) {
-    FsNode.set_filesize(this.node, value);
+    this.descriptor.setSize(BigInt(value));
     this.maybeSync();
   }
 
-  isFile(): this is FdRec<FsNode.File> {
-    return FsNode.isFile(this.node);
+  isFile(): boolean {
+    return this.type === filetype.regular_file;
   }
 
-  isDir(): this is FdRec<FsNode.Dir> {
-    return FsNode.isDir(this.node);
+  isDir(): boolean {
+    return this.type === filetype.directory;
   }
 
   checkRights(rights_: rights): void {
@@ -126,57 +190,52 @@ export class FdRec<TFsNode extends FsNode = FsNode> {
   }
 
   maybeSync(): void {
+    if (this.#descriptorSync) return;
     if (hasFlag(this.fs_flags, fdflags.sync)) {
-      FsNode.sync(this.node);
+      this.descriptor.sync();
     }
   }
 
   maybeDatasync(): void {
+    if (this.#descriptorSync || this.#descriptorDsync) return;
     if (hasFlag(this.fs_flags, fdflags.sync)) {
-      FsNode.sync(this.node);
+      this.descriptor.sync();
     } else if (hasFlag(this.fs_flags, fdflags.dsync)) {
-      FsNode.datasync(this.node);
+      this.descriptor.syncData();
     }
-  }
-
-  get atim(): timestamp {
-    return this.node.atim;
-  }
-  set atim(value: timestamp) {
-    this.node.atim = value;
-    this.maybeSync();
-  }
-
-  get mtim(): timestamp {
-    return this.node.mtim;
-  }
-  set mtim(value: timestamp) {
-    this.node.mtim = value;
-    this.maybeSync();
-  }
-
-  get ctim(): timestamp {
-    return this.node.ctim;
-  }
-  set ctim(value: timestamp) {
-    this.node.ctim = value;
-    this.maybeSync();
-  }
-
-  advise(_offset: filesize, _len: filesize, _advice: advice): void {
-    // no-op
   }
 }
 
-export class FdRecPreopen extends FdRec<FsNode.Dir> {
-  @lazy
-  accessor #nameByteLength: Lazy<size> = lazy(() => {
-    return new TextEncoder().encode(this.name).byteLength as size;
-  });
+export class FdRecPreopen extends FdRec {
+  readonly name: string;
+  readonly nameBuf: Uint8Array;
+
+  constructor(
+    name: string,
+    fd: fd,
+    descriptor: Descriptor,
+    fs_rights_base?: rights,
+    fs_rights_inheriting?: rights,
+    fs_flags: fdflags = fdflags.none,
+  ) {
+    const device = cyrb64(name) as device;
+    const inode = 1n as inode;
+    super(
+      fd,
+      device,
+      inode,
+      descriptor,
+      fs_rights_base,
+      fs_rights_inheriting,
+      fs_flags,
+    );
+    this.name = name;
+    this.nameBuf = new TextEncoder().encode(this.name);
+  }
 
   prestat(): prestat {
     if (!this.isDir()) throw errno.notdir;
 
-    return [prestat_discriminator.dir, [this.#nameByteLength]];
+    return [prestat_discriminator.dir, [this.nameBuf.byteLength as size]];
   }
 }

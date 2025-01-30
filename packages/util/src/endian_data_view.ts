@@ -35,6 +35,10 @@ export abstract class EndianDataView<
     return self;
   }
 
+  split(byteOffset: number): [this, this] {
+    return [this.subarray(0, byteOffset), this.subarray(byteOffset)];
+  }
+
   getBigInt64(byteOffset: number, littleEndian?: boolean): bigint {
     return this.#view.getBigInt64(
       byteOffset,

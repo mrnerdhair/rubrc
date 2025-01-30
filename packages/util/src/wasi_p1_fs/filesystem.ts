@@ -6,7 +6,6 @@ import {
   type WasiP1FilesystemImports,
   type advice,
   type ciovec,
-  type device,
   type dircookie,
   dirent,
   type dirnamlen,
@@ -17,8 +16,8 @@ import {
   type filedelta,
   type filesize,
   filestat,
-  fstflags,
-  type inode,
+  filetype,
+  type fstflags,
   iovec,
   lookupflags,
   oflags,
@@ -28,12 +27,19 @@ import {
   type timestamp,
   type u8,
   u32,
-  u64,
   whence,
 } from "../wasi_p1_defs";
 import { FdRec, FdRecPreopen } from "./fd_rec";
 import { wasiP1FsImport } from "./fs_export";
-import { FsDir, type FsFile, FsNode, FsSymlink } from "./fs_node";
+import {
+  adviceToAdvice,
+  descriptorStatToFilestat,
+  descriptorTypeToFiletype,
+  lookupflagsToPathFlags,
+  oflagsToOpenFlags,
+  p1TimesToP2Times,
+  rightsAndFdflagsToDescriptorFlags,
+} from "./p2_adapters";
 import { hasFlag } from "./util";
 
 export namespace WasiP1Filesystem {
@@ -41,51 +47,23 @@ export namespace WasiP1Filesystem {
     // biome-ignore lint/suspicious/noExplicitAny: any is correct in generic type constraints
     T extends Record<Exclude<keyof T, TExcludeKeys>, (...args: any) => errno>,
     TExcludeKeys extends keyof T,
-    TFileOnly extends keyof T,
-    TDirOnly extends keyof T,
   > = {
     [K in Exclude<keyof T, TExcludeKeys>]: (
-      fdRec: FdRec<
-        K extends TFileOnly ? FsFile : K extends TDirOnly ? FsDir : FsNode
-      >,
+      fdRec: FdRec,
       ...args: Parameters<T[K]> extends [unknown, ...infer S] ? S : []
     ) => void;
   };
-
-  type FileOnly =
-    | "fd_filestat_set_size"
-    | "fd_pread"
-    | "fd_pwrite"
-    | "fd_read"
-    | "fd_seek"
-    | "fd_tell"
-    | "fd_write";
-
-  type DirOnly =
-    | "fd_readdir"
-    | "path_create_directory"
-    | "path_filestat_get"
-    | "path_filestat_set_times"
-    | "path_link"
-    | "path_open"
-    | "path_readlink"
-    | "path_remove_directory"
-    | "path_rename"
-    | "path_symlink"
-    | "path_unlink_file";
 
   type ExcludeKeys = "path_symlink";
 
   export type Adapted = FdRecAsFirstArg<
     WasiP1FilesystemImports,
-    ExcludeKeys,
-    FileOnly,
-    DirOnly
+    ExcludeKeys
   > & {
     path_symlink: (
       old_path_ptr: Pointer<u8>,
       old_path_len: size,
-      fdRec: FdRec<FsNode.Dir>,
+      fdRec: FdRec,
       new_path_ptr: Pointer<u8>,
       new_path_len: size,
     ) => void;
@@ -103,20 +81,16 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
 
   protected readonly view: LittleEndianDataView;
   protected readonly fdRecs = new Map<fd, FdRec>();
-  protected readonly preopens = new Map<string, FdRec<FsNode.Dir>>();
-  protected readonly device: device = 0n as device;
+  protected readonly preopens = new Map<string, FdRec>();
 
   @autoincrement(u32)
   accessor #nextFd: fd = 3 as fd;
-
-  @autoincrement(u64)
-  accessor #nextInode: inode = 1n as inode;
 
   readonly now: () => timestamp;
 
   constructor(
     buffer: ArrayBufferLike,
-    preopens: Array<[string, FsNode.Dir]>,
+    preopens: Array<FdRecPreopen>,
     now?: () => timestamp,
   ) {
     this.view = new LittleEndianDataView(buffer, 0, buffer.byteLength);
@@ -126,38 +100,10 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
         return (BigInt(Date.now()) * 1000000n) as timestamp;
       });
 
-    for (const [name, dir] of preopens) {
-      const parent = new FsDir([[name, dir]]);
-      const fdRec = new FdRecPreopen(this.#nextFd, parent, name);
-
-      this.fdRecs.set(fdRec.fd, fdRec);
-      this.preopens.set(name, fdRec);
+    for (const preopen of preopens) {
+      this.fdRecs.set(preopen.fd, preopen);
+      this.preopens.set(preopen.name, preopen);
     }
-  }
-
-  readonly inode: (x: FsNode) => inode = (() => {
-    const inodes = new WeakMap<FsNode, inode>();
-    return (x: FsNode): inode => {
-      let out = inodes.get(x);
-      if (!out) {
-        out = this.#nextInode;
-        inodes.set(x, out);
-      }
-      return out;
-    };
-  })();
-
-  filestat(x: FsNode): filestat {
-    return [
-      this.device,
-      this.inode(x),
-      x.filetype,
-      x.linkcount,
-      FsNode.filesize(x),
-      x.atim,
-      x.mtim,
-      x.ctim,
-    ];
   }
 
   get imports() {
@@ -176,12 +122,17 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     len: filesize,
     advice: advice,
   ): void {
-    fdRec.advise(offset, len, advice);
+    fdRec.descriptor.advise(
+      BigInt(offset),
+      BigInt(len),
+      adviceToAdvice(advice),
+    );
   }
 
   @wasiP1FsImport({ rights: rights.fd_allocate })
   fd_allocate(fdRec: FdRec, offset: filesize, len: filesize): void {
-    if (!fdRec.isFile()) throw errno.nodev;
+    // odd errno, but that's what POSIX does...
+    if (fdRec.type !== filetype.regular_file) throw errno.nodev;
 
     const newSize: filesize = (offset + len) as filesize;
     if (fdRec.size < newSize) {
@@ -196,7 +147,7 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
 
   @wasiP1FsImport({ rights: rights.fd_datasync })
   fd_datasync(fdRec: FdRec): void {
-    FsNode.datasync(fdRec.node);
+    fdRec.descriptor.syncData();
   }
 
   @wasiP1FsImport()
@@ -215,18 +166,31 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     fs_rights_base: rights,
     fs_rights_inheriting: rights,
   ): void {
+    if (hasFlag(fs_rights_base, ~fdRec.fs_rights_base)) throw errno.notcapable;
+    if (hasFlag(fs_rights_inheriting, ~fdRec.fs_rights_inheriting))
+      throw errno.notcapable;
+    if (hasFlag(fs_rights_inheriting, ~fs_rights_base)) throw errno.inval;
+
     fdRec.fs_rights_base = fs_rights_base;
     fdRec.fs_rights_inheriting = fs_rights_inheriting;
   }
 
   @wasiP1FsImport({ rights: rights.fd_filestat_get })
   fd_filestat_get(fdRec: FdRec, out_ptr: Pointer<filestat>): void {
-    filestat.write(this.view, out_ptr, this.filestat(fdRec.node));
+    filestat.write(
+      this.view,
+      out_ptr,
+      descriptorStatToFilestat(
+        fdRec.device,
+        fdRec.inode,
+        fdRec.descriptor.stat(),
+      ),
+    );
   }
 
   @wasiP1FsImport.fileOnly({ rights: rights.fd_filestat_set_size })
-  fd_filestat_set_size(fdRec: FdRec<FsNode.File>, size: filesize): void {
-    fdRec.node.filesize = size;
+  fd_filestat_set_size(fdRec: FdRec, size: filesize): void {
+    fdRec.size = size;
   }
 
   @wasiP1FsImport({ rights: rights.fd_filestat_set_times })
@@ -236,18 +200,13 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     mtim: timestamp,
     fst_flags: fstflags,
   ): void {
-    const now = this.now();
-    if (hasFlag(fst_flags, fstflags.atim | fstflags.atim_now)) {
-      fdRec.atim = hasFlag(fst_flags, fstflags.atim_now) ? now : atim;
-    }
-    if (hasFlag(fst_flags, fstflags.mtim | fstflags.mtim_now)) {
-      fdRec.mtim = hasFlag(fst_flags, fstflags.mtim_now) ? now : mtim;
-    }
+    fdRec.descriptor.setTimes(...p1TimesToP2Times(atim, mtim, fst_flags));
+    fdRec.maybeSync();
   }
 
   @wasiP1FsImport.fileOnly({ rights: rights.fd_read })
   fd_pread(
-    fdRec: FdRec<FsNode.File>,
+    fdRec: FdRec,
     iovs_ptr: Pointer<iovec>,
     iovs_len: size,
     offset: filesize,
@@ -255,26 +214,30 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
   ): filesize {
     if (offset !== fdRec.offset) fdRec.checkRights(rights.fd_seek);
 
-    let size: size = 0 as size;
-    let node_buf = fdRec.node.subarray(offset);
+    let currentOffset = BigInt(offset);
     for (const iov of this.view.stride(
       iovs_ptr,
       iovec.SIZE,
       iovs_len / iovec.SIZE,
     )) {
-      const [buf, buf_len] = iovec.read(iov, 0 as Pointer<iovec>);
+      const [buf_ptr, buf_len] = iovec.read(iov, 0 as Pointer<iovec>);
+      const buf = this.view.subarray(buf_ptr).subarray(0, buf_len);
 
-      const len = Math.min(buf_len, node_buf.byteLength);
-      this.view
-        .subarray(buf)
-        .subarray(0, buf_len)
-        .set(node_buf.subarray(0, len));
+      const [data, eof] = fdRec.descriptor.read(BigInt(buf_len), currentOffset);
+      buf.set(data);
 
-      size = (size + len) as size;
-      node_buf = node_buf.subarray(len);
-      if (len < buf_len) break;
+      currentOffset += BigInt(Math.min(buf_len, data.byteLength));
+      if (eof) break;
     }
 
+    const size = (() => {
+      try {
+        return u32(Number(currentOffset - BigInt(offset))) as filesize;
+      } catch (e) {
+        if (!(e instanceof RangeError)) throw e;
+        throw errno._2big;
+      }
+    })();
     this.view.setUint32(out_ptr, size);
     return size;
   }
@@ -288,49 +251,69 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
   @wasiP1FsImport()
   fd_prestat_dir_name(fdRec: FdRec, path: Pointer<u8>, path_len: size): void {
     if (!(fdRec instanceof FdRecPreopen)) throw errno.badf;
-    new TextEncoder().encodeInto(
-      fdRec.name,
-      this.view.subarray(path).subarray(0, path_len),
-    );
+    this.view.subarray(path).subarray(0, path_len).set(fdRec.nameBuf);
   }
 
   @wasiP1FsImport.fileOnly({ rights: rights.fd_write })
   fd_pwrite(
-    fdRec: FdRec<FsNode.File>,
+    fdRec: FdRec,
     iovs_ptr: Pointer<ciovec>,
     iovs_len: size,
     offset: filesize,
     out_ptr: Pointer<size>,
   ): filesize {
-    if (offset !== fdRec.offset) fdRec.checkRights(rights.fd_seek);
+    const stream = (() => {
+      if (hasFlag(fdRec.fs_flags, fdflags.append))
+        return fdRec.descriptor.appendViaStream();
+      if (offset !== fdRec.offset) fdRec.checkRights(rights.fd_seek);
+      return fdRec.descriptor.writeViaStream(BigInt(offset));
+    })();
+    const pollable = stream.subscribe();
 
-    let size: size = 0 as size;
-    let node_buf = fdRec.node.subarray(offset);
+    let currentOffset = BigInt(offset);
     for (const iov of this.view.stride(
       iovs_ptr,
       iovec.SIZE,
       iovs_len / iovec.SIZE,
     )) {
-      const [buf, buf_len] = iovec.read(iov, 0 as Pointer<iovec>);
+      const [buf_ptr, buf_len] = iovec.read(iov, 0 as Pointer<ciovec>);
+      let buf = this.view.subarray(buf_ptr).subarray(0, buf_len);
 
-      const len = Math.min(buf_len, node_buf.byteLength);
-      node_buf
-        .subarray(0, len)
-        .set(this.view.subarray(buf).subarray(0, buf_len));
+      while (true) {
+        pollable.block();
+        let n = stream.checkWrite();
+        if (n === 0n) continue;
+        if (n > u32.MAX) n = BigInt(u32.MAX);
 
-      size = (size + len) as size;
-      node_buf = node_buf.subarray(len);
-      if (len < buf_len) break;
+        const [chunk, newBuf] = buf.split(Number(n));
+        buf = newBuf;
+
+        stream.write(chunk);
+        currentOffset += BigInt(chunk.byteLength);
+      }
     }
-    this.view.setUint32(out_ptr, size);
+    stream.flush();
+    pollable.block();
 
+    // surface any errors
+    stream.checkWrite();
+
+    const size = (() => {
+      try {
+        return u32(Number(currentOffset - BigInt(offset))) as filesize;
+      } catch (e) {
+        if (!(e instanceof RangeError)) throw e;
+        throw errno._2big;
+      }
+    })();
+    this.view.setUint32(out_ptr, size);
     fdRec.maybeDatasync();
     return size;
   }
 
   @wasiP1FsImport.fileOnly({ rights: rights.fd_read })
   fd_read(
-    fdRec: FdRec<FsNode.File>,
+    fdRec: FdRec,
     iovs_ptr: Pointer<iovec>,
     iovs_len: size,
     out_ptr: Pointer<size>,
@@ -347,7 +330,7 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
 
   @wasiP1FsImport.dirOnly({ rights: rights.fd_readdir })
   fd_readdir(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     buf: Pointer<u8>,
     buf_len: size,
     cookie: dircookie,
@@ -358,11 +341,12 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     let d_next: dircookie = 0n as dircookie;
     let size: size = 0 as size;
     let buf_left = this.view.subarray(buf).subarray(0, buf_len);
-    for (const [name, node] of (function* () {
-      yield [".", fdRec.node] as const;
-      yield ["..", fdRec.parent] as const;
-      for (const [name, node] of fdRec.node) {
-        yield [name, node] as const;
+    for (const { type, name } of (function* () {
+      const stream = fdRec.descriptor.readDirectory();
+      while (true) {
+        const entry = stream.readDirectoryEntry();
+        if (entry === undefined) break;
+        yield entry;
       }
     })()) {
       if (d_next++ < cookie) continue;
@@ -376,9 +360,9 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
 
       dirent.write(direntBuf, 0 as Pointer<dirent>, [
         d_next,
-        this.inode(node),
+        fdRec.inodeForPath(lookupflags.none, name),
         d_namlen,
-        node.filetype,
+        descriptorTypeToFiletype(type),
       ]);
 
       const direntBufTrunc = direntBuf.subarray(
@@ -416,7 +400,7 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
   // fd_tell is also allowed to do a no-op fd_seek
   @wasiP1FsImport.fileOnly({ rights: rights.fd_seek | rights.fd_tell })
   fd_seek(
-    fdRec: FdRec<FsNode.File>,
+    fdRec: FdRec,
     offset: filedelta,
     whence_: whence,
     out_ptr: Pointer<filesize>,
@@ -445,18 +429,18 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
 
   @wasiP1FsImport({ rights: rights.fd_sync })
   fd_sync(fdRec: FdRec): void {
-    FsNode.sync(fdRec.node);
+    fdRec.descriptor.sync();
   }
 
   // fd_seek implies fd_tell
   @wasiP1FsImport.fileOnly({ rights: rights.fd_tell | rights.fd_seek })
-  fd_tell(fdRec: FdRec<FsNode.File>, out_ptr: Pointer<filesize>): void {
+  fd_tell(fdRec: FdRec, out_ptr: Pointer<filesize>): void {
     this.view.setUint32(out_ptr, fdRec.offset);
   }
 
   @wasiP1FsImport.fileOnly({ rights: rights.fd_write })
   fd_write(
-    fdRec: FdRec<FsNode.File>,
+    fdRec: FdRec,
     iovs_ptr: Pointer<ciovec>,
     iovs_len: size,
     out_ptr: Pointer<size>,
@@ -468,35 +452,49 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
       fdRec.offset,
       out_ptr,
     );
-    fdRec.offset = (fdRec.offset + size) as filesize;
+    if (!hasFlag(fdRec.fs_flags, fdflags.append)) {
+      fdRec.offset = (fdRec.offset + size) as filesize;
+    }
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_create_directory })
   path_create_directory(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     path_ptr: Pointer<u8>,
     path_len: size,
   ): void {
-    const { parent, name } = this.#pathLookup(fdRec, path_ptr, path_len, true);
-    const node = new FsDir();
-    parent.set(name, node);
+    const path = new TextDecoder().decode(
+      this.view.subarray(path_ptr).subarray(0, path_len),
+    );
+    fdRec.descriptor.createDirectoryAt(path);
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_filestat_get })
   path_filestat_get(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     flags: lookupflags,
     path_ptr: Pointer<u8>,
     path_len: size,
     out_ptr: Pointer<filestat>,
   ): void {
-    const { node } = this.#pathLookup(fdRec, path_ptr, path_len, false, flags);
-    filestat.write(this.view, out_ptr, this.filestat(node));
+    const path = new TextDecoder().decode(
+      this.view.subarray(path_ptr).subarray(0, path_len),
+    );
+    const pathFlags = lookupflagsToPathFlags(flags);
+    filestat.write(
+      this.view,
+      out_ptr,
+      descriptorStatToFilestat(
+        fdRec.device,
+        fdRec.inodeForPath(flags, path),
+        fdRec.descriptor.statAt(pathFlags, path),
+      ),
+    );
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_filestat_set_times })
   path_filestat_set_times(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     flags: lookupflags,
     path_ptr: Pointer<u8>,
     path_len: size,
@@ -504,20 +502,21 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     mtim: timestamp,
     fst_flags: fstflags,
   ): void {
-    const { node } = this.#pathLookup(fdRec, path_ptr, path_len, false, flags);
+    const path = new TextDecoder().decode(
+      this.view.subarray(path_ptr).subarray(0, path_len),
+    );
 
-    const now = this.now();
-    if (hasFlag(fst_flags, fstflags.atim | fstflags.atim_now)) {
-      node.atim = hasFlag(fst_flags, fstflags.atim_now) ? now : atim;
-    }
-    if (hasFlag(fst_flags, fstflags.mtim | fstflags.mtim_now)) {
-      node.mtim = hasFlag(fst_flags, fstflags.mtim_now) ? now : mtim;
-    }
+    fdRec.descriptor.setTimesAt(
+      lookupflagsToPathFlags(flags),
+      path,
+      ...p1TimesToP2Times(atim, mtim, fst_flags),
+    );
+    fdRec.maybeSync();
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_link_source })
   path_link(
-    oldFdRec: FdRec<FsNode.Dir>,
+    oldFdRec: FdRec,
     old_flags: lookupflags,
     old_path_ptr: Pointer<u8>,
     old_path_len: size,
@@ -530,30 +529,24 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     newFdRec.checkRights(rights.path_link_target);
     if (!newFdRec.isDir()) throw errno.notdir;
 
-    // throw any path lookup errors
-    const { node } = this.#pathLookup(
-      oldFdRec,
-      old_path_ptr,
-      old_path_len,
-      false,
-      old_flags,
+    const old_path = new TextDecoder().decode(
+      this.view.subarray(old_path_ptr).subarray(0, old_path_len),
     );
-    const { parent: newParent, name: newName } = this.#pathLookup(
-      newFdRec,
-      new_path_ptr,
-      new_path_len,
-      true,
+    const new_path = new TextDecoder().decode(
+      this.view.subarray(new_path_ptr).subarray(0, new_path_len),
     );
 
-    // No directory hardlinks because that's the general default. Maybe revisit this later.
-    if (FsNode.isDir(node)) throw errno.isdir;
-
-    newParent.set(newName, node);
+    oldFdRec.descriptor.linkAt(
+      lookupflagsToPathFlags(old_flags),
+      old_path,
+      newFdRec.descriptor,
+      new_path,
+    );
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_open })
   path_open(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     dirflags: lookupflags,
     path_ptr: Pointer<u8>,
     path_len: size,
@@ -580,51 +573,29 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
       fdRec.checkRights(rights.fd_sync);
     }
 
-    const expect_missing = hasFlag(oflags_, oflags.creat)
-      ? hasFlag(oflags_, oflags.excl)
-        ? true
-        : undefined
-      : false;
-    const { parent, name } = (() => {
-      // otherwise useless if statement makes it typecheck (the return types of the two overloads don't match)
-      if (expect_missing === false) {
-        return this.#pathLookup(
-          fdRec,
-          path_ptr,
-          path_len,
-          expect_missing,
-          dirflags,
-        );
-      }
-      return this.#pathLookup(
-        fdRec,
-        path_ptr,
-        path_len,
-        expect_missing,
-        dirflags,
-      );
-    })();
+    if (hasFlag(fdRec.fs_rights_inheriting, ~fs_rights_base))
+      throw errno.notcapable;
+    if (hasFlag(fs_rights_base, ~fs_rights_inheriting)) throw errno.inval;
 
-    if (hasFlag(oflags_, oflags.directory)) {
-      if (!FsNode.isDir(parent.get(name))) throw errno.notdir;
-    }
+    const path = new TextDecoder().decode(
+      this.view.subarray(path_ptr).subarray(0, path_len),
+    );
+    const newDescriptor = fdRec.descriptor.openAt(
+      lookupflagsToPathFlags(dirflags),
+      path,
+      oflagsToOpenFlags(oflags_),
+      rightsAndFdflagsToDescriptorFlags(fs_rights_base, fdflags_),
+    );
 
     const newFdRec = new FdRec(
       this.#nextFd,
-      parent,
-      name,
-      fdRec.fs_rights_inheriting,
+      fdRec.device,
+      fdRec.inodeForPath(dirflags, path),
+      newDescriptor,
+      fs_rights_base,
+      fs_rights_inheriting,
+      fdflags_,
     );
-
-    newFdRec.fs_flags = fdflags_;
-
-    // the setters will check that these are strictly narrower rights
-    newFdRec.fs_rights_base = fs_rights_base;
-    newFdRec.fs_rights_inheriting = fs_rights_inheriting;
-
-    if (hasFlag(oflags_, oflags.trunc)) {
-      newFdRec.node.filesize = 0 as filesize;
-    }
 
     this.fdRecs.set(newFdRec.fd, newFdRec);
     this.view.setUint32(out_ptr, newFdRec.fd);
@@ -632,40 +603,41 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_readlink })
   path_readlink(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     path_ptr: Pointer<u8>,
     path_len: size,
     buf: Pointer<u8>,
     buf_len: size,
     out_ptr: Pointer<size>,
   ): void {
-    const { node } = this.#pathLookup(fdRec, path_ptr, path_len);
+    const path = new TextDecoder().decode(
+      this.view.subarray(path_ptr).subarray(0, path_len),
+    );
 
-    if (!FsNode.isSymlink(node)) throw errno.inval;
+    const out = fdRec.descriptor.readlinkAt(path);
+    const outBuf = new TextEncoder().encode(out);
+    const len = Math.min(outBuf.byteLength, buf_len);
 
-    const out = new TextEncoder().encode(node.toString());
-    const len = Math.min(out.byteLength, buf_len);
-
-    this.view.subarray(buf).subarray(0, buf_len).set(out.subarray(0, len));
+    this.view.subarray(buf).subarray(0, buf_len).set(outBuf.subarray(0, len));
     this.view.setUint32(out_ptr, len);
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_remove_directory })
   path_remove_directory(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     path_ptr: Pointer<u8>,
     path_len: size,
   ): void {
-    const { parent, name, node } = this.#pathLookup(fdRec, path_ptr, path_len);
-    if (!FsNode.isDir(node)) throw errno.notdir;
-    if (Object.keys(node).length > 0) throw errno.notempty;
+    const path = new TextDecoder().decode(
+      this.view.subarray(path_ptr).subarray(0, path_len),
+    );
 
-    parent.delete(name);
+    fdRec.descriptor.removeDirectoryAt(path);
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_rename_source })
   path_rename(
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     old_path_ptr: Pointer<u8>,
     old_path_len: size,
     new_fd: fd,
@@ -677,23 +649,14 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     newFdRec.checkRights(rights.path_rename_target);
     if (!newFdRec.isDir()) throw errno.notdir;
 
-    const {
-      parent: oldParent,
-      name: oldName,
-      node,
-    } = this.#pathLookup(fdRec, old_path_ptr, old_path_len);
-    const { parent: newParent, name: newName } = this.#pathLookup(
-      newFdRec,
-      new_path_ptr,
-      new_path_len,
-      true,
+    const old_path = new TextDecoder().decode(
+      this.view.subarray(old_path_ptr).subarray(0, old_path_len),
+    );
+    const new_path = new TextDecoder().decode(
+      this.view.subarray(new_path_ptr).subarray(0, new_path_len),
     );
 
-    newParent.set(newName, node);
-    oldParent.delete(oldName);
-
-    fdRec.parent = newParent;
-    fdRec.name = newName;
+    fdRec.descriptor.renameAt(old_path, newFdRec.descriptor, new_path);
   }
 
   // path_symlink is the one odd duck in WASI P1 regarding parameter ordering.
@@ -701,179 +664,26 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
   path_symlink(
     old_path_ptr: Pointer<u8>,
     old_path_len: size,
-    fdRec: FdRec<FsNode.Dir>,
+    fdRec: FdRec,
     new_path_ptr: Pointer<u8>,
     new_path_len: size,
   ): void {
-    const { parent, name } = this.#pathLookup(
-      fdRec,
-      new_path_ptr,
-      new_path_len,
-      true,
-    );
-
-    const contents = new TextDecoder().decode(
+    const old_path = new TextDecoder().decode(
       this.view.subarray(old_path_ptr).subarray(0, old_path_len),
     );
-    parent.set(name, new FsSymlink(contents));
+    const new_path = new TextDecoder().decode(
+      this.view.subarray(new_path_ptr).subarray(0, new_path_len),
+    );
+
+    fdRec.descriptor.symlinkAt(old_path, new_path);
   }
 
   @wasiP1FsImport.dirOnly({ rights: rights.path_unlink_file })
-  path_unlink_file(
-    fdRec: FdRec<FsNode.Dir>,
-    path_ptr: Pointer<u8>,
-    path_len: size,
-  ): void {
-    const { parent, name, node } = this.#pathLookup(fdRec, path_ptr, path_len);
-    if (FsNode.isDir(node)) throw errno.isdir;
-
-    // TODO: this will break if there are any open fds
-    parent.delete(name);
-  }
-
-  #pathLookup(
-    fdRec: FdRec<FsNode.Dir>,
-    path_ptr: Pointer<u8>,
-    path_len: size,
-  ): { parent: FsNode.Dir; name: string; node: FsNode };
-  #pathLookup(
-    fdRec: FdRec<FsNode.Dir>,
-    path_ptr: Pointer<u8>,
-    path_len: size,
-    expect_missing: false,
-    flags?: lookupflags,
-  ): { parent: FsNode.Dir; name: string; node: FsNode };
-  #pathLookup(
-    fdRec: FdRec<FsNode.Dir>,
-    path_ptr: Pointer<u8>,
-    path_len: size,
-    expect_missing: true | undefined,
-    flags?: lookupflags,
-  ): { parent: FsNode.Dir; name: string };
-  #pathLookup(
-    fdRec: FdRec<FsNode.Dir>,
-    path_ptr: Pointer<u8>,
-    path_len: size,
-    expect_missing: boolean | undefined = false,
-    flags = lookupflags.none,
-  ): { parent: FsNode.Dir; name: string; node?: FsNode } {
-    // duplication makes typechecker happy (since overloads don't have the same return types)
-    if (expect_missing === false) {
-      return this.#pathLookupInner(
-        fdRec,
-        new TextDecoder().decode(
-          this.view.subarray(path_ptr).subarray(0, path_len),
-        ),
-        expect_missing,
-        flags,
-      );
-    }
-    return this.#pathLookupInner(
-      fdRec,
-      new TextDecoder().decode(
-        this.view.subarray(path_ptr).subarray(0, path_len),
-      ),
-      expect_missing,
-      flags,
+  path_unlink_file(fdRec: FdRec, path_ptr: Pointer<u8>, path_len: size): void {
+    const path = new TextDecoder().decode(
+      this.view.subarray(path_ptr).subarray(0, path_len),
     );
-  }
 
-  static #normalizePath(path: string): string {
-    // POSIX: a null pathname shall not be successfully resolved. WASI: relative paths only.
-    if (path === "" || path.startsWith("/")) throw errno.inval;
-    // POSIX: A pathname that contains at least one non-slash character and that ends with one
-    // or more trailing slashes shall be resolved as if a single dot character ( '.' ) were
-    // appended to the pathname.
-    // biome-ignore lint/style/noParameterAssign:
-    if (/[^\/]/.test(path) && path.endsWith("/")) path += ".";
-    return path;
-  }
-
-  #pathLookupInner(
-    fdRec: FdRec<FsNode.Dir>,
-    path: string,
-  ): { parent: FsNode.Dir; name: string; node: FsNode };
-  #pathLookupInner(
-    fdRec: FdRec<FsNode.Dir>,
-    path: string,
-    expect_missing: false,
-    flags?: lookupflags,
-  ): { parent: FsNode.Dir; name: string; node: FsNode };
-  #pathLookupInner(
-    fdRec: FdRec<FsNode.Dir>,
-    path: string,
-    expect_missing: true | undefined,
-    flags?: lookupflags,
-  ): { parent: FsNode.Dir; name: string };
-  #pathLookupInner(
-    fdRec: FdRec<FsNode.Dir>,
-    path: string,
-    expect_missing: boolean | undefined = false,
-    flags = lookupflags.none,
-  ): { parent: FsNode.Dir; name: string; node?: FsNode } {
-    // biome-ignore lint/style/noParameterAssign:
-    path = WasiP1Filesystem.#normalizePath(path);
-
-    const segments = path.split("/");
-
-    let symlinksFollowed = 0;
-    const predecessors: [FsNode.Dir, string][] = [];
-    let node: FsNode | undefined = fdRec.parent.get(fdRec.name);
-    let name: string = fdRec.name;
-    while (segments.length > 0) {
-      // biome-ignore lint/style/noNonNullAssertion: just checked the array was non-empty
-      const segment = segments.shift()!;
-      if (!FsNode.isDir(node)) throw errno.notdir;
-      switch (segment) {
-        case "":
-        case ".": {
-          break;
-        }
-        case "..": {
-          // can't pop the last predecessor, that's the fdRec we were passed!
-          if (predecessors.length <= 1) throw errno.acces;
-          // biome-ignore lint/style/noNonNullAssertion: just checked length > 0
-          const [prevNode, prevName] = predecessors.pop()!;
-          node = prevNode;
-          name = prevName;
-          break;
-        }
-        default: {
-          predecessors.push([node, name]);
-          name = segment;
-          node = node.get(name);
-          if (
-            node === undefined &&
-            (segments.length > 0 || expect_missing === false)
-          )
-            throw errno.noent;
-
-          if (
-            FsNode.isSymlink(node) &&
-            (segments.length > 0 || hasFlag(flags, lookupflags.symlink_follow))
-          ) {
-            symlinksFollowed++;
-            if (symlinksFollowed >= this.SYMLOOP_MAX) throw errno.loop;
-            segments.push(
-              ...WasiP1Filesystem.#normalizePath(node.toString()).split("/"),
-            );
-          }
-        }
-      }
-    }
-
-    if (node !== undefined && expect_missing === true) throw errno.exist;
-
-    // biome-ignore lint/style/noNonNullAssertion: predecessors will always have at least one element, the only pop() is checked
-    const [parent, _] = predecessors.pop()!;
-    return { parent, name, node };
-  }
-
-  resolve(
-    _path: string,
-    _expect_missing: boolean | undefined = false,
-    _flags = lookupflags.none,
-  ): { parent: FsNode.Dir; name: string; node?: FsNode } {
-    throw new Error("todo");
+    fdRec.descriptor.unlinkFileAt(path);
   }
 }
