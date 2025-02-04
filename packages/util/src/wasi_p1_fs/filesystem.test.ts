@@ -17,9 +17,10 @@ import {
   type u8,
 } from "../wasi_p1_defs";
 import { Descriptor } from "../wasi_p2_fs/descriptor";
-import { MapDirectoryDelegate, Node } from "../wasi_p2_fs/node";
+import { InputStreamFileDelegate, MapDirectoryDelegate, Node, OutputStreamFileDelegate } from "../wasi_p2_fs/node";
 import { FdRecPreopen } from "./fd_rec";
 import { WasiP1Filesystem } from "./filesystem";
+import { ArrayBufferOutputStream, StringInputStream } from "../wasi_p2_fs/io";
 
 expect.addSnapshotSerializer({
   serialize(
@@ -133,6 +134,9 @@ describe("WasiP1Filesystem", () => {
     });
     const view = new LittleEndianDataView(mem.buffer, 0, mem.buffer.byteLength);
     const test = new WasiP1Filesystem(mem.buffer, [
+      new FdRecPreopen("", 0 as fd, new Descriptor({}, new Node(new InputStreamFileDelegate(new StringInputStream("stdin"))))),
+      new FdRecPreopen("", 1 as fd, new Descriptor({}, new Node(new OutputStreamFileDelegate(new ArrayBufferOutputStream(new ArrayBuffer(0, { maxByteLength: 2**32 }), 0, (buffer) => console.log("stdout:", new TextDecoder().decode(new Uint8Array(buffer)))))))),
+      new FdRecPreopen("", 2 as fd, new Descriptor({}, new Node(new OutputStreamFileDelegate(new ArrayBufferOutputStream(new ArrayBuffer(0, { maxByteLength: 2**32 }), 0, (buffer) => console.log("stderr:", new TextDecoder().decode(new Uint8Array(buffer)))))))),
       new FdRecPreopen("", 3 as fd, descriptor),
       new FdRecPreopen("foo", 4 as fd, descriptor2),
       // [

@@ -221,11 +221,17 @@ export class Uint8ArrayInputStream extends InputStream {
   }
 }
 
+export class StringInputStream extends Uint8ArrayInputStream {
+  constructor(contents: string) {
+    super(new TextEncoder().encode(contents));
+  }
+}
+
 export class ArrayBufferOutputStream extends OutputStream {
   #view: Uint8Array<ArrayBuffer>;
-  readonly #flush: (() => void) | undefined;
+  readonly #flush: ((buffer: ArrayBuffer) => void) | undefined;
 
-  constructor(buffer: ArrayBuffer, byteOffset: number, flush: () => void) {
+  constructor(buffer: ArrayBuffer, byteOffset = 0, flush?: (buffer: ArrayBuffer) => void) {
     super();
     this.#view = new Uint8Array(buffer, byteOffset);
     this.#flush = flush;
@@ -248,6 +254,40 @@ export class ArrayBufferOutputStream extends OutputStream {
   }
 
   flush(): void {
-    this.#flush?.();
+    this.#flush?.(this.#view.buffer);
+  }
+}
+
+export class NullOutputStream extends OutputStream {
+  checkWrite(): bigint {
+    return 2n**64n - 1n;
+  }
+
+  write(_contents: Uint8Array): void {
+    // no-op
+  }
+}
+
+export class LineBufferedOutputStream extends OutputStream {
+  #buf: Uint8Array;
+  #callback: (line: string) => void;
+
+  constructor(callback: (line: string) => void) {
+    super();
+    this.#buf = new Uint8Array(new ArrayBuffer(0, { maxByteLength: 2**32 }));
+    this.#callback = callback;
+  }
+
+  checkWrite(): bigint {
+    return BigInt(this.#buf.buffer.maxByteLength - (this.#buf.byteOffset + this.#buf.byteLength));
+  }
+
+  write(contents: Uint8Array): void {
+    new TextDecoder().decode()
+
+  }
+
+  flush(): void {
+    
   }
 }

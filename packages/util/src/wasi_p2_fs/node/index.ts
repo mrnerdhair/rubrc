@@ -8,4 +8,4 @@ export type {
 } from "./delegate";
 
 export { MapDirectoryDelegate } from "./dir";
-export { ArrayBufferFileDelegate, ArrayBufferSymlinkDelegate } from "./file";
+export { ArrayBufferFileDelegate, ArrayBufferSymlinkDelegate, InputStreamFileDelegate, OutputStreamFileDelegate } from "./file";

@@ -76,3 +76,64 @@ export class ArrayBufferSymlinkDelegate
     return "symbolic-link";
   }
 }
+
+export class InputStreamFileDelegate implements ReadOnlyFileDelegate {
+  protected stream: InputStream;
+
+  constructor(stream: InputStream) {
+    this.stream = stream;
+  }
+
+  getType(): Exclude<
+    ReturnType<WasiFilesystemTypes.Descriptor["getType"]>,
+    "directory"
+  > {
+    return "character-device";
+  }
+
+  size(): Filesize {
+    return 0n;
+  }
+
+  readViaStream(offset: Filesize): InputStream {
+    if (offset !== 0n)
+      throw "invalid-seek" satisfies ErrorCode;
+    return this.stream;
+  }
+}
+
+export class OutputStreamFileDelegate implements WritableFileDelegate {
+  protected stream: OutputStream;
+
+  constructor(stream: OutputStream) {
+    this.stream = stream;
+  }
+
+  getType(): Exclude<
+    ReturnType<WasiFilesystemTypes.Descriptor["getType"]>,
+    "directory"
+  > {
+    return "character-device";
+  }
+
+  size(): Filesize {
+    return 0n;
+  }
+
+  setSize(size: Filesize): void {
+    if (size !== 0n) {
+      throw "invalid" satisfies ErrorCode;
+    }
+  }
+
+  readViaStream(_offset: Filesize): InputStream {
+    throw "invalid" satisfies ErrorCode;
+  }
+
+  writeViaStream(offset: Filesize): OutputStream {
+    if (offset !== 0n) {
+      throw "invalid-seek" satisfies ErrorCode;
+    }
+    return this.stream;
+  }
+}
