@@ -1,8 +1,7 @@
 import type { ErrorCode } from "../../../../output/interfaces/wasi-filesystem-types";
 import type WasiIoError from "../../../../output/interfaces/wasi-io-error";
 import type WasiIoStreams from "../../../../output/interfaces/wasi-io-streams";
-
-export const min = <T extends number | bigint>(x: T, y: T) => (x < y ? x : y);
+import { min } from "./util";
 
 export type Variant<T extends string = string, U = never> = {
   [K in "tag" | (U extends never ? never : "val")]: {
@@ -73,6 +72,7 @@ export abstract class InputStream implements WasiIoStreams.InputStream {
     while (offset < maxByteLength) {
       try {
         const chunk = stream.blockingRead(BigInt(maxByteLength - offset));
+        buf.buffer.resize(offset + chunk.byteLength);
         buf.subarray(offset).set(chunk);
         offset += chunk.byteLength;
       } catch (e) {
@@ -210,7 +210,9 @@ export class Uint8ArrayInputStream extends InputStream {
   }
 
   read(len: bigint): Uint8Array {
-    if (this.#buf === undefined) throw { tag: "closed" } satisfies StreamError;
+    if (this.#buf === undefined) {
+      throw new StreamErrorClosed() satisfies StreamError;
+    }
     const n = Number(min(len, 2n ** 32n));
     const chunk = this.#buf.subarray(0, n);
     this.#buf = this.#buf.subarray(n);
@@ -220,22 +222,32 @@ export class Uint8ArrayInputStream extends InputStream {
 }
 
 export class ArrayBufferOutputStream extends OutputStream {
-  buffer: ArrayBuffer;
+  #view: Uint8Array<ArrayBuffer>;
+  readonly #flush: (() => void) | undefined;
 
-  constructor(buffer: ArrayBuffer) {
+  constructor(buffer: ArrayBuffer, byteOffset: number, flush: () => void) {
     super();
-    this.buffer = buffer;
+    this.#view = new Uint8Array(buffer, byteOffset);
+    this.#flush = flush;
   }
 
   checkWrite(): bigint {
-    const out = BigInt(this.buffer.maxByteLength - this.buffer.byteLength);
+    const out = BigInt(
+      this.#view.byteLength +
+        (this.#view.buffer.maxByteLength - this.#view.buffer.byteLength),
+    );
     if (out === 0n) throw "insufficient-space" satisfies ErrorCode;
     return out;
   }
 
   write(contents: Uint8Array): void {
-    const offset = this.buffer.byteLength;
-    this.buffer.resize(this.buffer.byteLength + contents.byteLength);
-    new Uint8Array(this.buffer).set(contents, offset);
+    if (contents.byteLength > this.#view.byteLength)
+      this.#view.buffer.resize(contents.byteLength);
+    this.#view.set(contents);
+    this.#view = this.#view.subarray(contents.byteLength);
+  }
+
+  flush(): void {
+    this.#flush?.();
   }
 }

@@ -1,5 +1,4 @@
 import { autoincrement } from "../decorators/autoincrement";
-import { validate } from "../decorators/validate";
 import { LittleEndianDataView } from "../endian_data_view";
 import {
   type Pointer,
@@ -73,12 +72,6 @@ export namespace WasiP1Filesystem {
 }
 
 export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
-  @validate((value: number) => {
-    if (value < 0) throw new Error("SYMLOOP_MAX must be nonnegative");
-    if (value < 8) console.warn("POSIX wants a SYMLOOP_MAX of at least 8");
-  })
-  accessor SYMLOOP_MAX = Number.POSITIVE_INFINITY;
-
   protected readonly view: LittleEndianDataView;
   protected readonly fdRecs = new Map<fd, FdRec>();
   protected readonly preopens = new Map<string, FdRec>();
@@ -86,24 +79,16 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
   @autoincrement(u32)
   accessor #nextFd: fd = 3 as fd;
 
-  readonly now: () => timestamp;
-
-  constructor(
-    buffer: ArrayBufferLike,
-    preopens: Array<FdRecPreopen>,
-    now?: () => timestamp,
-  ) {
+  constructor(buffer: ArrayBufferLike, preopens: Array<FdRecPreopen>) {
     this.view = new LittleEndianDataView(buffer, 0, buffer.byteLength);
-    this.now =
-      now ??
-      ((): timestamp => {
-        return (BigInt(Date.now()) * 1000000n) as timestamp;
-      });
 
     for (const preopen of preopens) {
       this.fdRecs.set(preopen.fd, preopen);
       this.preopens.set(preopen.name, preopen);
     }
+
+    this.#nextFd = (Math.max(this.#nextFd - 1, ...preopens.map((x) => x.fd)) +
+      1) as fd;
   }
 
   get imports() {
@@ -343,6 +328,10 @@ export class WasiP1Filesystem implements WasiP1Filesystem.Adapted {
     let buf_left = this.view.subarray(buf).subarray(0, buf_len);
     for (const { type, name } of (function* () {
       const stream = fdRec.descriptor.readDirectory();
+
+      yield { type: "directory", name: "." } as const;
+      yield { type: "directory", name: ".." } as const;
+
       while (true) {
         const entry = stream.readDirectoryEntry();
         if (entry === undefined) break;

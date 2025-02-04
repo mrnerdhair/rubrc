@@ -1,4 +1,4 @@
-import { type TestFunction, describe, expect, it } from "vitest";
+import { describe, expect, it as origIt } from "vitest";
 import { LittleEndianDataView } from "../endian_data_view";
 import {
   type Pointer,
@@ -16,6 +16,9 @@ import {
   type size,
   type u8,
 } from "../wasi_p1_defs";
+import { Descriptor } from "../wasi_p2_fs/descriptor";
+import { MapDirectoryDelegate, Node } from "../wasi_p2_fs/node";
+import { FdRecPreopen } from "./fd_rec";
 import { WasiP1Filesystem } from "./filesystem";
 
 expect.addSnapshotSerializer({
@@ -42,62 +45,144 @@ function translateErrno(e: errno): string {
   return `errno.${k}`;
 }
 
-function catchErrno(fn: TestFunction<object>): TestFunction<object> {
-  return async (...args: Parameters<TestFunction<object>>) => {
-    try {
-      return await fn(...args);
-    } catch (e) {
-      if (typeof e !== "number") throw e;
-      throw translateErrno(e as errno);
+const extendedIt = origIt.extend<{
+  descriptor: Descriptor;
+  descriptor2: Descriptor;
+}>({
+  descriptor: [
+    // biome-ignore lint/correctness/noEmptyPattern: required by vitest
+    async ({}, use) => {
+      Node.now = () => ({
+        seconds: 0n,
+        nanoseconds: 0,
+      });
+
+      const root = new Descriptor(
+        {
+          read: true,
+          write: true,
+          mutateDirectory: true,
+        },
+        new Node(new MapDirectoryDelegate()),
+      );
+
+      root.createDirectoryAt("dev");
+      root.createDirectoryAt("tmp");
+      root.createDirectoryAt("etc");
+      root
+        .openAt({}, "etc/test.conf", { create: true }, { write: true })
+        .write(new TextEncoder().encode("Hello, world!"), 0n);
+
+      await use(root);
+    },
+    { auto: true },
+  ],
+  descriptor2: [
+    // biome-ignore lint/correctness/noEmptyPattern: required by vitest
+    async ({}, use) => {
+      const root = new Descriptor(
+        {
+          read: true,
+          write: true,
+          mutateDirectory: true,
+        },
+        new Node(new MapDirectoryDelegate()),
+      );
+      root
+        .openAt({}, "bar", { create: true }, { write: true })
+        .write(new TextEncoder().encode("baz"), 0n);
+
+      await use(root);
+    },
+    { auto: true },
+  ],
+});
+
+const it = new Proxy(extendedIt, {
+  apply(target, thisArg, argArray) {
+    for (let i = 0; i < argArray.length; i++) {
+      const item = argArray[i];
+      if (typeof item !== "function") continue;
+      argArray[i] = new Proxy(item, {
+        apply(target, thisArg, argArray) {
+          try {
+            return Reflect.apply(
+              target as (this: unknown, ...args: unknown[]) => unknown,
+              thisArg,
+              argArray,
+            );
+          } catch (e) {
+            if (typeof e !== "number") throw e;
+            throw translateErrno(e as errno);
+          }
+        },
+      });
     }
-  };
-}
+    return Reflect.apply(
+      target as (this: unknown, ...args: unknown[]) => unknown,
+      thisArg,
+      argArray,
+    );
+  },
+});
 
 describe("WasiP1Filesystem", () => {
-  it(
-    "works",
-    catchErrno(() => {
-      const mem = new WebAssembly.Memory({
-        initial: 1,
-      });
-      const view = new LittleEndianDataView(
-        mem.buffer,
-        0,
-        mem.buffer.byteLength,
-      );
-      const test = new WasiP1Filesystem(mem.buffer, [
-        // [
-        //   "",
-        //   new FsDir([
-        //     ["dev", new FsDir()],
-        //     ["tmp", new FsDir()],
-        //     [
-        //       "etc",
-        //       new FsDir([
-        //         [
-        //           "test.conf",
-        //           new FsFile(new TextEncoder().encode("Hello, world!")),
-        //         ],
-        //       ]),
-        //     ],
-        //   ]),
-        // ],
-        // [
-        //   "foo",
-        //   new FsDir([["bar", new FsFile(new TextEncoder().encode("baz"))]]),
-        // ],
-      ]);
-      expect(test instanceof WasiP1Filesystem);
-      const imports = test.imports;
+  it("works", ({ descriptor, descriptor2 }) => {
+    const mem = new WebAssembly.Memory({
+      initial: 1,
+    });
+    const view = new LittleEndianDataView(mem.buffer, 0, mem.buffer.byteLength);
+    const test = new WasiP1Filesystem(mem.buffer, [
+      new FdRecPreopen("", 3 as fd, descriptor),
+      new FdRecPreopen("foo", 4 as fd, descriptor2),
+      // [
+      //   "",
+      //   new FsDir([
+      //     ["dev", new FsDir()],
+      //     ["tmp", new FsDir()],
+      //     [
+      //       "etc",
+      //       new FsDir([
+      //         [
+      //           "test.conf",
+      //           new FsFile(new TextEncoder().encode("Hello, world!")),
+      //         ],
+      //       ]),
+      //     ],
+      //   ]),
+      // ],
+      // [
+      //   "foo",
+      //   new FsDir([["bar", new FsFile(new TextEncoder().encode("baz"))]]),
+      // ],
+    ]);
+    expect(test instanceof WasiP1Filesystem);
+    const imports = test.imports;
 
-      expect(
-        translateErrno(imports.fd_prestat_get(3 as fd, 0 as Pointer<prestat>)),
-      ).toStrictEqual("errno.success");
-      expect(view.subarray(0, prestat.SIZE)).toMatchInlineSnapshot(
-        `00 00 00 00 03 00 00 00`,
-      );
-      const prestatFd3 = prestat.read(view, 0 as Pointer<prestat>);
-      expect(prestatFd3).toMatchInlineSnapshot(`
+    expect(
+      translateErrno(imports.fd_prestat_get(3 as fd, 0 as Pointer<prestat>)),
+    ).toStrictEqual("errno.success");
+    expect(view.subarray(0, prestat.SIZE)).toMatchInlineSnapshot(
+      `00 00 00 00 00 00 00 00`,
+    );
+    const prestatFd3 = prestat.read(view, 0 as Pointer<prestat>);
+    expect(prestatFd3).toMatchInlineSnapshot(`
+      [
+        0,
+        [
+          0,
+        ],
+      ]
+    `);
+
+    expect(
+      translateErrno(imports.fd_prestat_get(4 as fd, 0 as Pointer<prestat>)),
+    ).toStrictEqual("errno.success");
+    expect(view.subarray(0, prestat.SIZE)).toMatchInlineSnapshot(
+      `00 00 00 00 03 00 00 00`,
+    );
+    const prestatFd4 = prestat.read(view, 0 as Pointer<prestat>);
+    expect(prestatFd4).toMatchInlineSnapshot(`
       [
         0,
         [
@@ -106,78 +191,58 @@ describe("WasiP1Filesystem", () => {
       ]
     `);
 
-      expect(
-        translateErrno(imports.fd_prestat_get(4 as fd, 0 as Pointer<prestat>)),
-      ).toStrictEqual("errno.success");
-      expect(view.subarray(0, prestat.SIZE)).toMatchInlineSnapshot(
-        `00 00 00 00 03 00 00 00`,
-      );
-      const prestatFd4 = prestat.read(view, 0 as Pointer<prestat>);
-      expect(prestatFd4).toMatchInlineSnapshot(`
-      [
-        0,
-        [
-          3,
-        ],
-      ]
-    `);
+    const prestat4NamePtr = 1024 as Pointer<u8>;
+    const prestat4NameLen = prestatFd4[1][0];
+    expect(
+      translateErrno(
+        imports.fd_prestat_dir_name(4 as fd, prestat4NamePtr, prestat4NameLen),
+      ),
+    ).toStrictEqual("errno.success");
+    const prestat4NameView = view.subarray(
+      prestat4NamePtr,
+      prestat4NamePtr + prestat4NameLen,
+    );
+    expect(prestat4NameView).toMatchInlineSnapshot(`66 6f 6f`);
+    expect(new TextDecoder().decode(prestat4NameView)).toMatchInlineSnapshot(
+      `"foo"`,
+    );
 
-      const prestat4NamePtr = 1024 as Pointer<u8>;
-      const prestat4NameLen = prestatFd4[1][0];
-      expect(
-        translateErrno(
-          imports.fd_prestat_dir_name(
-            4 as fd,
-            prestat4NamePtr,
-            prestat4NameLen,
-          ),
+    expect(
+      translateErrno(
+        imports.fd_readdir(
+          4 as fd,
+          2048 as Pointer<u8>,
+          1024 as size,
+          0n as dircookie,
+          0 as Pointer<size>,
         ),
-      ).toStrictEqual("errno.success");
-      const prestat4NameView = view.subarray(
-        prestat4NamePtr,
-        prestat4NamePtr + prestat4NameLen,
-      );
-      expect(prestat4NameView).toMatchInlineSnapshot(`66 6f 6f`);
-      expect(new TextDecoder().decode(prestat4NameView)).toMatchInlineSnapshot(
-        `"foo"`,
-      );
+      ),
+    ).toStrictEqual("errno.success");
+    const direntLen = view.getUint32(0);
+    expect(direntLen).toStrictEqual(
+      dirent.SIZE + 1 + dirent.SIZE + 2 + dirent.SIZE + 3,
+    );
+    expect(view.subarray(2048).subarray(0, direntLen)).toMatchInlineSnapshot(
+      `01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 2e 02 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 2e 2e 03 00 00 00 00 00 00 00 f2 20 38 10 7c 99 ce a1 03 00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 62 61 72`,
+    );
 
-      expect(
-        translateErrno(
-          imports.fd_readdir(
-            4 as fd,
-            2048 as Pointer<u8>,
-            1024 as size,
-            0n as dircookie,
-            0 as Pointer<size>,
-          ),
-        ),
-      ).toStrictEqual("errno.success");
-      const direntLen = view.getUint32(0);
-      expect(direntLen).toStrictEqual(
-        dirent.SIZE + 1 + dirent.SIZE + 2 + dirent.SIZE + 3,
-      );
-      expect(view.subarray(2048).subarray(0, direntLen)).toMatchInlineSnapshot(
-        `01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 2e 02 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 2e 2e 03 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 62 61 72`,
-      );
-
-      expect(
-        Array.from(
-          (function* () {
-            let ptr = 2048;
-            while (ptr < 2048 + direntLen) {
-              const dirent_ = dirent.read(view, ptr as Pointer<dirent>);
-              ptr += dirent.SIZE;
-              const nameLen = dirent_[2];
-              const name = new TextDecoder().decode(
-                view.subarray(ptr).subarray(0, nameLen),
-              );
-              ptr += nameLen;
-              yield [dirent_, name];
-            }
-          })(),
-        ),
-      ).toMatchInlineSnapshot(`
+    expect(
+      Array.from(
+        (function* () {
+          let ptr = 2048;
+          while (ptr < 2048 + direntLen) {
+            const dirent_ = dirent.read(view, ptr as Pointer<dirent>);
+            ptr += dirent.SIZE;
+            const nameLen = dirent_[2];
+            const name = new TextDecoder().decode(
+              view.subarray(ptr).subarray(0, nameLen),
+            );
+            ptr += nameLen;
+            yield [dirent_, name];
+          }
+        })(),
+      ),
+    ).toMatchInlineSnapshot(`
         [
           [
             [
@@ -191,7 +256,7 @@ describe("WasiP1Filesystem", () => {
           [
             [
               2n,
-              2n,
+              1n,
               2,
               3,
             ],
@@ -200,7 +265,7 @@ describe("WasiP1Filesystem", () => {
           [
             [
               3n,
-              3n,
+              11659425243435901170n,
               3,
               4,
             ],
@@ -209,62 +274,62 @@ describe("WasiP1Filesystem", () => {
         ]
       `);
 
-      // can't traverse above topmost directory
-      (() => {
-        const pathBuf = new TextEncoder().encode("..");
-        const pathBufPtr = 2048 as Pointer<u8>;
-        view.subarray(pathBufPtr).set(pathBuf);
-        expect(
-          translateErrno(
-            imports.path_filestat_get(
-              4 as fd,
-              lookupflags.none,
-              pathBufPtr,
-              pathBuf.byteLength as size,
-              0 as Pointer<filestat>,
-            ),
+    // can't traverse above topmost directory
+    (() => {
+      const pathBuf = new TextEncoder().encode("..");
+      const pathBufPtr = 2048 as Pointer<u8>;
+      view.subarray(pathBufPtr).set(pathBuf);
+      expect(
+        translateErrno(
+          imports.path_filestat_get(
+            4 as fd,
+            lookupflags.none,
+            pathBufPtr,
+            pathBuf.byteLength as size,
+            0 as Pointer<filestat>,
           ),
-        ).toStrictEqual("errno.acces");
-      })();
+        ),
+      ).toStrictEqual("errno.acces");
+    })();
 
-      // can stat, fdstat, open, and read "bar"
-      (() => {
-        const pathBuf = new TextEncoder().encode("bar");
-        const pathBufPtr = 2048 as Pointer<u8>;
-        view.subarray(pathBufPtr).set(pathBuf);
-        expect(
-          translateErrno(
-            imports.path_filestat_get(
-              4 as fd,
-              lookupflags.none,
-              pathBufPtr,
-              pathBuf.byteLength as size,
-              0 as Pointer<filestat>,
-            ),
+    // can stat, fdstat, open, and read "bar"
+    (() => {
+      const pathBuf = new TextEncoder().encode("bar");
+      const pathBufPtr = 2048 as Pointer<u8>;
+      view.subarray(pathBufPtr).set(pathBuf);
+      expect(
+        translateErrno(
+          imports.path_filestat_get(
+            4 as fd,
+            lookupflags.none,
+            pathBufPtr,
+            pathBuf.byteLength as size,
+            0 as Pointer<filestat>,
           ),
-        ).toStrictEqual("errno.success");
-        expect(view.subarray(0, filestat.SIZE)).toMatchInlineSnapshot(
-          `00 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 04 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00`,
-        );
-        const stat = filestat.read(view, 0 as Pointer<filestat>);
-        expect(stat).toMatchInlineSnapshot(`
-        [
-          0n,
-          3n,
-          4,
-          1n,
-          3,
-          0n,
-          0n,
-          0n,
-        ]
-      `);
+        ),
+      ).toStrictEqual("errno.success");
+      expect(view.subarray(0, filestat.SIZE)).toMatchInlineSnapshot(
+        `24 99 8a 93 d1 af 15 32 f2 20 38 10 7c 99 ce a1 04 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00`,
+      );
+      const stat = filestat.read(view, 0 as Pointer<filestat>);
+      expect(stat).toMatchInlineSnapshot(`
+          [
+            3608983991065680164n,
+            11659425243435901170n,
+            4,
+            1n,
+            3,
+            0n,
+            0n,
+            0n,
+          ]
+        `);
 
-        expect(
-          translateErrno(imports.fd_fdstat_get(4 as fd, 0 as Pointer<fdstat>)),
-        ).toStrictEqual("errno.success");
-        const fdstat_ = fdstat.read(view, 0 as Pointer<fdstat>);
-        expect(fdstat_).toMatchInlineSnapshot(`
+      expect(
+        translateErrno(imports.fd_fdstat_get(4 as fd, 0 as Pointer<fdstat>)),
+      ).toStrictEqual("errno.success");
+      const fdstat_ = fdstat.read(view, 0 as Pointer<fdstat>);
+      expect(fdstat_).toMatchInlineSnapshot(`
         [
           3,
           0,
@@ -273,68 +338,67 @@ describe("WasiP1Filesystem", () => {
         ]
       `);
 
-        expect(
-          translateErrno(
-            imports.path_open(
-              4 as fd,
-              lookupflags.none,
-              pathBufPtr,
-              pathBuf.byteLength as size,
-              oflags.none,
-              fdstat_[3],
-              fdstat_[3],
-              fdflags.none,
-              0 as Pointer<fd>,
-            ),
+      expect(
+        translateErrno(
+          imports.path_open(
+            4 as fd,
+            lookupflags.none,
+            pathBufPtr,
+            pathBuf.byteLength as size,
+            oflags.none,
+            fdstat_[3],
+            fdstat_[3],
+            fdflags.none,
+            0 as Pointer<fd>,
           ),
-        ).toStrictEqual("errno.success");
-        const newFd = view.getUint32(0) as fd;
-        expect(newFd).toMatchInlineSnapshot(`5`);
-        view.setUint32(0, 12);
-        view.setUint32(4, 1024);
-        expect(
-          translateErrno(
-            imports.fd_read(
-              newFd,
-              0 as Pointer<iovec>,
-              1 as size,
-              8 as Pointer<size>,
-            ),
+        ),
+      ).toStrictEqual("errno.success");
+      const newFd = view.getUint32(0) as fd;
+      expect(newFd).toMatchInlineSnapshot(`5`);
+      view.setUint32(0, 12);
+      view.setUint32(4, 1024);
+      expect(
+        translateErrno(
+          imports.fd_read(
+            newFd,
+            0 as Pointer<iovec>,
+            1 as size,
+            8 as Pointer<size>,
           ),
-        ).toStrictEqual("errno.success");
-        const readLen = view.getUint32(8);
-        expect(readLen).toBeLessThan(1024);
-        const buf = view.subarray(12).subarray(0, readLen);
-        expect(buf).toMatchInlineSnapshot(`62 61 7a`);
-        expect(new TextDecoder().decode(buf)).toStrictEqual("baz");
+        ),
+      ).toStrictEqual("errno.success");
+      const readLen = view.getUint32(8);
+      expect(readLen).toBeLessThan(1024);
+      const buf = view.subarray(12).subarray(0, readLen);
+      expect(buf).toMatchInlineSnapshot(`62 61 7a`);
+      expect(new TextDecoder().decode(buf)).toStrictEqual("baz");
 
-        // close works
-        expect(translateErrno(imports.fd_close(newFd))).toStrictEqual(
-          "errno.success",
-        );
-        // double-close doesn't
-        expect(translateErrno(imports.fd_close(newFd))).toStrictEqual(
-          "errno.badf",
-        );
-      })();
+      // close works
+      expect(translateErrno(imports.fd_close(newFd))).toStrictEqual(
+        "errno.success",
+      );
+      // double-close doesn't
+      expect(translateErrno(imports.fd_close(newFd))).toStrictEqual(
+        "errno.badf",
+      );
+    })();
 
-      // gets noent for non-existent file
-      (() => {
-        const pathBuf = new TextEncoder().encode("baz");
-        const pathBufPtr = 2048 as Pointer<u8>;
-        view.subarray(pathBufPtr).set(pathBuf);
-        expect(
-          translateErrno(
-            imports.path_filestat_get(
-              4 as fd,
-              lookupflags.none,
-              pathBufPtr,
-              pathBuf.byteLength as size,
-              0 as Pointer<filestat>,
-            ),
+    // gets noent for non-existent file
+    (() => {
+      const pathBuf = new TextEncoder().encode("baz");
+      const pathBufPtr = 2048 as Pointer<u8>;
+      view.subarray(pathBufPtr).set(pathBuf);
+      expect(
+        translateErrno(
+          imports.path_filestat_get(
+            4 as fd,
+            lookupflags.none,
+            pathBufPtr,
+            pathBuf.byteLength as size,
+            0 as Pointer<filestat>,
           ),
-        ).toStrictEqual("errno.noent");
-      })();
-    }),
-  );
+        ),
+      ).toStrictEqual("errno.noent");
+    })();
+  });
 });
