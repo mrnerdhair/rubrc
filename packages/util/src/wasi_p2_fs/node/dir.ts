@@ -47,7 +47,7 @@ export class MapDirectoryDelegate implements WritableDirectoryDelegate {
   }
 
   *[Symbol.iterator](): Iterator<
-    WasiFilesystemTypes.DirectoryEntry & {node: Node},
+    WasiFilesystemTypes.DirectoryEntry & { node: Node },
     undefined,
     undefined
   > {

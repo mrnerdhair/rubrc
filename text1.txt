@@ -1,0 +1,8 @@
+FdCloseSenderUseArrayBuffer
+ToRefSenderUseArrayBuffer
+WorkerBackgroundRef
+  used by ThreadSpawner for new_worker & start_on_thread
+WASIFarmRef
+  pure abstract
+WASIFarmRefUseArrayBuffer
+  gets raw wasi calls

@@ -96,8 +96,7 @@ export class InputStreamFileDelegate implements ReadOnlyFileDelegate {
   }
 
   readViaStream(offset: Filesize): InputStream {
-    if (offset !== 0n)
-      throw "invalid-seek" satisfies ErrorCode;
+    if (offset !== 0n) throw "invalid-seek" satisfies ErrorCode;
     return this.stream;
   }
 }
